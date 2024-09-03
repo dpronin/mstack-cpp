@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
         uint16_t port{0};
         std::from_chars(argv[2], argv[2] + strlen(argv[2]), port);
 
-        int const fd{mstack::socket(0x06, mstack::ipv4_addr_t(argv[1]), port)};
+        int const fd{mstack::socket(mstack::tcp::PROTO, mstack::ipv4_addr_t(argv[1]), port)};
         mstack::listen(fd);
 
         auto stack{std::async(std::launch::async, [&io_ctx] { io_ctx.run(); })};

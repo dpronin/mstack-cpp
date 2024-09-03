@@ -64,8 +64,10 @@ public:
         }
 
         void receive(tcp_packet_t in_packet) {
-                two_ends_t two_end = {.remote_info = in_packet.remote_info,
-                                      .local_info  = in_packet.local_info};
+                two_ends_t two_end = {
+                        .remote_info = in_packet.remote_info,
+                        .local_info  = in_packet.local_info,
+                };
                 if (tcbs.find(two_end) != tcbs.end()) {
                         tcp_transmit::tcp_in(tcbs[two_end], in_packet);
                 } else if (active_ports.find(in_packet.local_info.value()) != active_ports.end()) {
