@@ -1,8 +1,10 @@
 #pragma once
+
 #include <algorithm>
 #include <array>
 #include <string>
 
+#include "logger.hpp"
 #include "utils.hpp"
 
 namespace mstack {
@@ -15,20 +17,20 @@ public:
         mac_addr_t()  = default;
         ~mac_addr_t() = default;
         mac_addr_t(const mac_addr_t& other) {
-                std::copy(std::begin(other.mac), std::end(other.mac),
-                          std::begin(mac));
+                std::copy(std::begin(other.mac), std::end(other.mac), std::begin(mac));
         }
 
         mac_addr_t(mac_addr_t&& other) { std::swap(mac, other.mac); }
         mac_addr_t& operator=(const mac_addr_t& other) {
                 if (this != &other) {
-                        std::copy(std::begin(other.mac), std::end(other.mac),
-                                  std::begin(mac));
+                        std::copy(std::begin(other.mac), std::end(other.mac), std::begin(mac));
                 }
+                return *this;
         }
 
         mac_addr_t& operator=(mac_addr_t&& other) {
                 std::swap(mac, other.mac);
+                return *this;
         };
 
         mac_addr_t(std::array<uint8_t, 6> other) {
@@ -63,14 +65,23 @@ public:
                         utils::produce<uint8_t>(ptr, tmp);
                 }
         }
+
         static constexpr size_t size() { return 6; }
-        friend std::ostream&    operator<<(std::ostream&     out,
-                                        const mac_addr_t& m) {
+
+        friend std::ostream& operator<<(std::ostream& out, const mac_addr_t& m) {
                 using u = uint32_t;
-                out << utils::format("%02X:%02X:%02X:%02X:%02X:%02X",
-                                     u(m.mac[0]), u(m.mac[1]), u(m.mac[2]),
-                                     u(m.mac[3]), u(m.mac[4]), u(m.mac[5]));
+                out << utils::format("{:2x}:{:2x}:{:2x}:{:2x}:{:2x}:{:2x}", u(m.mac[0]),
+                                     u(m.mac[1]), u(m.mac[2]), u(m.mac[3]), u(m.mac[4]),
+                                     u(m.mac[5]));
                 return out;
         }
 };
+
 }  // namespace mstack
+
+template <>
+struct fmt::formatter<mstack::mac_addr_t> : fmt::formatter<std::string> {
+        auto format(mstack::mac_addr_t const& c, format_context& ctx) {
+                return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
+        }
+};

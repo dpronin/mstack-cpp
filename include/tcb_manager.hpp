@@ -1,4 +1,5 @@
 #pragma once
+
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -10,7 +11,9 @@
 #include "socket.hpp"
 #include "tcb.hpp"
 #include "tcp_transmit.hpp"
+
 namespace mstack {
+
 class tcb_manager {
 private:
         tcb_manager() : active_tcbs(std::make_shared<circle_buffer<std::shared_ptr<tcb_t>>>()) {}
@@ -21,10 +24,10 @@ private:
         std::unordered_map<ipv4_port_t, std::shared_ptr<listener_t>> listeners;
 
 public:
-        tcb_manager(const tcb_manager&) = delete;
-        tcb_manager(tcb_manager&&)      = delete;
+        tcb_manager(const tcb_manager&)            = delete;
+        tcb_manager(tcb_manager&&)                 = delete;
         tcb_manager& operator=(const tcb_manager&) = delete;
-        tcb_manager& operator=(tcb_manager&&) = delete;
+        tcb_manager& operator=(tcb_manager&&)      = delete;
 
         static tcb_manager& instance() {
                 static tcb_manager instance;
@@ -49,12 +52,10 @@ public:
                 active_ports.insert(ipv4_port);
         }
 
-        void register_tcb(
-                two_ends_t&                                                           two_end,
-                std::optional<std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>>> listener) {
-                DLOG(INFO) << "[REGISTER TCB] " << two_end;
+        void register_tcb(two_ends_t& two_end, std::shared_ptr<listener_t> listener) {
+                SPDLOG_INFO("[REGISTER TCB] {}", two_end);
                 if (!two_end.remote_info || !two_end.local_info) {
-                        DLOG(FATAL) << "[EMPTY TCB]";
+                        SPDLOG_CRITICAL("[EMPTY TCB]");
                 }
                 std::shared_ptr<tcb_t> tcb = std::make_shared<tcb_t>(this->active_tcbs, listener,
                                                                      two_end.remote_info.value(),
@@ -68,19 +69,19 @@ public:
                 if (tcbs.find(two_end) != tcbs.end()) {
                         tcp_transmit::tcp_in(tcbs[two_end], in_packet);
                 } else if (active_ports.find(in_packet.local_info.value()) != active_ports.end()) {
-                        register_tcb(two_end,
-                                     this->listeners[in_packet.local_info.value()]->acceptors);
+                        register_tcb(two_end, this->listeners[in_packet.local_info.value()]);
                         if (tcbs.find(two_end) != tcbs.end()) {
                                 tcbs[two_end]->state      = TCP_LISTEN;
                                 tcbs[two_end]->next_state = TCP_LISTEN;
                                 tcp_transmit::tcp_in(tcbs[two_end], in_packet);
                         } else {
-                                DLOG(ERROR) << "[REGISTER TCB FAIL]";
+                                SPDLOG_ERROR("[REGISTER TCB FAIL]");
                         }
 
                 } else {
-                        DLOG(ERROR) << "[RECEIVE UNKNOWN TCP PACKET]";
+                        SPDLOG_ERROR("[RECEIVE UNKNOWN TCP PACKET]");
                 }
         }
 };
+
 }  // namespace mstack

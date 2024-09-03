@@ -1,8 +1,10 @@
 #pragma once
+
 #include "ipv4_addr.hpp"
 #include "utils.hpp"
 
 namespace mstack {
+
 struct ipv4_header_t {
         uint8_t     version : 4;
         uint8_t     header_length : 4;
@@ -70,7 +72,8 @@ struct ipv4_header_t {
                 src_ip_addr.produce(ptr);
                 dst_ip_addr.produce(ptr);
         }
-        friend std::ostream& operator<<(std::ostream& out, ipv4_header_t& m) {
+
+        friend std::ostream& operator<<(std::ostream& out, ipv4_header_t const& m) {
                 using u = uint32_t;
                 out << "[IPV4 PACKET] ";
                 out << m.total_length << " ";
@@ -80,4 +83,12 @@ struct ipv4_header_t {
                 return out;
         }
 };
+
 }  // namespace mstack
+
+template <>
+struct fmt::formatter<mstack::ipv4_header_t> : fmt::formatter<std::string> {
+        auto format(mstack::ipv4_header_t const& c, format_context& ctx) {
+                return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
+        }
+};

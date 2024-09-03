@@ -1,24 +1,28 @@
 #pragma once
+
+#include <string>
+
 namespace mstack {
-static constexpr int TUNTAP_DEV = 0x01;
 
-constexpr static int TCP_CLOSED       = 0x10;
-constexpr static int TCP_LISTEN       = 0x11;
-constexpr static int TCP_SYN_SENT     = 0x12;
-constexpr static int TCP_SYN_RECEIVED = 0x13;
-constexpr static int TCP_ESTABLISHED  = 0x14;
-constexpr static int TCP_FIN_WAIT_1   = 0x15;
-constexpr static int TCP_FIN_WAIT_2   = 0x16;
-constexpr static int TCP_CLOSE_WAIT   = 0x17;
-constexpr static int TCP_CLOSING      = 0x18;
-constexpr static int TCP_LAST_ACK     = 0x19;
-constexpr static int TCP_TIME_WAIT    = 0x20;
+constexpr inline int TUNTAP_DEV = 0x01;
 
-constexpr static int SOCKET_UNCONNECTED = 0x21;
-constexpr static int SOCKET_CONNECTING  = 0x22;
-constexpr static int SOCKET_CONNECTED   = 0x23;
+constexpr inline int TCP_CLOSED       = 0x10;
+constexpr inline int TCP_LISTEN       = 0x11;
+constexpr inline int TCP_SYN_SENT     = 0x12;
+constexpr inline int TCP_SYN_RECEIVED = 0x13;
+constexpr inline int TCP_ESTABLISHED  = 0x14;
+constexpr inline int TCP_FIN_WAIT_1   = 0x15;
+constexpr inline int TCP_FIN_WAIT_2   = 0x16;
+constexpr inline int TCP_CLOSE_WAIT   = 0x17;
+constexpr inline int TCP_CLOSING      = 0x18;
+constexpr inline int TCP_LAST_ACK     = 0x19;
+constexpr inline int TCP_TIME_WAIT    = 0x20;
 
-std::string state_to_string(int state) {
+constexpr inline int SOCKET_UNCONNECTED = 0x21;
+constexpr inline int SOCKET_CONNECTING  = 0x22;
+constexpr inline int SOCKET_CONNECTED   = 0x23;
+
+inline std::string state_to_string(int state) {
         switch (state) {
                 case TCP_CLOSED:
                         return "TCP_CLOSED";
@@ -43,5 +47,7 @@ std::string state_to_string(int state) {
                 case TCP_TIME_WAIT:
                         return "TCP_TIME_WAIT";
         }
+        return "UNKNOWN";
 }
-};  // namespace mstack
+
+}  // namespace mstack

@@ -1,7 +1,9 @@
 #pragma once
+
 #include "utils.hpp"
 
 namespace mstack {
+
 struct icmp_header_t {
         uint8_t  proto_type = 0;
         uint8_t  code       = 0;
@@ -29,7 +31,8 @@ struct icmp_header_t {
                 utils::produce<uint16_t>(ptr, seq);
                 return ptr;
         }
-        friend std::ostream& operator<<(std::ostream& out, icmp_header_t& m) {
+
+        friend std::ostream& operator<<(std::ostream& out, icmp_header_t const& m) {
                 using u = uint32_t;
                 out << "[ICMP PACKET] ";
                 out << u(m.proto_type) << " ";
@@ -39,4 +42,12 @@ struct icmp_header_t {
                 return out;
         };
 };
+
 }  // namespace mstack
+
+template <>
+struct fmt::formatter<mstack::icmp_header_t> : fmt::formatter<std::string> {
+        auto format(mstack::icmp_header_t const& c, format_context& ctx) {
+                return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
+        }
+};

@@ -1,7 +1,8 @@
 #pragma once
-#include <memory>
+
 #include <optional>
 #include <queue>
+
 namespace mstack {
 
 template <typename PacketType>
@@ -10,27 +11,19 @@ private:
         std::queue<PacketType> packets;
 
 public:
-        bool
-        empty() {
-                return packets.size() == 0;
-        }
-        void
-        push_back(PacketType packet) {
-                packets.push(std::move(packet));
-        }
-        
-        int 
-        size(){
-                return packets.size();
-        }
-        std::optional<PacketType>
-        pop_front() {
-                if (empty()) {
-                        return std::nullopt;
+        bool empty() const { return packets.size() == 0; }
+        void push_back(PacketType packet) { packets.push(std::move(packet)); }
+
+        size_t size() const { return packets.size(); }
+
+        std::optional<PacketType> pop_front() {
+                std::optional<PacketType> r;
+                if (!empty()) {
+                        r = std::move(packets.front());
+                        packets.pop();
                 }
-                auto packet = std::move(packets.front());
-                packets.pop();
-                return std::move(packet);
+                return r;
         }
 };
-};  // namespace mstack
+
+}  // namespace mstack

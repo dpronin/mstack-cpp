@@ -11,9 +11,10 @@ Unlike C-style procedural programming, C++ has features such as object-oriented 
 
 ## Prerequisites
   + You MUST have ```/dev/net/tun``` device based on linux
+  + C++20 compatible compiler
   + CMake
-  + fmt
   + glog
+  + conan (optionally)
 
 ## Running
 ```

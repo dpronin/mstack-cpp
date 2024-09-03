@@ -1,6 +1,9 @@
 #pragma once
+
 #include "utils.hpp"
+
 namespace mstack {
+
 struct tcp_header_t {
         using port_addr_t = uint16_t;
         port_addr_t src_port;
@@ -72,7 +75,8 @@ struct tcp_header_t {
                 utils::produce<uint16_t>(ptr, checksum);
                 utils::produce<uint16_t>(ptr, urgent_pointer);
         }
-        friend std::ostream& operator<<(std::ostream& out, tcp_header_t& m) {
+
+        friend std::ostream& operator<<(std::ostream& out, tcp_header_t const& m) {
                 out << "[TCP PACKET] ";
                 out << m.src_port;
                 out << " -> " << m.dst_port;
@@ -89,4 +93,12 @@ struct tcp_header_t {
                 return out;
         }
 };
+
 }  // namespace mstack
+
+template <>
+struct fmt::formatter<mstack::tcp_header_t> : fmt::formatter<std::string> {
+        auto format(mstack::tcp_header_t const& c, format_context& ctx) {
+                return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
+        }
+};

@@ -1,16 +1,21 @@
 #pragma once
+
 #include <chrono>
-#include <functional>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 
 #include "base_packet.hpp"
 #include "circle_buffer.hpp"
 #include "defination.hpp"
-#include "ipv4_addr.hpp"
 #include "packets.hpp"
+#include "socket.hpp"
 #include "tcp_header.hpp"
+
 namespace mstack {
+
 using port_addr_t = uint16_t;
+
 struct send_state_t {
         uint32_t                  unacknowledged = 0;
         uint32_t                  next           = 0;
@@ -35,22 +40,26 @@ struct receive_state_t {
 };
 
 struct tcb_t : public std::enable_shared_from_this<tcb_t> {
-        std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>>                _active_tcbs;
-        std::optional<std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>>> _listener;
-        int                                                                   state;
-        int                                                                   next_state;
-        std::optional<ipv4_port_t>                                            remote_info;
-        std::optional<ipv4_port_t>                                            local_info;
-        circle_buffer<raw_packet>                                             send_queue;
-        circle_buffer<raw_packet>                                             receive_queue;
-        circle_buffer<tcp_packet_t>                                           ctl_packets;
-        send_state_t                                                          send;
-        receive_state_t                                                       receive;
+        std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>> _active_tcbs;
+        std::shared_ptr<listener_t>                            _listener;
+        int                                                    state;
+        int                                                    next_state;
+        std::optional<ipv4_port_t>                             remote_info;
+        std::optional<ipv4_port_t>                             local_info;
+        mutable std::mutex                                     send_queue_lock;
+        std::condition_variable                                send_queue_cv;
+        circle_buffer<raw_packet>                              send_queue;
+        mutable std::mutex                                     receive_queue_lock;
+        std::condition_variable                                receive_queue_cv;
+        circle_buffer<raw_packet>                              receive_queue;
+        circle_buffer<tcp_packet_t>                            ctl_packets;
+        send_state_t                                           send;
+        receive_state_t                                        receive;
 
-        tcb_t(std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>>                active_tcbs,
-              std::optional<std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>>> listener,
-              ipv4_port_t                                                           remote_info,
-              ipv4_port_t                                                           local_info)
+        tcb_t(std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>> active_tcbs,
+              std::shared_ptr<listener_t>                            listener,
+              ipv4_port_t                                            remote_info,
+              ipv4_port_t                                            local_info)
             : _active_tcbs(active_tcbs),
               _listener(listener),
               remote_info(remote_info),
@@ -63,8 +72,11 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
         }
 
         void listen_finish() {
-                if (this->_listener) {
-                        _listener.value()->push_back(shared_from_this());
+                if (this->_listener && this->_listener->acceptors) {
+                        std::unique_lock l{this->_listener->lock};
+                        _listener->acceptors->push_back(shared_from_this());
+                        l.unlock();
+                        this->_listener->cv.notify_all();
                 }
         }
 
@@ -106,14 +118,18 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
                         out_tcp.SYN = 1;
                 }
 
-                out_tcp.produce(out_buffer->get_pointer());
-                tcp_packet_t out_packet = {.proto       = 0x06,
-                                           .remote_info = this->remote_info,
-                                           .local_info  = this->local_info,
-                                           .buffer      = std::move(out_buffer)};
+                out_tcp.produce(reinterpret_cast<uint8_t*>(out_buffer->get_pointer()));
+                tcp_packet_t out_packet = {
+                        .proto       = 0x06,
+                        .remote_info = this->remote_info,
+                        .local_info  = this->local_info,
+                        .buffer      = std::move(out_buffer),
+                };
+
                 if (this->next_state != this->state) {
                         this->state = this->next_state;
                 }
+
                 return std::move(out_packet);
         }
 
@@ -121,13 +137,15 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
                 if (!ctl_packets.empty()) {
                         return std::move(ctl_packets.pop_front());
                 }
+
                 if (can_send()) {
                         return make_packet();
                 }
+
                 return std::nullopt;
         }
 
-        friend std::ostream& operator<<(std::ostream& out, tcb_t& m) {
+        friend std::ostream& operator<<(std::ostream& out, tcb_t const& m) {
                 out << m.remote_info.value();
                 out << " -> ";
                 out << m.local_info.value();
@@ -136,4 +154,12 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
                 return out;
         }
 };
-};  // namespace mstack
+
+}  // namespace mstack
+
+template <>
+struct fmt::formatter<mstack::tcb_t> : fmt::formatter<std::string> {
+        auto format(mstack::tcb_t const& c, format_context& ctx) {
+                return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
+        }
+};

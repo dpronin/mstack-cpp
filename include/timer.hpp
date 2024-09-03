@@ -2,7 +2,9 @@
 #include <cstdio>
 #include <functional>
 #include <thread>
+
 namespace mstack {
+
 class timer {
 public:
         template <class callable, class... arguments>
@@ -15,4 +17,5 @@ public:
                 }).detach();
         }
 };
-};  // namespace mstack
+
+}  // namespace mstack

@@ -1,4 +1,5 @@
 #pragma once
+
 #include <iomanip>
 
 #include "mac_addr.hpp"
@@ -30,7 +31,7 @@ struct ethernetv2_header_t {
         }
 };
 
-std::ostream& operator<<(std::ostream& out, ethernetv2_header_t& m) {
+inline std::ostream& operator<<(std::ostream& out, ethernetv2_header_t& m) {
         out << "[ETHERENT PACKET] ";
         out << "DST: " << mac_addr_t(m.dst_mac_addr)
             << " SRC: " << mac_addr_t(m.src_mac_addr);
@@ -38,4 +39,5 @@ std::ostream& operator<<(std::ostream& out, ethernetv2_header_t& m) {
             << int(m.proto);
         return out;
 }
-};  // namespace mstack
+
+}  // namespace mstack

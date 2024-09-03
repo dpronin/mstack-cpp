@@ -1,74 +1,110 @@
 #pragma once
-#include <gflags/gflags.h>
-#include <glog/logging.h>
+
+#include <boost/asio/io_context.hpp>
 
 #include "arp.hpp"
 #include "ethernet.hpp"
 #include "icmp.hpp"
 #include "ipv4.hpp"
 #include "socket_manager.hpp"
+#include "tap.hpp"
 #include "tcb_manager.hpp"
 #include "tcp.hpp"
-#include "tuntap.hpp"
+#include "tun.hpp"
 
 namespace mstack {
-int init_logger(int argc, char* argv[]) {
-        FLAGS_logtostderr      = true;
-        FLAGS_minloglevel      = 0;
-        FLAGS_colorlogtostderr = true;
 
-        gflags::ParseCommandLineFlags(&argc, &argv, true);
-        google::InitGoogleLogging(argv[0]);
+inline auto& tcp_stack_create() {
+        auto& stack{tcp::instance()};
+
+        auto& tcb_manager{tcb_manager::instance()};
+        stack.register_upper_protocol(tcb_manager);
+
+        return stack;
 }
 
-void init_stack(int argc, char* argv[]) {
-        init_logger(argc, argv);
-        auto& tuntap_dev = tuntap<1500>::instance();
-        tuntap_dev.set_ipv4_addr(std::string("192.168.1.1"));
+inline auto& icmp_stack_create() {
+        auto& stack{icmp::instance()};
+        return stack;
+}
 
-        auto& ethernetv2 = ethernetv2::instance();
-        tuntap_dev.register_upper_protocol(ethernetv2);
+inline auto& ipv4_stack_create() {
+        auto& stack{ipv4::instance()};
 
-        auto& arpv4 = arp::instance();
-        ethernetv2.register_upper_protocol(arpv4);
+        stack.register_upper_protocol(icmp::instance());
+        stack.register_upper_protocol(tcp::instance());
 
-        arpv4.register_dev(tuntap_dev);
+        return stack;
+}
 
-        auto& ipv4 = ipv4::instance();
-        ethernetv2.register_upper_protocol(ipv4);
+inline auto& arpv4_stack_create() {
+        auto& stack{arp::instance()};
+        return stack;
+}
 
-        auto& icmp = icmp::instance();
-        ipv4.register_upper_protocol(icmp);
+inline auto& ethernetv2_stack_create() {
+        auto& stack{ethernetv2::instance()};
 
-        auto& tcp = tcp::instance();
-        ipv4.register_upper_protocol(tcp);
+        stack.register_upper_protocol(ipv4::instance());
+        stack.register_upper_protocol(arp::instance());
 
-        auto& tcb_manager = tcb_manager::instance();
-        tcp.register_upper_protocol(tcb_manager);
+        return stack;
+}
 
-        tuntap_dev.run();
-};
+inline void init_stack() {
+        tcp_stack_create();
+        icmp_stack_create();
+        ipv4_stack_create();
+        arpv4_stack_create();
+        ethernetv2_stack_create();
+}
 
-int socket(int proto, ipv4_addr_t ipv4_addr, port_addr_t port_addr) {
-        auto& socket_manager = socket_manager::instance();
+template <size_t MTU>
+inline std::unique_ptr<tap<MTU>> tap_dev_create(boost::asio::io_context& io_ctx,
+                                                std::string_view         dev_addr) {
+        auto dev{tap<MTU>::create(io_ctx)};
+
+        dev->set_ipv4_addr(dev_addr);
+        dev->register_upper_protocol(ethernetv2::instance());
+
+        arp::instance().register_dev(*dev);
+
+        return dev;
+}
+
+inline std::unique_ptr<tun> tun_dev_create(boost::asio::io_context& io_ctx,
+                                           std::string_view         dev_addr) {
+        auto dev{tun::create(io_ctx)};
+
+        dev->set_ipv4_addr(dev_addr);
+        dev->register_upper_protocol(ipv4::instance());
+
+        return dev;
+}
+
+inline int socket(int proto, ipv4_addr_t ipv4_addr, port_addr_t port_addr) {
+        auto& socket_manager{socket_manager::instance()};
         return socket_manager.register_socket(proto, ipv4_addr, port_addr);
 }
-int listen(int fd) {
-        auto& socket_manager = socket_manager::instance();
+
+inline int listen(int fd) {
+        auto& socket_manager{socket_manager::instance()};
         return socket_manager.listen(fd);
 }
-int accept(int fd) {
-        auto& socket_manager = socket_manager::instance();
+
+inline int accept(int fd) {
+        auto& socket_manager{socket_manager::instance()};
         return socket_manager.accept(fd);
 }
-int read(int fd, char* buf, int& len) {
-        auto& socket_manager = socket_manager::instance();
-        return socket_manager.read(fd, buf, len);
+
+inline ssize_t read(int fd, std::span<std::byte> buf) {
+        auto& socket_manager{socket_manager::instance()};
+        return socket_manager.read(fd, buf);
 }
 
-int write(int fd, char* buf, int& len) {
-        auto& socket_manager = socket_manager::instance();
-        return socket_manager.write(fd, buf, len);
+inline ssize_t write(int fd, std::span<std::byte const> buf) {
+        auto& socket_manager{socket_manager::instance()};
+        return socket_manager.write(fd, buf);
 }
 
 }  // namespace mstack

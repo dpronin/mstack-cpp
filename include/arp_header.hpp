@@ -1,9 +1,12 @@
 #pragma once
+
 #include "ipv4_addr.hpp"
+#include "logger.hpp"
 #include "mac_addr.hpp"
 #include "utils.hpp"
 
 namespace mstack {
+
 struct arpv4_header_t {
         uint16_t    hw_type    = 0;
         uint16_t    proto_type = 0;
@@ -44,11 +47,20 @@ struct arpv4_header_t {
                 dst_mac_addr.produce(ptr);
                 dst_ipv4_addr.produce(ptr);
         }
-        friend std::ostream& operator<<(std::ostream& out, arpv4_header_t& m) {
+
+        friend std::ostream& operator<<(std::ostream& out, arpv4_header_t const& m) {
                 out << m.opcode << " ";
                 out << m.src_mac_addr << " " << m.src_ipv4_addr;
                 out << " -> " << m.dst_mac_addr << " " << m.dst_ipv4_addr;
                 return out;
         }
 };
+
 }  // namespace mstack
+
+template <>
+struct fmt::formatter<mstack::arpv4_header_t> : fmt::formatter<std::string> {
+        auto format(mstack::arpv4_header_t const& c, format_context& ctx) {
+                return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
+        }
+};

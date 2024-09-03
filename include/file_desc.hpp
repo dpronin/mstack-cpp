@@ -22,7 +22,7 @@ public:
         static constexpr int NONBLOCK = O_NONBLOCK;
 
 public:
-        file_desc() : _fd(-1){};
+        file_desc() : _fd(-1) {};
         ~file_desc() {
                 if (_fd != -1) ::close(_fd);
         }
@@ -31,7 +31,7 @@ public:
         file_desc(file_desc&& other) : _fd(other._fd) { other._fd = -1; }
 
         file_desc& operator=(const file_desc&) = default;
-        file_desc& operator                    =(file_desc&& other) {
+        file_desc& operator=(file_desc&& other) {
                 if (this != &other) {
                         std::swap(_fd, other._fd);
                 }
@@ -47,7 +47,7 @@ public:
         static std::optional<file_desc> open(std::string name, int flags) {
                 int fd = ::open(name.c_str(), flags);
                 if (fd == -1) {
-                        DLOG(ERROR) << "[OPEN FAIL] " << name << " " << strerror(errno);
+                        SPDLOG_ERROR("[OPEN FAIL] {} {}", name, strerror(errno));
                 }
                 return from_fd(fd);
         }
@@ -58,7 +58,7 @@ public:
         int ioctl(int request, X& data) {
                 int err = ::ioctl(_fd, request, &data);
                 if (err < 0) {
-                        DLOG(ERROR) << "[IOCTL FAIL] " << strerror(errno);
+                        SPDLOG_ERROR("[IOCTL FAIL] {}", strerror(errno));
                 }
                 return err;
         }

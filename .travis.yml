@@ -5,8 +5,9 @@ before_script:
   - $CXX --version
 
 before_install:
-  - sudo apt-get -y install libfmt-dev
-  - sudo apt-get -y install libgoogle-glog-dev/bionic
+  - sudo apt-get -y install libnl-3-dev
+  - sudo apt-get -y install libspdlog-dev
+  - sudo apt-get -y install libboost-all-dev
 script:
   - mkdir build && cd ./build
   - cmake ..

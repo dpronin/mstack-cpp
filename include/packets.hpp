@@ -1,12 +1,16 @@
 #pragma once
+
 #include "base_packet.hpp"
 #include "ipv4_addr.hpp"
+#include "logger.hpp"
 #include "mac_addr.hpp"
+
 namespace mstack {
 
 struct nop_packet {
         uint16_t proto;
 };
+
 struct raw_packet {
         std::unique_ptr<base_packet> buffer;
 };
@@ -16,7 +20,7 @@ struct ethernetv2_packet {
         std::optional<mac_addr_t>    dst_mac_addr;
         uint16_t                     proto;
         std::unique_ptr<base_packet> buffer;
-        friend std::ostream&         operator<<(std::ostream& out, ethernetv2_packet& p) {
+        friend std::ostream&         operator<<(std::ostream& out, ethernetv2_packet const& p) {
                 if (p.src_mac_addr) {
                         out << p.src_mac_addr.value();
                 } else {
@@ -38,7 +42,7 @@ struct ipv4_packet {
         uint16_t                     proto;
         std::unique_ptr<base_packet> buffer;
 
-        friend std::ostream& operator<<(std::ostream& out, ipv4_packet& p) {
+        friend std::ostream& operator<<(std::ostream& out, ipv4_packet const& p) {
                 if (p.src_ipv4_addr) {
                         out << p.src_ipv4_addr.value();
                 } else {
@@ -62,18 +66,18 @@ struct ipv4_port_t {
 
         bool operator==(const ipv4_port_t& rhs) const {
                 if (!ipv4_addr || !port_addr) {
-                        DLOG(FATAL) << "EMPTY IPV4 PORT";
+                        SPDLOG_CRITICAL("EMPTY IPV4 PORT");
                 }
                 return ipv4_addr == rhs.ipv4_addr.value() && port_addr == rhs.port_addr.value();
         };
 
-        friend std::ostream& operator<<(std::ostream& out, ipv4_port_t& p) {
+        friend std::ostream& operator<<(std::ostream& out, ipv4_port_t const& p) {
                 if (p.ipv4_addr) {
                         out << p.ipv4_addr.value();
                 } else {
                         out << "NONE";
                 }
-                out << "-";
+                out << ":";
                 if (p.port_addr) {
                         out << p.port_addr.value();
                 } else {
@@ -89,24 +93,27 @@ struct two_ends_t {
 
         bool operator==(const two_ends_t& rhs) const {
                 if (!remote_info || !local_info) {
-                        DLOG(FATAL) << "EMPTY IPV4 PORT";
+                        SPDLOG_CRITICAL("EMPTY IPV4 PORT");
                 }
                 return remote_info == rhs.remote_info.value() &&
                        local_info == rhs.local_info.value();
         };
 
-        friend std::ostream& operator<<(std::ostream& out, two_ends_t& p) {
+        friend std::ostream& operator<<(std::ostream& out, two_ends_t const& p) {
                 if (p.remote_info) {
                         out << p.remote_info.value();
                 } else {
                         out << "NONE";
                 }
+
                 out << " -> ";
+
                 if (p.local_info) {
                         out << p.local_info.value();
                 } else {
                         out << "NONE";
                 }
+
                 return out;
         }
 };
@@ -125,7 +132,7 @@ template <>
 struct hash<mstack::ipv4_port_t> {
         size_t operator()(const mstack::ipv4_port_t& ipv4_port) const {
                 if (!ipv4_port.ipv4_addr || !ipv4_port.port_addr) {
-                        DLOG(FATAL) << "EMPTY IPV4 PORT";
+                        SPDLOG_CRITICAL("EMPTY IPV4 PORT");
                 }
                 return hash<mstack::ipv4_addr_t>{}(ipv4_port.ipv4_addr.value()) ^
                        hash<mstack::port_addr_t>{}(ipv4_port.port_addr.value());
@@ -135,10 +142,39 @@ template <>
 struct hash<mstack::two_ends_t> {
         size_t operator()(const mstack::two_ends_t& two_ends) const {
                 if (!two_ends.remote_info || !two_ends.local_info) {
-                        DLOG(FATAL) << "EMPTY INFO";
+                        SPDLOG_CRITICAL("EMPTY INFO");
                 }
                 return hash<mstack::ipv4_port_t>{}(two_ends.remote_info.value()) ^
                        hash<mstack::ipv4_port_t>{}(two_ends.local_info.value());
         }
 };
-};  // namespace std
+
+}  // namespace std
+
+template <>
+struct fmt::formatter<mstack::ethernetv2_packet> : fmt::formatter<std::string> {
+        auto format(mstack::ethernetv2_packet const& c, format_context& ctx) {
+                return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
+        }
+};
+
+template <>
+struct fmt::formatter<mstack::ipv4_packet> : fmt::formatter<std::string> {
+        auto format(mstack::ipv4_packet const& c, format_context& ctx) {
+                return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
+        }
+};
+
+template <>
+struct fmt::formatter<mstack::ipv4_port_t> : fmt::formatter<std::string> {
+        auto format(mstack::ipv4_port_t const& c, format_context& ctx) {
+                return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
+        }
+};
+
+template <>
+struct fmt::formatter<mstack::two_ends_t> : fmt::formatter<std::string> {
+        auto format(mstack::two_ends_t const& c, format_context& ctx) {
+                return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
+        }
+};
