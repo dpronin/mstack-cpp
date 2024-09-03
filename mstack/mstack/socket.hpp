@@ -13,12 +13,12 @@ namespace mstack {
 struct tcb_t;
 
 struct socket_t {
-        int                                   fd;
-        int                                   state = SOCKET_UNCONNECTED;
-        int                                   proto;
-        std::optional<ipv4_port_t>            local_info;
-        std::optional<ipv4_port_t>            remote_info;
-        std::optional<std::shared_ptr<tcb_t>> tcb;
+        int                        fd;
+        int                        state = SOCKET_UNCONNECTED;
+        int                        proto;
+        std::optional<ipv4_port_t> local_info;
+        std::optional<ipv4_port_t> remote_info;
+        std::shared_ptr<tcb_t>     tcb;
 };
 
 struct listener_t {

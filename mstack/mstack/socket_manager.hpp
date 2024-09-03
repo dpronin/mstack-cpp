@@ -1,3 +1,4 @@
+#include <cassert>
 #include <condition_variable>
 #include <mutex>
 #include <unordered_map>
@@ -73,17 +74,20 @@ public:
 
                 for (int i = 1; i < 65535; i++) {
                         if (!sockets.contains(i)) {
-                                std::optional<std::shared_ptr<tcb_t>> tcb =
-                                        listener->acceptors->pop_front();
-                                std::shared_ptr<socket_t> socket = std::make_shared<socket_t>();
-                                socket->local_info               = tcb.value()->local_info;
-                                socket->remote_info              = tcb.value()->remote_info;
-                                socket->proto                    = listener->proto;
-                                socket->state                    = SOCKET_CONNECTED;
-                                socket->tcb                      = tcb;
-                                socket->fd                       = i;
-                                sockets[i]                       = socket;
-                                return socket;
+                                if (auto tcb{listener->acceptors->pop_front().value()}) {
+                                        auto socket{std::make_shared<socket_t>()};
+
+                                        socket->local_info  = tcb->local_info;
+                                        socket->remote_info = tcb->remote_info;
+                                        socket->proto       = listener->proto;
+                                        socket->state       = SOCKET_CONNECTED;
+                                        socket->tcb         = std::move(tcb);
+                                        socket->fd          = i;
+                                        sockets[i]          = socket;
+
+                                        return socket;
+                                }
+                                break;
                         }
                 }
 
@@ -97,11 +101,12 @@ public:
                 if (!sockets.contains(sk.fd)) return -ENOENT;
                 l1.unlock();
 
-                std::unique_lock l2{sk.tcb.value()->receive_queue_lock};
-                sk.tcb.value()->receive_queue_cv.wait(
-                        l2, [&sk] { return !sk.tcb.value()->receive_queue.empty(); });
+                assert(sk.tcb);
+
+                std::unique_lock l2{sk.tcb->receive_queue_lock};
+                sk.tcb->receive_queue_cv.wait(l2, [&sk] { return !sk.tcb->receive_queue.empty(); });
                 auto r_packet{
-                        std::move(sk.tcb.value()->receive_queue.pop_front().value()),
+                        std::move(sk.tcb->receive_queue.pop_front().value()),
                 };
                 l2.unlock();
 
@@ -113,7 +118,8 @@ public:
                 if (!sockets.contains(sk.fd)) return -1;
                 l.unlock();
 
-                sk.tcb.value()->enqueue_send({.buffer = std::make_unique<base_packet>(buf)});
+                assert(sk.tcb);
+                sk.tcb->enqueue_send({.buffer = std::make_unique<base_packet>(buf)});
 
                 return buf.size();
         }
