@@ -79,7 +79,7 @@ public:
                         }
 
                 } else {
-                        SPDLOG_ERROR("[RECEIVE UNKNOWN TCP PACKET]");
+                        SPDLOG_WARN("[RECEIVE UNKNOWN TCP PACKET]");
                 }
         }
 };
