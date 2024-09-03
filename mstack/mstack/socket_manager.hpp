@@ -30,13 +30,17 @@ public:
         int register_socket(int proto, ipv4_addr_t ipv4_addr, port_addr_t port_addr) {
                 for (int i = 1; i < 65535; i++) {
                         if (!sockets.contains(i)) {
-                                ipv4_port_t local_info = {.ipv4_addr = ipv4_addr,
-                                                          .port_addr = port_addr};
+                                ipv4_port_t local_info{
+                                        .ipv4_addr = ipv4_addr,
+                                        .port_addr = port_addr,
+                                };
 
                                 std::shared_ptr<socket_t> socket = std::make_shared<socket_t>();
-                                socket->proto                    = proto;
-                                socket->local_info               = local_info;
-                                sockets[i]                       = socket;
+
+                                socket->proto      = proto;
+                                socket->local_info = local_info;
+                                sockets[i]         = socket;
+
                                 return i;
                         }
                 }
