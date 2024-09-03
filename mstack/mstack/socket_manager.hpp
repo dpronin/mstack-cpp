@@ -112,25 +112,18 @@ public:
                 return r_packet.buffer->export_data(buf);
         }
 
-        int write(int fd, std::span<std::byte const> buf) {
-                std::unique_lock l1{lock};
+        ssize_t write(int fd, std::span<std::byte const> buf) {
+                std::unique_lock l{lock};
 
                 if (!sockets.contains(fd)) return -1;
 
                 auto socket{sockets[fd]};
 
-                l1.unlock();
+                l.unlock();
 
-                auto out_buffer{std::make_unique<base_packet>(buf)};
+                socket->tcb.value()->enqueue_send({.buffer = std::make_unique<base_packet>(buf)});
 
-                raw_packet r_packet = {.buffer = std::move(out_buffer)};
-
-                std::unique_lock l2{socket->tcb.value()->send_queue_lock};
-                socket->tcb.value()->send_queue.push_back(std::move(r_packet));
-                l2.unlock();
-                socket->tcb.value()->send_queue_cv.notify_all();
-
-                return 0;
+                return buf.size();
         }
 };
 

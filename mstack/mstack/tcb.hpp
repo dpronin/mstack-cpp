@@ -67,8 +67,11 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
               state(TCP_CLOSED) {}
 
         void enqueue_send(raw_packet packet) {
+                std::unique_lock l{send_queue_lock};
                 send_queue.push_back(std::move(packet));
                 active_self();
+                l.unlock();
+                send_queue_cv.notify_all();
         }
 
         void listen_finish() {
@@ -82,26 +85,22 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
 
         void active_self() { _active_tcbs->push_back(shared_from_this()); }
 
-        bool can_send() { return true; }
-
-        std::optional<std::unique_ptr<base_packet>> prepare_data_optional(int& option_len) {
-                return std::nullopt;
-        }
+        std::unique_ptr<base_packet> prepare_data_optional(int& option_len) { return {}; }
 
         std::optional<tcp_packet_t> make_packet() {
+                std::optional<tcp_packet_t> r;
+
                 tcp_header_t                 out_tcp;
                 std::unique_ptr<base_packet> out_buffer;
 
-                int option_len = 0;
+                int option_len{0};
 
-                std::optional<std::unique_ptr<base_packet>> data_buffer =
-                        prepare_data_optional(option_len);
+                std::unique_ptr<base_packet> data_buffer{prepare_data_optional(option_len)};
 
-                if (data_buffer) {
-                        out_buffer = std::move(data_buffer.value());
-                } else {
+                if (data_buffer)
+                        out_buffer = std::move(data_buffer);
+                else
                         out_buffer = std::make_unique<base_packet>(tcp_header_t::size());
-                }
 
                 out_tcp.src_port = local_info->port_addr.value();
                 out_tcp.dst_port = remote_info->port_addr.value();
@@ -114,35 +113,26 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
 
                 out_tcp.ACK = 1;
 
-                if (this->next_state == TCP_SYN_RECEIVED) {
-                        out_tcp.SYN = 1;
-                }
+                if (this->next_state == TCP_SYN_RECEIVED) out_tcp.SYN = 1;
 
                 out_tcp.produce(reinterpret_cast<uint8_t*>(out_buffer->get_pointer()));
-                tcp_packet_t out_packet = {
+
+                tcp_packet_t out_packet{
                         .proto       = 0x06,
                         .remote_info = this->remote_info,
                         .local_info  = this->local_info,
                         .buffer      = std::move(out_buffer),
                 };
 
-                if (this->next_state != this->state) {
-                        this->state = this->next_state;
-                }
+                if (this->next_state != this->state) this->state = this->next_state;
 
-                return std::move(out_packet);
+                r = std::move(out_packet);
+
+                return r;
         }
 
         std::optional<tcp_packet_t> gather_packet() {
-                if (!ctl_packets.empty()) {
-                        return std::move(ctl_packets.pop_front());
-                }
-
-                if (can_send()) {
-                        return make_packet();
-                }
-
-                return std::nullopt;
+                return ctl_packets.empty() ? make_packet() : ctl_packets.pop_front();
         }
 
         friend std::ostream& operator<<(std::ostream& out, tcb_t const& m) {

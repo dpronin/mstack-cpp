@@ -35,10 +35,13 @@ public:
                 tcp_header.checksum = checksum;
                 tcp_header.produce(reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer()));
 
-                ipv4_packet out_ipv4 = {.src_ipv4_addr = in_packet.local_info->ipv4_addr.value(),
-                                        .dst_ipv4_addr = in_packet.remote_info->ipv4_addr.value(),
-                                        .proto         = in_packet.proto,
-                                        .buffer        = std::move(in_packet.buffer)};
+                ipv4_packet out_ipv4{
+                        .src_ipv4_addr = in_packet.local_info->ipv4_addr.value(),
+                        .dst_ipv4_addr = in_packet.remote_info->ipv4_addr.value(),
+                        .proto         = in_packet.proto,
+                        .buffer        = std::move(in_packet.buffer),
+                };
+
                 return std::move(out_ipv4);
         }
 
@@ -50,17 +53,17 @@ public:
 
                 SPDLOG_INFO("[RECEIVE] {}", tcp_header);
 
-                ipv4_port_t remote_info = {
+                ipv4_port_t remote_info{
                         .ipv4_addr = in_packet.src_ipv4_addr.value(),
                         .port_addr = tcp_header.src_port,
                 };
 
-                ipv4_port_t local_info = {
+                ipv4_port_t local_info{
                         .ipv4_addr = in_packet.dst_ipv4_addr.value(),
                         .port_addr = tcp_header.dst_port,
                 };
 
-                tcp_packet_t out_tcp_packet = {
+                tcp_packet_t out_tcp_packet{
                         .proto       = PROTO,
                         .remote_info = remote_info,
                         .local_info  = local_info,
