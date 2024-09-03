@@ -63,8 +63,8 @@ public:
                 return 0;
         };
 
-        int accept(int fd) {
-                if (!listeners.contains(fd)) return -1;
+        std::shared_ptr<socket_t> accept(int fd) {
+                if (!listeners.contains(fd)) return {};
 
                 auto listener{listeners[fd]};
 
@@ -83,45 +83,37 @@ public:
                                 socket->tcb                      = tcb;
                                 socket->fd                       = i;
                                 sockets[i]                       = socket;
-                                return i;
+                                return socket;
                         }
                 }
 
                 l.unlock();
 
-                return -1;
+                return {};
         }
 
-        ssize_t read(int fd, std::span<std::byte> buf) {
+        ssize_t read(socket_t& sk, std::span<std::byte> buf) {
                 std::unique_lock l1{lock};
-
-                if (!sockets.contains(fd)) return -ENOENT;
-
-                auto socket{sockets[fd]};
-
+                if (!sockets.contains(sk.fd)) return -ENOENT;
                 l1.unlock();
 
-                std::unique_lock l2{socket->tcb.value()->receive_queue_lock};
-                socket->tcb.value()->receive_queue_cv.wait(
-                        l2, [&socket] { return !socket->tcb.value()->receive_queue.empty(); });
+                std::unique_lock l2{sk.tcb.value()->receive_queue_lock};
+                sk.tcb.value()->receive_queue_cv.wait(
+                        l2, [&sk] { return !sk.tcb.value()->receive_queue.empty(); });
                 auto r_packet{
-                        std::move(socket->tcb.value()->receive_queue.pop_front().value()),
+                        std::move(sk.tcb.value()->receive_queue.pop_front().value()),
                 };
                 l2.unlock();
 
                 return r_packet.buffer->export_data(buf);
         }
 
-        ssize_t write(int fd, std::span<std::byte const> buf) {
+        ssize_t write(socket_t& sk, std::span<std::byte const> buf) {
                 std::unique_lock l{lock};
-
-                if (!sockets.contains(fd)) return -1;
-
-                auto socket{sockets[fd]};
-
+                if (!sockets.contains(sk.fd)) return -1;
                 l.unlock();
 
-                socket->tcb.value()->enqueue_send({.buffer = std::make_unique<base_packet>(buf)});
+                sk.tcb.value()->enqueue_send({.buffer = std::make_unique<base_packet>(buf)});
 
                 return buf.size();
         }

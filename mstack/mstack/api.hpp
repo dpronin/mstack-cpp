@@ -88,19 +88,19 @@ inline int listen(int fd) {
         return socket_manager.listen(fd);
 }
 
-inline int accept(int fd) {
+inline std::shared_ptr<socket_t> accept(int fd) {
         auto& socket_manager{socket_manager::instance()};
         return socket_manager.accept(fd);
 }
 
-inline ssize_t read(int fd, std::span<std::byte> buf) {
+inline ssize_t read(socket_t& sk, std::span<std::byte> buf) {
         auto& socket_manager{socket_manager::instance()};
-        return socket_manager.read(fd, buf);
+        return socket_manager.read(sk, buf);
 }
 
-inline ssize_t write(int fd, std::span<std::byte const> buf) {
+inline ssize_t write(socket_t& sk, std::span<std::byte const> buf) {
         auto& socket_manager{socket_manager::instance()};
-        return socket_manager.write(fd, buf);
+        return socket_manager.write(sk, buf);
 }
 
 }  // namespace mstack

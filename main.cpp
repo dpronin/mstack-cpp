@@ -1,3 +1,4 @@
+#include <cassert>
 #include <cstdlib>
 
 #include <any>
@@ -40,14 +41,15 @@ int main(int argc, char* argv[]) {
         auto stack{std::async(std::launch::async, [&io_ctx] { io_ctx.run(); })};
 
         for (std::vector<std::future<void>> workers;;) {
-                int const cfd{mstack::accept(fd)};
+                auto const csk{mstack::accept(fd)};
+                assert(csk);
                 workers.push_back(std::async(
                         std::launch::async,
-                        [](int cfd) {
+                        [](std::shared_ptr<mstack::socket_t> csk) {
                                 while (true) {
                                         std::array<std::byte, 2000> buf;
 
-                                        if (ssize_t r{mstack::read(cfd, buf)}; !(r < 0)) {
+                                        if (ssize_t r{mstack::read(*csk, buf)}; !(r < 0)) {
                                                 auto const msg{
                                                         std::string_view{
                                                                 reinterpret_cast<char const*>(
@@ -62,6 +64,6 @@ int main(int argc, char* argv[]) {
                                         }
                                 }
                         },
-                        cfd));
+                        std::move(csk)));
         }
 }
