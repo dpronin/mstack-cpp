@@ -60,11 +60,9 @@ inline void init_stack() {
 }
 
 template <size_t MTU>
-inline std::unique_ptr<tap<MTU>> tap_dev_create(boost::asio::io_context& io_ctx,
-                                                std::string_view         dev_addr) {
+inline std::unique_ptr<tap<MTU>> tap_dev_create(boost::asio::io_context& io_ctx) {
         auto dev{tap<MTU>::create(io_ctx)};
 
-        dev->set_ipv4_addr(dev_addr);
         dev->register_upper_protocol(ethernetv2::instance());
 
         arp::instance().register_dev(*dev);
@@ -72,11 +70,9 @@ inline std::unique_ptr<tap<MTU>> tap_dev_create(boost::asio::io_context& io_ctx,
         return dev;
 }
 
-inline std::unique_ptr<tun> tun_dev_create(boost::asio::io_context& io_ctx,
-                                           std::string_view         dev_addr) {
+inline std::unique_ptr<tun> tun_dev_create(boost::asio::io_context& io_ctx) {
         auto dev{tun::create(io_ctx)};
 
-        dev->set_ipv4_addr(dev_addr);
         dev->register_upper_protocol(ipv4::instance());
 
         return dev;
