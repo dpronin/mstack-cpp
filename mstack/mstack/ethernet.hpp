@@ -18,7 +18,7 @@ public:
                 if (!in_packet.dst_mac_addr || !in_packet.src_mac_addr) {
                         return std::nullopt;
                 }
-                SPDLOG_INFO("[OUT] {}", in_packet);
+                SPDLOG_DEBUG("[OUT] {}", in_packet);
                 ethernetv2_header_t e_packet;
                 e_packet.dst_mac_addr = in_packet.dst_mac_addr.value();
                 e_packet.src_mac_addr = in_packet.src_mac_addr.value();

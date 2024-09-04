@@ -34,12 +34,12 @@ public:
                 out_icmp_header.checksum = checksum;
                 out_icmp_header.produce(pointer);
 
-                SPDLOG_INFO("{}", out_icmp_header);
+                SPDLOG_DEBUG("{}", out_icmp_header);
                 ipv4_packet out_packet = {.src_ipv4_addr = in_packet.dst_ipv4_addr,
                                           .dst_ipv4_addr = in_packet.src_ipv4_addr,
                                           .proto         = in_packet.proto,
                                           .buffer        = std::move(out_buffer)};
-                SPDLOG_INFO("[SEND ICMP REPLY]");
+                SPDLOG_DEBUG("[SEND ICMP REPLY]");
                 this->enter_send_queue(std::move(out_packet));
         }
 
@@ -48,7 +48,7 @@ public:
                         icmp_header_t::consume(
                                 reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer())),
                 };
-                SPDLOG_INFO("[RECEIVED ICMP] {}", in_icmp_header);
+                SPDLOG_DEBUG("[RECEIVED ICMP] {}", in_icmp_header);
                 if (in_icmp_header.proto_type == 0x08) {
                         make_icmp_reply(in_packet);
                 }

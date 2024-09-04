@@ -76,7 +76,7 @@ private:
                                 if (ec) return;
 
                                 if (_receiver_func) {
-                                        SPDLOG_INFO("[TUN RECEIVE] {}", nbytes);
+                                        SPDLOG_DEBUG("[TUN RECEIVE] {}", nbytes);
                                         _receiver_func(encode_raw_packet({_rbuf.data(), nbytes}));
                                 } else {
                                         SPDLOG_CRITICAL("[NO RECEIVER FUNC]");
@@ -88,7 +88,7 @@ private:
 
         void async_write(raw_packet& pkt) {
                 auto const len{decode_raw_packet(pkt, _wbuf)};
-                SPDLOG_INFO("[TUN WRITE] {}", len);
+                SPDLOG_DEBUG("[TUN WRITE] {}", len);
                 boost::asio::async_write(this->_pfd, boost::asio::buffer(_wbuf, len),
                                          [this](auto const& ec, size_t nbytes) {
                                                  if (!ec) notify_to_write();
@@ -108,7 +108,7 @@ private:
                 // ? something error
                 _fd = std::move(fd.value());
 
-                SPDLOG_INFO("[DEV FD] {}", _fd.get_fd());
+                SPDLOG_DEBUG("[DEV FD] {}", _fd.get_fd());
 
                 ifreq ifr{};
 

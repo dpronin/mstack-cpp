@@ -16,7 +16,7 @@ public:
         int id() override { return PROTO; }
 
         std::optional<ethernetv2_packet> make_packet(ipv4_packet&& in_packet) override {
-                SPDLOG_INFO("[OUT] {}", in_packet);
+                SPDLOG_DEBUG("[OUT] {}", in_packet);
 
                 in_packet.buffer->reflush_packet(ipv4_header_t::size());
                 ipv4_header_t out_ipv4_header;
@@ -68,7 +68,7 @@ public:
                 auto ipv4_header{ipv4_header_t::consume(ptr)};
                 in_packet.buffer->add_offset(ipv4_header_t::size());
 
-                SPDLOG_INFO("[RECEIVE] {}", ipv4_header);
+                SPDLOG_DEBUG("[RECEIVE] {}", ipv4_header);
 
                 r = {
                         .src_ipv4_addr = ipv4_header.src_ip_addr,

@@ -61,7 +61,7 @@ public:
 
         void dispatch(UpperPacketType&& in_packet) {
                 if (this->_protocols.find(in_packet.proto) == this->_protocols.end()) {
-                        SPDLOG_INFO("[UNKNOWN PACKET] {:X}", in_packet.proto);
+                        SPDLOG_DEBUG("[UNKNOWN PACKET] {:X}", in_packet.proto);
                         return;
                 }
                 auto const proto{in_packet.proto};
@@ -129,7 +129,7 @@ public:
 
         void dispatch(UpperPacketType&& in_packet) {
                 if (this->_protocols.find(in_packet.proto) == this->_protocols.end()) {
-                        SPDLOG_INFO("[UNKNOWN PACKET] {:X}", in_packet.proto);
+                        SPDLOG_DEBUG("[UNKNOWN PACKET] {:X}", in_packet.proto);
                         return;
                 }
                 auto const proto{in_packet.proto};

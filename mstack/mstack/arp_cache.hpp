@@ -14,7 +14,7 @@ struct arp_cache_t {
         std::unordered_map<int, ipv4_addr_t>        ipv4_addr_map;
         std::unordered_map<ipv4_addr_t, mac_addr_t> arp_cache;
         void add_arp_cache(ipv4_addr_t ipv4_addr, mac_addr_t mac_addr) {
-                SPDLOG_INFO("[ADD ARP CACHE] {}:{}", ipv4_addr, mac_addr);
+                SPDLOG_DEBUG("[ADD ARP CACHE] {}:{}", ipv4_addr, mac_addr);
                 arp_cache[ipv4_addr] = mac_addr;
         }
 
@@ -30,13 +30,14 @@ struct arp_cache_t {
                 std::optional<mac_addr_t> mac_addr = dev.get_mac_addr();
                 if (mac_addr) {
                         mac_addr_map[DEV::TAG] = mac_addr.value();
-                        SPDLOG_INFO("[REGISTER DEV MAC] {} {}", DEV::TAG, mac_addr_map[DEV::TAG]);
+                        SPDLOG_DEBUG("[REGISTER DEV MAC] {} {}", DEV::TAG, mac_addr_map[DEV::TAG]);
                 }
 
                 std::optional<ipv4_addr_t> ipv4_addr = dev.get_ipv4_addr();
                 if (ipv4_addr) {
                         ipv4_addr_map[DEV::TAG] = ipv4_addr.value();
-                        SPDLOG_INFO("[REGISTER DEV IPV4] {} {}", DEV::TAG, ipv4_addr_map[DEV::TAG]);
+                        SPDLOG_DEBUG("[REGISTER DEV IPV4] {} {}", DEV::TAG,
+                                     ipv4_addr_map[DEV::TAG]);
                 }
 
                 if (mac_addr && ipv4_addr) {

@@ -51,7 +51,7 @@ public:
                                 reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer())),
                 };
 
-                SPDLOG_INFO("[RECEIVE] {}", tcp_header);
+                SPDLOG_DEBUG("[RECEIVE] {}", tcp_header);
 
                 ipv4_port_t remote_info{
                         .ipv4_addr = in_packet.src_ipv4_addr.value(),

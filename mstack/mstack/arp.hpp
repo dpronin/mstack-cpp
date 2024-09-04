@@ -58,7 +58,7 @@ public:
                                                 .buffer       = std::move(out_buffer)};
 
                 this->enter_send_queue(std::move(out_packet));
-                SPDLOG_INFO("[ARP] SEND ARP REPLY {}", out_arp);
+                SPDLOG_DEBUG("[ARP] SEND ARP REPLY {}", out_arp);
                 return;
         };
 

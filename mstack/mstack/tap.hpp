@@ -80,7 +80,7 @@ private:
                                 if (ec) return;
 
                                 if (_receiver_func) {
-                                        SPDLOG_INFO("[TAP RECEIVE] {}", nbytes);
+                                        SPDLOG_DEBUG("[TAP RECEIVE] {}", nbytes);
                                         _receiver_func(encode_raw_packet({_rbuf.data(), nbytes}));
                                 } else {
                                         SPDLOG_CRITICAL("[NO RECEIVER FUNC]");
@@ -103,7 +103,7 @@ private:
                 // ? something error
                 _fd = std::move(fd.value());
 
-                SPDLOG_INFO("[DEV FD] {}", _fd.get_fd());
+                SPDLOG_DEBUG("[DEV FD] {}", _fd.get_fd());
 
                 ifreq ifr{};
 
@@ -124,7 +124,7 @@ private:
 
                 set_mac_addr(_ndev);
 
-                SPDLOG_INFO("[INIT MAC] {}", _mac_addr.value());
+                SPDLOG_DEBUG("[INIT MAC] {}", _mac_addr.value());
 
                 _available = true;
 
@@ -145,7 +145,7 @@ private:
 
         void async_write(raw_packet& pkt) {
                 auto const len{decode_raw_packet(pkt, _wbuf)};
-                SPDLOG_INFO("[TAP WRITE] {}", len);
+                SPDLOG_DEBUG("[TAP WRITE] {}", len);
                 boost::asio::async_write(this->_pfd, boost::asio::buffer(_wbuf, len),
                                          [this](auto const& ec, size_t nbytes) {
                                                  if (!ec) notify_to_write();

@@ -53,7 +53,7 @@ public:
         }
 
         void register_tcb(two_ends_t& two_end, std::shared_ptr<listener_t> listener) {
-                SPDLOG_INFO("[REGISTER TCB] {}", two_end);
+                SPDLOG_DEBUG("[REGISTER TCB] {}", two_end);
                 if (!two_end.remote_info || !two_end.local_info) {
                         SPDLOG_CRITICAL("[EMPTY TCB]");
                 }
