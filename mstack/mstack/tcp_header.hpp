@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 #include "utils.hpp"
 
 namespace mstack {
@@ -64,7 +66,8 @@ struct tcp_header_t {
                 return tcp_header;
         }
 
-        void produce(uint8_t* ptr) {
+        ptrdiff_t produce(uint8_t* ptr) {
+                uint8_t* f{ptr};
                 utils::produce<port_addr_t>(ptr, src_port);
                 utils::produce<port_addr_t>(ptr, dst_port);
                 utils::produce<uint32_t>(ptr, seq_no);
@@ -74,6 +77,7 @@ struct tcp_header_t {
                 utils::produce<uint16_t>(ptr, window_size);
                 utils::produce<uint16_t>(ptr, checksum);
                 utils::produce<uint16_t>(ptr, urgent_pointer);
+                return ptr - f;
         }
 
         friend std::ostream& operator<<(std::ostream& out, tcp_header_t const& m) {

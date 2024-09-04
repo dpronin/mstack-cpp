@@ -1,9 +1,13 @@
 #pragma once
 
+#include <cstddef>
+
+#include <algorithm>
 #include <chrono>
 #include <functional>
 #include <memory>
 #include <queue>
+#include <vector>
 
 #include "base_packet.hpp"
 #include "circle_buffer.hpp"
@@ -46,7 +50,7 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
         int                                                    next_state;
         std::optional<ipv4_port_t>                             remote_info;
         std::optional<ipv4_port_t>                             local_info;
-        circle_buffer<raw_packet>                              send_queue;
+        circle_buffer<std::vector<std::byte>>                  send_queue;
         circle_buffer<raw_packet>                              receive_queue;
         std::queue<std::function<void()>>                      on_data_receive;
         circle_buffer<tcp_packet_t>                            ctl_packets;
@@ -63,8 +67,8 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
               local_info(local_info),
               state(TCP_CLOSED) {}
 
-        void enqueue_send(raw_packet packet) {
-                send_queue.push_back(std::move(packet));
+        void enqueue_send(std::span<std::byte const> packet) {
+                send_queue.push_back({packet.begin(), packet.end()});
                 active_self();
         }
 
@@ -93,10 +97,15 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
 
                 std::unique_ptr<base_packet> data_buffer{prepare_data_optional(option_len)};
 
+                auto pkt{std::vector<std::byte>{}};
+
+                if (!send_queue.empty()) pkt = send_queue.pop_front().value();
+
                 if (data_buffer)
                         out_buffer = std::move(data_buffer);
                 else
-                        out_buffer = std::make_unique<base_packet>(tcp_header_t::size());
+                        out_buffer =
+                                std::make_unique<base_packet>(tcp_header_t::size() + pkt.size());
 
                 out_tcp.src_port = local_info->port_addr.value();
                 out_tcp.dst_port = remote_info->port_addr.value();
@@ -108,10 +117,13 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
                 out_tcp.header_length = (tcp_header_t::size() + option_len) / 4;
 
                 out_tcp.ACK = 1;
+                out_tcp.PSH = static_cast<bool>(!pkt.empty());
 
                 if (this->next_state == TCP_SYN_RECEIVED) out_tcp.SYN = 1;
 
-                out_tcp.produce(reinterpret_cast<uint8_t*>(out_buffer->get_pointer()));
+                std::ranges::copy(
+                        pkt, out_buffer->get_pointer() + out_tcp.produce(reinterpret_cast<uint8_t*>(
+                                                                 out_buffer->get_pointer())));
 
                 tcp_packet_t out_packet{
                         .proto       = 0x06,
