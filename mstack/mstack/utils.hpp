@@ -78,7 +78,7 @@ inline int set_interface_route(std::string_view dev, std::string_view cidr) {
 
         rtnl_route_set_iif(route.get(), AF_INET);  // IPV4
         rtnl_route_set_scope(route.get(), RT_SCOPE_LINK);
-        rtnl_route_set_table(route.get(), RT_TABLE_MAIN);
+        rtnl_route_set_table(route.get(), RT_TABLE_LOCAL);
         rtnl_route_set_protocol(route.get(), RTPROT_STATIC);
 
         auto dst{
