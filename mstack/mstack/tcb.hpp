@@ -83,7 +83,9 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
                 }
         }
 
-        void active_self() { _active_tcbs->push_back(shared_from_this()); }
+        void active_self() {
+                if (_active_tcbs->empty()) _active_tcbs->push_back(shared_from_this());
+        }
 
         std::unique_ptr<base_packet> prepare_data_optional(int& option_len) { return {}; }
 

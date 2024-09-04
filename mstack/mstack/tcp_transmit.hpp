@@ -730,7 +730,7 @@ public:
                                                 cb();
                                         }
 
-                                        if (in_tcb->_active_tcbs->empty()) in_tcb->active_self();
+                                        in_tcb->active_self();
 
                                         break;
                                 }
