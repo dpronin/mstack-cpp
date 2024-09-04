@@ -710,21 +710,27 @@ public:
                                 case TCP_FIN_WAIT_1:
                                 case TCP_FIN_WAIT_2: {
                                         SPDLOG_INFO("[RECEIVE DATA] {}", segment_len);
+
                                         in_tcb->receive.next += segment_len;
-                                        std::unique_ptr<base_packet> out_buffer =
-                                                std::make_unique<base_packet>(segment_len);
+
+                                        auto out_buffer{std::make_unique<base_packet>(segment_len)};
+
                                         in_packet.buffer->export_payload(
                                                 reinterpret_cast<uint8_t*>(
                                                         out_buffer->get_pointer()),
                                                 header_len);
+
                                         raw_packet r_packet = {.buffer = std::move(out_buffer)};
 
-                                        std::unique_lock l{in_tcb->receive_queue_lock};
                                         in_tcb->receive_queue.push_back(std::move(r_packet));
-                                        l.unlock();
-                                        in_tcb->receive_queue_cv.notify_all();
-
                                         in_tcb->active_self();
+
+                                        if (!in_tcb->on_data_receive.empty()) {
+                                                auto cb{std::move(in_tcb->on_data_receive.front())};
+                                                in_tcb->on_data_receive.pop();
+                                                cb();
+                                        }
+
                                         break;
                                 }
                                 /**

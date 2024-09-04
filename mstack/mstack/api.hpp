@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+
 #include <boost/asio/io_context.hpp>
 
 #include "arp.hpp"
@@ -94,6 +96,17 @@ inline int listen(int fd) {
 inline std::shared_ptr<socket_t> accept(boost::asio::io_context& io_ctx, int fd) {
         auto& socket_manager{socket_manager::instance()};
         return socket_manager.accept(io_ctx, fd);
+}
+
+template <typename... Args>
+void async_accept(boost::asio::io_context& io_ctx, Args&&... args) {
+        auto& socket_manager{socket_manager::instance()};
+        return socket_manager.async_accept(io_ctx, std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+void async_write(socket_t& sk, Args&&... args) {
+        sk.async_write(std::forward<Args>(args)...);
 }
 
 }  // namespace mstack

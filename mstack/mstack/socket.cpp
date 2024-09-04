@@ -1,7 +1,6 @@
 #include <cassert>
 
 #include <memory>
-#include <mutex>
 #include <utility>
 
 #include "socket.hpp"
@@ -10,17 +9,34 @@
 
 namespace mstack {
 
-ssize_t socket_t::readsome(std::span<std::byte> buf) {
+void socket_t::async_read_some(std::span<std::byte>                                   buf,
+                               std::function<void(boost::system::error_code, size_t)> cb) {
+        if (!this->tcb->receive_queue.empty()) {
+                io_ctx.post([this, buf, cb = std::move(cb)] {
+                        auto pkt{this->tcb->receive_queue.pop_front().value()};
+                        cb({}, pkt.buffer->export_data(buf));
+                });
+        } else {
+                this->tcb->on_data_receive.push([this, buf, cb = std::move(cb)] {
+                        auto pkt{this->tcb->receive_queue.pop_front().value()};
+                        cb({}, pkt.buffer->export_data(buf));
+                });
+        }
+}
+
+ssize_t socket_t::read_some(std::span<std::byte> buf) {
         assert(this->tcb);
 
-        std::unique_lock l2{this->tcb->receive_queue_lock};
-        this->tcb->receive_queue_cv.wait(l2, [this] { return !this->tcb->receive_queue.empty(); });
         auto r_packet{
                 std::move(this->tcb->receive_queue.pop_front().value()),
         };
-        l2.unlock();
 
         return r_packet.buffer->export_data(buf);
+}
+
+void socket_t::async_write(std::span<std::byte const>                             buf,
+                           std::function<void(boost::system::error_code, size_t)> cb) {
+        cb({}, write(buf));
 }
 
 ssize_t socket_t::write(std::span<std::byte const> buf) {

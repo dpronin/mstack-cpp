@@ -1,9 +1,11 @@
 #include <cassert>
-#include <condition_variable>
-#include <mutex>
+
 #include <unordered_map>
 
 #include <boost/asio/io_context.hpp>
+#include <boost/system/detail/errc.hpp>
+#include <boost/system/detail/error_code.hpp>
+#include <boost/system/errc.hpp>
 
 #include "defination.hpp"
 #include "socket.hpp"
@@ -15,7 +17,6 @@ class socket_manager {
 private:
         socket_manager()  = default;
         ~socket_manager() = default;
-        mutable std::mutex                                        lock;
         std::unordered_map<uint16_t, std::shared_ptr<socket_t>>   sockets;
         std::unordered_map<uint16_t, std::shared_ptr<listener_t>> listeners;
 
@@ -74,31 +75,68 @@ public:
 
                 auto listener{listeners[fd]};
 
-                std::unique_lock l{listener->lock};
-                listener->cv.wait(l, [listener] { return !listener->acceptors->empty(); });
+                if (!listener->acceptors->empty()) {
+                        for (int i = 1; i < 65535; i++) {
+                                if (!sockets.contains(i)) {
+                                        if (auto tcb{listener->acceptors->pop_front().value()}) {
+                                                auto socket{std::make_shared<socket_t>(io_ctx)};
 
-                for (int i = 1; i < 65535; i++) {
-                        if (!sockets.contains(i)) {
-                                if (auto tcb{listener->acceptors->pop_front().value()}) {
-                                        auto socket{std::make_shared<socket_t>(io_ctx)};
+                                                socket->local_info  = tcb->local_info;
+                                                socket->remote_info = tcb->remote_info;
+                                                socket->proto       = listener->proto;
+                                                socket->state       = SOCKET_CONNECTED;
+                                                socket->tcb         = std::move(tcb);
+                                                socket->fd          = i;
+                                                sockets[i]          = socket;
 
-                                        socket->local_info  = tcb->local_info;
-                                        socket->remote_info = tcb->remote_info;
-                                        socket->proto       = listener->proto;
-                                        socket->state       = SOCKET_CONNECTED;
-                                        socket->tcb         = std::move(tcb);
-                                        socket->fd          = i;
-                                        sockets[i]          = socket;
-
-                                        return socket;
+                                                return socket;
+                                        }
+                                        break;
                                 }
-                                break;
                         }
                 }
 
-                l.unlock();
-
                 return {};
+        }
+
+        void async_accept(
+                boost::asio::io_context&                                                  io_ctx,
+                int                                                                       fd,
+                std::function<void(boost::system::error_code, std::shared_ptr<socket_t>)> cb) {
+                if (!listeners.contains(fd)) return;
+
+                auto l{listeners[fd]};
+
+                l->on_acceptor_has_tcb.push([this, &io_ctx, wl = std::weak_ptr{l},
+                                             cb = std::move(cb)] {
+                        if (auto l = wl.lock()) {
+                                assert(!l->acceptors->empty());
+                                for (int i = 1; i < 65535; i++) {
+                                        if (!sockets.contains(i)) {
+                                                if (auto tcb{l->acceptors->pop_front().value()}) {
+                                                        auto socket{
+                                                                std::make_shared<socket_t>(io_ctx),
+                                                        };
+
+                                                        socket->local_info  = tcb->local_info;
+                                                        socket->remote_info = tcb->remote_info;
+                                                        socket->proto       = l->proto;
+                                                        socket->state       = SOCKET_CONNECTED;
+                                                        socket->tcb         = std::move(tcb);
+                                                        socket->fd          = i;
+                                                        sockets[i]          = socket;
+
+                                                        cb({}, std::move(socket));
+                                                        return;
+                                                }
+                                                break;
+                                        }
+                                }
+                        }
+                        cb(boost::system::errc::make_error_code(
+                                   boost::system::errc::connection_reset),
+                           {});
+                });
         }
 };
 

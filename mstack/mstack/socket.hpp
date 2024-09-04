@@ -1,10 +1,17 @@
 #pragma once
 
-#include <condition_variable>
-#include <mutex>
+#include <cstddef>
+
+#include <functional>
+#include <memory>
 #include <optional>
+#include <queue>
+#include <span>
 
 #include <boost/asio/io_context.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <sys/types.h>
 
 #include "circle_buffer.hpp"
 #include "defination.hpp"
@@ -32,7 +39,12 @@ struct socket_t {
         std::optional<ipv4_port_t> remote_info;
         std::shared_ptr<tcb_t>     tcb;
 
-        ssize_t readsome(std::span<std::byte> buf);
+        void async_read_some(std::span<std::byte>                                   buf,
+                             std::function<void(boost::system::error_code, size_t)> cb);
+        void async_write(std::span<std::byte const>                             buf,
+                         std::function<void(boost::system::error_code, size_t)> cb);
+
+        ssize_t read_some(std::span<std::byte> buf);
         ssize_t write(std::span<std::byte const> buf);
 };
 
@@ -41,9 +53,8 @@ struct listener_t {
         int                                                    fd;
         int                                                    state = SOCKET_UNCONNECTED;
         int                                                    proto;
-        mutable std::mutex                                     lock;
-        std::condition_variable                                cv;
         std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>> acceptors;
+        std::queue<std::function<void()>>                      on_acceptor_has_tcb;
         std::optional<ipv4_port_t>                             local_info;
 };
 

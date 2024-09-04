@@ -1,9 +1,9 @@
 #pragma once
 
 #include <chrono>
-#include <condition_variable>
+#include <functional>
 #include <memory>
-#include <mutex>
+#include <queue>
 
 #include "base_packet.hpp"
 #include "circle_buffer.hpp"
@@ -46,12 +46,9 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
         int                                                    next_state;
         std::optional<ipv4_port_t>                             remote_info;
         std::optional<ipv4_port_t>                             local_info;
-        mutable std::mutex                                     send_queue_lock;
-        std::condition_variable                                send_queue_cv;
         circle_buffer<raw_packet>                              send_queue;
-        mutable std::mutex                                     receive_queue_lock;
-        std::condition_variable                                receive_queue_cv;
         circle_buffer<raw_packet>                              receive_queue;
+        std::queue<std::function<void()>>                      on_data_receive;
         circle_buffer<tcp_packet_t>                            ctl_packets;
         send_state_t                                           send;
         receive_state_t                                        receive;
@@ -67,19 +64,18 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
               state(TCP_CLOSED) {}
 
         void enqueue_send(raw_packet packet) {
-                std::unique_lock l{send_queue_lock};
                 send_queue.push_back(std::move(packet));
                 active_self();
-                l.unlock();
-                send_queue_cv.notify_all();
         }
 
         void listen_finish() {
                 if (this->_listener && this->_listener->acceptors) {
-                        std::unique_lock l{this->_listener->lock};
                         _listener->acceptors->push_back(shared_from_this());
-                        l.unlock();
-                        this->_listener->cv.notify_all();
+                        if (!_listener->on_acceptor_has_tcb.empty()) {
+                                auto cb{std::move(_listener->on_acceptor_has_tcb.front())};
+                                _listener->on_acceptor_has_tcb.pop();
+                                cb();
+                        }
                 }
         }
 

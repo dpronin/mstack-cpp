@@ -2,14 +2,50 @@
 #include <cstdlib>
 
 #include <any>
+#include <array>
 #include <charconv>
-#include <future>
 #include <iostream>
 #include <syncstream>
+#include <utility>
 
 #include <boost/asio/io_context.hpp>
+#include <boost/system/detail/error_code.hpp>
 
 #include "mstack/api.hpp"
+
+namespace {
+
+void async_read(std::shared_ptr<mstack::socket_t>            csk,
+                std::shared_ptr<std::array<std::byte, 2000>> buf) {
+        auto* p_csk{csk.get()};
+        auto* p_buf{buf.get()};
+        p_csk->async_read_some(*p_buf, [csk = std::move(csk), buf = std::move(buf)](
+                                               boost::system::error_code const& ec, size_t nbytes) {
+                if (ec) return;
+                auto const msg{
+                        std::string_view{
+                                reinterpret_cast<char const*>(buf->data()),
+                                static_cast<size_t>(nbytes),
+                        },
+                };
+                std::osyncstream osync{std::cout};
+                osync << "read size: " << msg.size() << std::endl;
+                osync << msg << std::endl;
+                osync << std::endl;
+                async_read(std::move(csk), std::move(buf));
+        });
+}
+
+void do_accept(boost::asio::io_context& io_ctx, int fd) {
+        mstack::async_accept(
+                io_ctx, fd, [&io_ctx, fd](auto const& ec, std::shared_ptr<mstack::socket_t> csk) {
+                        assert(csk);
+                        async_read(std::move(csk), std::make_shared<std::array<std::byte, 2000>>());
+                        do_accept(io_ctx, fd);
+                });
+}
+
+}  // namespace
 
 int main(int argc, char* argv[]) {
         if (argc < 3) return EXIT_FAILURE;
@@ -39,32 +75,7 @@ int main(int argc, char* argv[]) {
         };
         mstack::listen(fd);
 
-        auto stack{std::async(std::launch::async, [&io_ctx] { io_ctx.run(); })};
+        do_accept(io_ctx, fd);
 
-        for (std::vector<std::future<void>> workers;;) {
-                auto const csk{mstack::accept(io_ctx, fd)};
-                assert(csk);
-                workers.push_back(std::async(
-                        std::launch::async,
-                        [](std::shared_ptr<mstack::socket_t> csk) {
-                                while (true) {
-                                        std::array<std::byte, 2000> buf;
-
-                                        if (ssize_t r{csk->readsome(buf)}; !(r < 0)) {
-                                                auto const msg{
-                                                        std::string_view{
-                                                                reinterpret_cast<char const*>(
-                                                                        buf.data()),
-                                                                static_cast<size_t>(r),
-                                                        },
-                                                };
-                                                std::osyncstream osync{std::cout};
-                                                osync << "read size: " << msg.size() << std::endl;
-                                                osync << msg << std::endl;
-                                                osync << std::endl;
-                                        }
-                                }
-                        },
-                        std::move(csk)));
-        }
+        io_ctx.run();
 }
