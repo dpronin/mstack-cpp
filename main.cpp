@@ -20,22 +20,21 @@ int main(int argc, char* argv[]) {
 
         std::any dev;
 
-        if (!(argc < 4) && std::string_view{argv[3]} == "TUN") {
+        if (!(argc < 4) && std::string_view{argv[1]} == "TUN") {
                 auto tundev{mstack::tun_dev_create(io_ctx)};
-                tundev->set_ipv4_addr(std::string_view{argv[1]});
-                tundev->capture("192.168.1.0/24");
+                tundev->capture(std::string_view{argv[2]});
                 dev = std::shared_ptr{std::move(tundev)};
         } else {
                 auto tapdev{mstack::tap_dev_create<1500>(io_ctx)};
-                tapdev->set_ipv4_addr(std::string_view{argv[1]});
+                tapdev->set_ipv4_addr(std::string_view{argv[2]});
                 tapdev->capture("192.168.1.0/24");
                 dev = std::shared_ptr{std::move(tapdev)};
         }
 
         uint16_t port{0};
-        std::from_chars(argv[2], argv[2] + strlen(argv[2]), port);
+        std::from_chars(argv[3], argv[3] + strlen(argv[3]), port);
 
-        int const fd{mstack::socket(mstack::tcp::PROTO, mstack::ipv4_addr_t(argv[1]), port)};
+        int const fd{mstack::socket(mstack::tcp::PROTO, mstack::ipv4_addr_t{argv[2]}, port)};
         mstack::listen(fd);
 
         auto stack{std::async(std::launch::async, [&io_ctx] { io_ctx.run(); })};
@@ -49,7 +48,7 @@ int main(int argc, char* argv[]) {
                                 while (true) {
                                         std::array<std::byte, 2000> buf;
 
-                                        if (ssize_t r{mstack::read(*csk, buf)}; !(r < 0)) {
+                                        if (ssize_t r{csk->read(buf)}; !(r < 0)) {
                                                 auto const msg{
                                                         std::string_view{
                                                                 reinterpret_cast<char const*>(

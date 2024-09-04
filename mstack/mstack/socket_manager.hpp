@@ -95,34 +95,6 @@ public:
 
                 return {};
         }
-
-        ssize_t read(socket_t& sk, std::span<std::byte> buf) {
-                std::unique_lock l1{lock};
-                if (!sockets.contains(sk.fd)) return -ENOENT;
-                l1.unlock();
-
-                assert(sk.tcb);
-
-                std::unique_lock l2{sk.tcb->receive_queue_lock};
-                sk.tcb->receive_queue_cv.wait(l2, [&sk] { return !sk.tcb->receive_queue.empty(); });
-                auto r_packet{
-                        std::move(sk.tcb->receive_queue.pop_front().value()),
-                };
-                l2.unlock();
-
-                return r_packet.buffer->export_data(buf);
-        }
-
-        ssize_t write(socket_t& sk, std::span<std::byte const> buf) {
-                std::unique_lock l{lock};
-                if (!sockets.contains(sk.fd)) return -1;
-                l.unlock();
-
-                assert(sk.tcb);
-                sk.tcb->enqueue_send({.buffer = std::make_unique<base_packet>(buf)});
-
-                return buf.size();
-        }
 };
 
 }  // namespace mstack

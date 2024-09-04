@@ -19,6 +19,9 @@ struct socket_t {
         std::optional<ipv4_port_t> local_info;
         std::optional<ipv4_port_t> remote_info;
         std::shared_ptr<tcb_t>     tcb;
+
+        ssize_t read(std::span<std::byte> buf);
+        ssize_t write(std::span<std::byte const> buf);
 };
 
 struct listener_t {

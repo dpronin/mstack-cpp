@@ -93,14 +93,4 @@ inline std::shared_ptr<socket_t> accept(int fd) {
         return socket_manager.accept(fd);
 }
 
-inline ssize_t read(socket_t& sk, std::span<std::byte> buf) {
-        auto& socket_manager{socket_manager::instance()};
-        return socket_manager.read(sk, buf);
-}
-
-inline ssize_t write(socket_t& sk, std::span<std::byte const> buf) {
-        auto& socket_manager{socket_manager::instance()};
-        return socket_manager.write(sk, buf);
-}
-
 }  // namespace mstack
