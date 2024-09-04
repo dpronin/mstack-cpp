@@ -107,8 +107,7 @@ public:
 
                 auto l{listeners[fd]};
 
-                l->on_acceptor_has_tcb.push([this, &io_ctx, wl = std::weak_ptr{l},
-                                             cb = std::move(cb)] {
+                auto f = [this, &io_ctx, wl = std::weak_ptr{l}, cb = std::move(cb)] {
                         if (auto l = wl.lock()) {
                                 assert(!l->acceptors->empty());
                                 for (int i = 1; i < 65535; i++) {
@@ -136,7 +135,12 @@ public:
                         cb(boost::system::errc::make_error_code(
                                    boost::system::errc::connection_reset),
                            {});
-                });
+                };
+
+                if (!l->on_acceptor_has_tcb.empty())
+                        io_ctx.post(f);
+                else
+                        l->on_acceptor_has_tcb.push(f);
         }
 };
 

@@ -11,17 +11,16 @@ namespace mstack {
 
 void socket_t::async_read_some(std::span<std::byte>                                   buf,
                                std::function<void(boost::system::error_code, size_t)> cb) {
-        if (!this->tcb->receive_queue.empty()) {
-                io_ctx.post([this, buf, cb = std::move(cb)] {
-                        auto pkt{this->tcb->receive_queue.pop_front().value()};
-                        cb({}, pkt.buffer->export_data(buf));
-                });
-        } else {
-                this->tcb->on_data_receive.push([this, buf, cb = std::move(cb)] {
-                        auto pkt{this->tcb->receive_queue.pop_front().value()};
-                        cb({}, pkt.buffer->export_data(buf));
-                });
-        }
+        auto f = [this, buf, cb = std::move(cb)] {
+                assert(!this->tcb->receive_queue.empty());
+                auto pkt{this->tcb->receive_queue.pop_front().value()};
+                cb({}, pkt.buffer->export_data(buf));
+        };
+
+        if (!this->tcb->receive_queue.empty())
+                io_ctx.post(f);
+        else
+                this->tcb->on_data_receive.push(f);
 }
 
 ssize_t socket_t::read_some(std::span<std::byte> buf) {
