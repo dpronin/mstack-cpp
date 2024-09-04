@@ -34,13 +34,15 @@ int main(int argc, char* argv[]) {
         uint16_t port{0};
         std::from_chars(argv[3], argv[3] + strlen(argv[3]), port);
 
-        int const fd{mstack::socket(mstack::tcp::PROTO, mstack::ipv4_addr_t{argv[2]}, port)};
+        int const fd{
+                mstack::socket(io_ctx, mstack::tcp::PROTO, mstack::ipv4_addr_t{argv[2]}, port),
+        };
         mstack::listen(fd);
 
         auto stack{std::async(std::launch::async, [&io_ctx] { io_ctx.run(); })};
 
         for (std::vector<std::future<void>> workers;;) {
-                auto const csk{mstack::accept(fd)};
+                auto const csk{mstack::accept(io_ctx, fd)};
                 assert(csk);
                 workers.push_back(std::async(
                         std::launch::async,
@@ -48,7 +50,7 @@ int main(int argc, char* argv[]) {
                                 while (true) {
                                         std::array<std::byte, 2000> buf;
 
-                                        if (ssize_t r{csk->read(buf)}; !(r < 0)) {
+                                        if (ssize_t r{csk->readsome(buf)}; !(r < 0)) {
                                                 auto const msg{
                                                         std::string_view{
                                                                 reinterpret_cast<char const*>(

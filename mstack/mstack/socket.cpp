@@ -10,7 +10,7 @@
 
 namespace mstack {
 
-ssize_t socket_t::read(std::span<std::byte> buf) {
+ssize_t socket_t::readsome(std::span<std::byte> buf) {
         assert(this->tcb);
 
         std::unique_lock l2{this->tcb->receive_queue_lock};

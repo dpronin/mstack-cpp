@@ -3,6 +3,8 @@
 #include <mutex>
 #include <unordered_map>
 
+#include <boost/asio/io_context.hpp>
+
 #include "defination.hpp"
 #include "socket.hpp"
 #include "tcb_manager.hpp"
@@ -28,7 +30,10 @@ public:
                 return instance;
         }
 
-        int register_socket(int proto, ipv4_addr_t ipv4_addr, port_addr_t port_addr) {
+        int register_socket(boost::asio::io_context& io_ctx,
+                            int                      proto,
+                            ipv4_addr_t              ipv4_addr,
+                            port_addr_t              port_addr) {
                 for (int i = 1; i < 65535; i++) {
                         if (!sockets.contains(i)) {
                                 ipv4_port_t local_info{
@@ -36,7 +41,7 @@ public:
                                         .port_addr = port_addr,
                                 };
 
-                                std::shared_ptr<socket_t> socket = std::make_shared<socket_t>();
+                                auto socket{std::make_shared<socket_t>(io_ctx)};
 
                                 socket->proto      = proto;
                                 socket->local_info = local_info;
@@ -64,7 +69,7 @@ public:
                 return 0;
         };
 
-        std::shared_ptr<socket_t> accept(int fd) {
+        std::shared_ptr<socket_t> accept(boost::asio::io_context& io_ctx, int fd) {
                 if (!listeners.contains(fd)) return {};
 
                 auto listener{listeners[fd]};
@@ -75,7 +80,7 @@ public:
                 for (int i = 1; i < 65535; i++) {
                         if (!sockets.contains(i)) {
                                 if (auto tcb{listener->acceptors->pop_front().value()}) {
-                                        auto socket{std::make_shared<socket_t>()};
+                                        auto socket{std::make_shared<socket_t>(io_ctx)};
 
                                         socket->local_info  = tcb->local_info;
                                         socket->remote_info = tcb->remote_info;

@@ -78,9 +78,12 @@ inline std::unique_ptr<tun> tun_dev_create(boost::asio::io_context& io_ctx) {
         return dev;
 }
 
-inline int socket(int proto, ipv4_addr_t ipv4_addr, port_addr_t port_addr) {
+inline int socket(boost::asio::io_context& io_ctx,
+                  int                      proto,
+                  ipv4_addr_t              ipv4_addr,
+                  port_addr_t              port_addr) {
         auto& socket_manager{socket_manager::instance()};
-        return socket_manager.register_socket(proto, ipv4_addr, port_addr);
+        return socket_manager.register_socket(io_ctx, proto, ipv4_addr, port_addr);
 }
 
 inline int listen(int fd) {
@@ -88,9 +91,9 @@ inline int listen(int fd) {
         return socket_manager.listen(fd);
 }
 
-inline std::shared_ptr<socket_t> accept(int fd) {
+inline std::shared_ptr<socket_t> accept(boost::asio::io_context& io_ctx, int fd) {
         auto& socket_manager{socket_manager::instance()};
-        return socket_manager.accept(fd);
+        return socket_manager.accept(io_ctx, fd);
 }
 
 }  // namespace mstack
