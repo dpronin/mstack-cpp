@@ -15,12 +15,13 @@
 
 namespace {
 
-void async_read(std::shared_ptr<mstack::socket_t>            csk,
-                std::shared_ptr<std::array<std::byte, 2000>> buf) {
+void async_read_and_echo(std::shared_ptr<mstack::socket_t>            csk,
+                         std::shared_ptr<std::array<std::byte, 2000>> buf) {
         auto* p_csk{csk.get()};
         auto* p_buf{buf.get()};
         p_csk->async_read_some(*p_buf, [csk = std::move(csk), buf = std::move(buf)](
-                                               boost::system::error_code const& ec, size_t nbytes) {
+                                               boost::system::error_code const& ec,
+                                               size_t                           nbytes) mutable {
                 if (ec) return;
                 auto const msg{
                         std::string_view{
@@ -31,8 +32,15 @@ void async_read(std::shared_ptr<mstack::socket_t>            csk,
                 std::osyncstream osync{std::cout};
                 osync << "read size: " << msg.size() << std::endl;
                 osync << msg << std::endl;
-                osync << std::endl;
-                async_read(std::move(csk), std::move(buf));
+                osync << "echoing..." << std::endl;
+                auto* p_csk{csk.get()};
+                p_csk->async_write(
+                        std::as_bytes(std::span{msg}),
+                        [csk = std::move(csk), buf = std::move(buf)](
+                                boost::system::error_code const& ec, size_t nbytes) mutable {
+                                if (ec) return;
+                                async_read_and_echo(std::move(csk), std::move(buf));
+                        });
         });
 }
 
@@ -40,7 +48,8 @@ void do_accept(boost::asio::io_context& io_ctx, int fd) {
         mstack::async_accept(
                 io_ctx, fd, [&io_ctx, fd](auto const& ec, std::shared_ptr<mstack::socket_t> csk) {
                         assert(csk);
-                        async_read(std::move(csk), std::make_shared<std::array<std::byte, 2000>>());
+                        async_read_and_echo(std::move(csk),
+                                            std::make_shared<std::array<std::byte, 2000>>());
                         do_accept(io_ctx, fd);
                 });
 }
