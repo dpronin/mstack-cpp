@@ -112,6 +112,8 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
                 out_tcp.ack_no   = receive.next;
                 out_tcp.seq_no   = send.unacknowledged;
 
+                send.next += pkt.size();
+
                 // TODO
                 out_tcp.window_size   = 0xFAF0;
                 out_tcp.header_length = (tcp_header_t::size() + option_len) / 4;

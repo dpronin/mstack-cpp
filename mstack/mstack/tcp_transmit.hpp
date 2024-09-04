@@ -723,13 +723,14 @@ public:
                                         raw_packet r_packet = {.buffer = std::move(out_buffer)};
 
                                         in_tcb->receive_queue.push_back(std::move(r_packet));
-                                        in_tcb->active_self();
 
                                         if (!in_tcb->on_data_receive.empty()) {
                                                 auto cb{std::move(in_tcb->on_data_receive.front())};
                                                 in_tcb->on_data_receive.pop();
                                                 cb();
                                         }
+
+                                        if (in_tcb->_active_tcbs->empty()) in_tcb->active_self();
 
                                         break;
                                 }

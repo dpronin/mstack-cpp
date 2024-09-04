@@ -57,10 +57,12 @@ public:
                 if (!two_end.remote_info || !two_end.local_info) {
                         SPDLOG_CRITICAL("[EMPTY TCB]");
                 }
-                std::shared_ptr<tcb_t> tcb = std::make_shared<tcb_t>(this->active_tcbs, listener,
-                                                                     two_end.remote_info.value(),
-                                                                     two_end.local_info.value());
-                tcbs[two_end]              = tcb;
+                auto tcb{
+                        std::make_shared<tcb_t>(this->active_tcbs, listener,
+                                                two_end.remote_info.value(),
+                                                two_end.local_info.value()),
+                };
+                tcbs[two_end] = tcb;
         }
 
         void receive(tcp_packet_t in_packet) {
