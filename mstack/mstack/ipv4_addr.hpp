@@ -42,6 +42,8 @@ public:
                                      (ipv4._ipv4 >> 0) & 0xFF);
                 return out;
         }
+
+        std::string to_string() const { return (std::ostringstream{} << *this).str(); }
 };
 
 }  // namespace mstack

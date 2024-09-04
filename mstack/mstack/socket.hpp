@@ -22,6 +22,13 @@ namespace mstack {
 struct tcb_t;
 
 struct socket_t {
+        struct endpoint {
+                ipv4_port_t ep;
+
+                ipv4_addr_t address() const { return ep.ipv4_addr.value(); }
+                port_addr_t port() const { return ep.port_addr.value(); }
+        };
+
         explicit socket_t(boost::asio::io_context& io_ctx) : io_ctx(io_ctx) {}
         ~socket_t() = default;
 
@@ -43,6 +50,9 @@ struct socket_t {
                              std::function<void(boost::system::error_code, size_t)> cb);
         void async_write(std::span<std::byte const>                             buf,
                          std::function<void(boost::system::error_code, size_t)> cb);
+
+        endpoint local_endpoint() const { return {local_info.value()}; }
+        endpoint remote_endpoint() const { return {remote_info.value()}; }
 };
 
 struct listener_t {
