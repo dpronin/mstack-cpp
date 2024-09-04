@@ -43,9 +43,6 @@ struct socket_t {
                              std::function<void(boost::system::error_code, size_t)> cb);
         void async_write(std::span<std::byte const>                             buf,
                          std::function<void(boost::system::error_code, size_t)> cb);
-
-        ssize_t read_some(std::span<std::byte> buf);
-        ssize_t write(std::span<std::byte const> buf);
 };
 
 struct listener_t {
