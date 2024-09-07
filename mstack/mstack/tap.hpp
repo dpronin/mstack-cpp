@@ -75,8 +75,7 @@ private:
 
         void async_read() {
                 _pfd.async_read_some(
-                        boost::asio::mutable_buffer(_rbuf.data(), _rbuf.size()),
-                        [this](auto const& ec, size_t nbytes) {
+                        boost::asio::buffer(_rbuf), [this](auto const& ec, size_t nbytes) {
                                 if (ec) return;
 
                                 if (_receiver_func) {

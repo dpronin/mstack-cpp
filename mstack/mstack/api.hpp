@@ -104,4 +104,9 @@ void async_write(socket_t& sk, Args&&... args) {
         sk.async_write(std::forward<Args>(args)...);
 }
 
+template <typename... Args>
+void async_read(socket_t& sk, Args&&... args) {
+        sk.async_read(std::forward<Args>(args)...);
+}
+
 }  // namespace mstack

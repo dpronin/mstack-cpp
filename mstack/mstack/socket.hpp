@@ -46,13 +46,25 @@ struct socket_t {
         std::optional<ipv4_port_t> remote_info;
         std::shared_ptr<tcb_t>     tcb;
 
-        void async_read_some(std::span<std::byte>                                   buf,
-                             std::function<void(boost::system::error_code, size_t)> cb);
-        void async_write(std::span<std::byte const>                             buf,
-                         std::function<void(boost::system::error_code, size_t)> cb);
+        void async_read_some(std::span<std::byte>                                          buf,
+                             std::function<void(boost::system::error_code const&, size_t)> cb);
+
+        void async_read(std::span<std::byte>                                          buf,
+                        std::function<void(boost::system::error_code const&, size_t)> cb);
+
+        void async_write_some(std::span<std::byte const>                                    buf,
+                              std::function<void(boost::system::error_code const&, size_t)> cb);
+
+        void async_write(std::span<std::byte const>                                    buf,
+                         std::function<void(boost::system::error_code const&, size_t)> cb);
 
         endpoint local_endpoint() const { return {local_info.value()}; }
+
         endpoint remote_endpoint() const { return {remote_info.value()}; }
+
+private:
+        void async_read_complete(std::span<std::byte>                                          buf,
+                                 std::function<void(boost::system::error_code const&, size_t)> cb);
 };
 
 struct listener_t {

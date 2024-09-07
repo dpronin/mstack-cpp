@@ -88,7 +88,7 @@ inline int set_interface_route(std::string_view dev, std::string_view cidr) {
                 },
         };
         ::nl_addr* pdst{nullptr};
-        if (auto const r{nl_addr_parse(cidr.data(), AF_INET, &pdst)}; !(r < 0)) {
+        if (auto const r{nl_addr_parse(std::string{cidr}.data(), AF_INET, &pdst)}; !(r < 0)) {
                 dst.reset(std::exchange(pdst, nullptr));
         } else {
                 return r;
@@ -112,7 +112,8 @@ inline int set_interface_route(std::string_view dev, std::string_view cidr) {
                 },
         };
         ::rtnl_link* p_link{nullptr};
-        if (auto const r{rtnl_link_get_kernel(sock.get(), 0, dev.data(), &p_link)}; !(r < 0)) {
+        if (auto const r{rtnl_link_get_kernel(sock.get(), 0, std::string{dev}.data(), &p_link)};
+            !(r < 0)) {
                 link.reset(std::exchange(p_link, nullptr));
         } else {
                 return r;

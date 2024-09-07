@@ -102,7 +102,7 @@ public:
         void async_accept(
                 boost::asio::io_context&                                                  io_ctx,
                 int                                                                       fd,
-                std::function<void(boost::system::error_code, std::shared_ptr<socket_t>)> cb) {
+                std::function<void(boost::system::error_code const&, std::shared_ptr<socket_t>)> cb) {
                 if (!listeners.contains(fd)) return;
 
                 auto l{listeners[fd]};
