@@ -23,7 +23,7 @@ struct arp_cache_t {
         }
 
         void update(ipv4_addr_t const& ipv4_addr, mac_addr_t const& mac_addr) {
-                spdlog::debug("[ADD ARP CACHE] {}:{}", ipv4_addr, mac_addr);
+                spdlog::debug("[ADD ARP CACHE] {} -> {}", ipv4_addr, mac_addr);
                 arp_cache[ipv4_addr] = mac_addr;
         }
 

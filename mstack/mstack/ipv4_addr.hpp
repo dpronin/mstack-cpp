@@ -34,7 +34,7 @@ public:
 
         void consume(std::byte*& ptr) { _ipv4 = utils::consume<uint32_t>(ptr); }
 
-        void produce(std::byte*& ptr) { utils::produce<uint32_t>(ptr, _ipv4); }
+        void produce(std::byte*& ptr) const { utils::produce<uint32_t>(ptr, _ipv4); }
 
         friend std::ostream& operator<<(std::ostream& out, ipv4_addr_t ipv4) {
                 out << utils::format("{}.{}.{}.{}", (ipv4._ipv4 >> 24) & 0xFF,

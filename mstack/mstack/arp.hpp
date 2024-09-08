@@ -5,7 +5,7 @@
 #include "arp_cache.hpp"
 #include "arp_header.hpp"
 #include "base_protocol.hpp"
-#include "defination.hpp"
+#include "mac_addr.hpp"
 #include "packets.hpp"
 
 #include <spdlog/spdlog.h>
@@ -26,44 +26,74 @@ public:
 
         void add(std::pair<ipv4_addr_t, mac_addr_t> const& kv) { arp_cache.update(kv); }
 
-        void send_reply(arpv4_header_t const& in_arp) {
-                auto const& dev_mac_addr{arp_cache.query(in_arp.dst_ipv4_addr)};
+        void send_reply(arpv4_header_t const& in_arp, mac_addr_t const& sha) {
+                arpv4_header_t const out_arp = {
+                        .htype = 0x0001,
+                        .ptype = 0x0800,
+                        .hlen  = 0x06,
+                        .plen  = 0x04,
+                        .oper  = 0x02,
+                        .sha   = sha,
+                        .spa   = in_arp.tpa,
+                        .tha   = in_arp.sha,
+                        .tpa   = in_arp.spa,
+                };
 
-                struct arpv4_header_t out_arp;
-                out_arp.hw_type    = 0x0001;
-                out_arp.proto_type = 0x0800;
-                out_arp.hw_size    = 0x06;
-                out_arp.proto_size = 0x04;
-                out_arp.opcode     = 0x02;
-
-                out_arp.src_mac_addr  = dev_mac_addr.value();
-                out_arp.src_ipv4_addr = in_arp.dst_ipv4_addr;
-                out_arp.dst_mac_addr  = in_arp.src_mac_addr;
-                out_arp.dst_ipv4_addr = in_arp.src_ipv4_addr;
-
-                arp_cache.update(in_arp.src_ipv4_addr, in_arp.src_mac_addr);
+                arp_cache.update(in_arp.spa, in_arp.sha);
 
                 auto out_buffer{std::make_unique<base_packet>(arpv4_header_t::size())};
                 out_arp.produce(out_buffer->get_pointer());
 
                 ethernetv2_packet out_packet = {
-                        .src_mac_addr = out_arp.src_mac_addr,
-                        .dst_mac_addr = out_arp.dst_mac_addr,
+                        .src_mac_addr = out_arp.sha,
+                        .dst_mac_addr = out_arp.tha,
                         .proto        = PROTO,
                         .buffer       = std::move(out_buffer),
                 };
 
-                this->enter_send_queue(std::move(out_packet));
+                enter_send_queue(std::move(out_packet));
 
                 spdlog::debug("[ARP] SEND ARP REPLY {}", out_arp);
-        };
+        }
+
+        void send_request(mac_addr_t const& sha, ipv4_addr_t const& spa, ipv4_addr_t const& tpa) {
+                arpv4_header_t const out_arp = {
+                        .htype = 0x0001,
+                        .ptype = 0x0800,
+                        .hlen  = 0x06,
+                        .plen  = 0x04,
+                        .oper  = 0x01,
+                        .sha   = sha,
+                        .spa   = spa,
+                        .tha   = std::array<uint8_t, 6>{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+                        .tpa   = tpa,
+                };
+
+                auto out_buffer{std::make_unique<base_packet>(arpv4_header_t::size())};
+                out_arp.produce(out_buffer->get_pointer());
+
+                ethernetv2_packet out_packet = {
+                        .src_mac_addr = out_arp.sha,
+                        .dst_mac_addr = out_arp.tha,
+                        .proto        = PROTO,
+                        .buffer       = std::move(out_buffer),
+                };
+
+                enter_send_queue(std::move(out_packet));
+
+                spdlog::debug("[ARP] SEND ARP REQUEST {}", out_arp);
+        }
 
         std::optional<ipv4_packet> make_packet(ethernetv2_packet&& in_packet) override {
                 auto const in_arp{
                         arpv4_header_t::consume(in_packet.buffer->get_pointer()),
                 };
 
-                if (in_arp.opcode == 0x0001) send_reply(in_arp);
+                if (in_arp.oper == 0x01) {
+                        if (auto const& dev_mac_addr{arp_cache.query(in_arp.tpa)}) {
+                                send_reply(in_arp, *dev_mac_addr);
+                        }
+                }
 
                 return std::nullopt;
         }

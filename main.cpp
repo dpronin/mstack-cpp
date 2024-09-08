@@ -11,6 +11,9 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/system/detail/error_code.hpp>
 
+#include <spdlog/common.h>
+#include <spdlog/spdlog.h>
+
 #include "mstack/api.hpp"
 
 namespace {
@@ -59,6 +62,8 @@ void do_accept(boost::asio::io_context& io_ctx, int fd) {
 int main(int argc, char* argv[]) {
         if (argc < 3) return EXIT_FAILURE;
 
+        spdlog::set_level(spdlog::level::debug);
+
         mstack::init_stack();
 
         boost::asio::io_context io_ctx;
@@ -72,7 +77,7 @@ int main(int argc, char* argv[]) {
         } else {
                 auto tapdev{mstack::tap_dev_create<1500>(io_ctx)};
                 tapdev->set_ipv4_addr(std::string_view{argv[2]});
-                tapdev->capture("192.168.1.0/24");
+                tapdev->capture(std::string_view{argv[2]});
                 dev = std::shared_ptr{std::move(tapdev)};
         }
 

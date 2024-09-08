@@ -17,15 +17,15 @@
 namespace mstack {
 
 struct arpv4_header_t {
-        uint16_t    hw_type    = 0;
-        uint16_t    proto_type = 0;
-        uint8_t     hw_size    = 0;
-        uint8_t     proto_size = 0;
-        uint16_t    opcode     = 0;
-        mac_addr_t  src_mac_addr;
-        ipv4_addr_t src_ipv4_addr;
-        mac_addr_t  dst_mac_addr;
-        ipv4_addr_t dst_ipv4_addr;
+        uint16_t    htype;
+        uint16_t    ptype;
+        uint8_t     hlen;
+        uint8_t     plen;
+        uint16_t    oper;
+        mac_addr_t  sha;
+        ipv4_addr_t spa;
+        mac_addr_t  tha;
+        ipv4_addr_t tpa;
 
         static constexpr size_t size() {
                 return 2 + 2 + 1 + 1 + 2 + mac_addr_t::size() * 2 + ipv4_addr_t::size() * 2;
@@ -33,34 +33,35 @@ struct arpv4_header_t {
 
         static arpv4_header_t consume(std::byte* ptr) {
                 arpv4_header_t arpv4_header;
-                arpv4_header.hw_type    = utils::consume<uint16_t>(ptr);
-                arpv4_header.proto_type = utils::consume<uint16_t>(ptr);
-                arpv4_header.hw_size    = utils::consume<uint8_t>(ptr);
-                arpv4_header.proto_size = utils::consume<uint8_t>(ptr);
-                arpv4_header.opcode     = utils::consume<uint16_t>(ptr);
-                arpv4_header.src_mac_addr.consume(ptr);
-                arpv4_header.src_ipv4_addr.consume(ptr);
-                arpv4_header.dst_mac_addr.consume(ptr);
-                arpv4_header.dst_ipv4_addr.consume(ptr);
+                arpv4_header.htype = utils::consume<uint16_t>(ptr);
+                arpv4_header.ptype = utils::consume<uint16_t>(ptr);
+                arpv4_header.hlen  = utils::consume<uint8_t>(ptr);
+                arpv4_header.plen  = utils::consume<uint8_t>(ptr);
+                arpv4_header.oper  = utils::consume<uint16_t>(ptr);
+                arpv4_header.sha.consume(ptr);
+                arpv4_header.spa.consume(ptr);
+                arpv4_header.tha.consume(ptr);
+                arpv4_header.tpa.consume(ptr);
                 return arpv4_header;
         }
 
-        void produce(std::byte* ptr) {
-                utils::produce<uint16_t>(ptr, hw_type);
-                utils::produce<uint16_t>(ptr, proto_type);
-                utils::produce<uint8_t>(ptr, hw_size);
-                utils::produce<uint8_t>(ptr, proto_size);
-                utils::produce<uint16_t>(ptr, opcode);
-                src_mac_addr.produce(ptr);
-                src_ipv4_addr.produce(ptr);
-                dst_mac_addr.produce(ptr);
-                dst_ipv4_addr.produce(ptr);
+        void produce(std::byte* ptr) const {
+                utils::produce<uint16_t>(ptr, htype);
+                utils::produce<uint16_t>(ptr, ptype);
+                utils::produce<uint8_t>(ptr, hlen);
+                utils::produce<uint8_t>(ptr, plen);
+                utils::produce<uint16_t>(ptr, oper);
+                this->sha.produce(ptr);
+                this->spa.produce(ptr);
+                this->tha.produce(ptr);
+                this->tpa.produce(ptr);
         }
 
         friend std::ostream& operator<<(std::ostream& out, arpv4_header_t const& m) {
-                out << m.opcode << " ";
-                out << m.src_mac_addr << " " << m.src_ipv4_addr;
-                out << " -> " << m.dst_mac_addr << " " << m.dst_ipv4_addr;
+                out << "op=" << m.oper;
+                out << ", { sha=" << m.sha << ", spa=" << m.spa << " }";
+                out << " -> ";
+                out << "{ tha=" << m.tha << ", tpa=" << m.tpa << " }";
                 return out;
         }
 };
