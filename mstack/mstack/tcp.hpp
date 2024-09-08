@@ -20,20 +20,17 @@ public:
                 sum += utils::ntoh(in_packet.proto);
                 sum += utils::ntoh((uint16_t)in_packet.buffer->get_remaining_len());
 
-                tcp_header_t tcp_header{
-                        tcp_header_t::consume(
-                                reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer())),
-                };
+                tcp_header_t tcp_header{tcp_header_t::consume(in_packet.buffer->get_pointer())};
 
-                uint16_t checksum{
+                uint16_t const checksum{
                         utils::checksum(
-                                {reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer()),
+                                {in_packet.buffer->get_pointer(),
                                  static_cast<size_t>(in_packet.buffer->get_remaining_len())},
                                 sum),
                 };
 
                 tcp_header.checksum = checksum;
-                tcp_header.produce(reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer()));
+                tcp_header.produce(in_packet.buffer->get_pointer());
 
                 ipv4_packet out_ipv4{
                         .src_ipv4_addr = in_packet.local_info->ipv4_addr.value(),
@@ -46,12 +43,9 @@ public:
         }
 
         std::optional<tcp_packet_t> make_packet(ipv4_packet&& in_packet) override {
-                auto tcp_header{
-                        tcp_header_t::consume(
-                                reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer())),
-                };
+                auto const tcp_header{tcp_header_t::consume(in_packet.buffer->get_pointer())};
 
-                SPDLOG_DEBUG("[RECEIVE] {}", tcp_header);
+                spdlog::debug("[RECEIVE] {}", tcp_header);
 
                 ipv4_port_t remote_info{
                         .ipv4_addr = in_packet.src_ipv4_addr.value(),

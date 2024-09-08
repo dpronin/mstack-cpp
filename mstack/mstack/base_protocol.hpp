@@ -5,8 +5,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include <spdlog/spdlog.h>
+
 #include "circle_buffer.hpp"
-#include "logger.hpp"
 #include "packets.hpp"
 
 namespace mstack {
@@ -61,7 +62,7 @@ public:
 
         void dispatch(UpperPacketType&& in_packet) {
                 if (this->_protocols.find(in_packet.proto) == this->_protocols.end()) {
-                        SPDLOG_DEBUG("[UNKNOWN PACKET] {:X}", in_packet.proto);
+                        spdlog::debug("[UNKNOWN PACKET] {:X}", in_packet.proto);
                         return;
                 }
                 auto const proto{in_packet.proto};
@@ -129,7 +130,7 @@ public:
 
         void dispatch(UpperPacketType&& in_packet) {
                 if (this->_protocols.find(in_packet.proto) == this->_protocols.end()) {
-                        SPDLOG_DEBUG("[UNKNOWN PACKET] {:X}", in_packet.proto);
+                        spdlog::debug("[UNKNOWN PACKET] {:X}", in_packet.proto);
                         return;
                 }
                 auto const proto{in_packet.proto};

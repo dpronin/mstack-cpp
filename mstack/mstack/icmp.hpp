@@ -1,8 +1,9 @@
 #include <cstdint>
 
+#include <spdlog/spdlog.h>
+
 #include "base_protocol.hpp"
 #include "icmp_header.hpp"
-#include "logger.hpp"
 #include "packets.hpp"
 
 namespace mstack {
@@ -13,9 +14,10 @@ public:
 
         int id() override { return PROTO; }
 
-        void make_icmp_reply(ipv4_packet& in_packet) {
-                icmp_header_t in_icmp_header{icmp_header_t::consume(
-                        reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer()))};
+        void make_icmp_reply(ipv4_packet const& in_packet) {
+                icmp_header_t const in_icmp_header{
+                        icmp_header_t::consume(in_packet.buffer->get_pointer()),
+                };
 
                 icmp_header_t out_icmp_header;
                 out_icmp_header.seq = in_icmp_header.seq;
@@ -23,32 +25,34 @@ public:
                 int total_len       = in_packet.buffer->get_remaining_len();
 
                 std::unique_ptr<base_packet> out_buffer = std::make_unique<base_packet>(total_len);
-                uint8_t*                     payload_pointer{out_icmp_header.produce(
-                        reinterpret_cast<uint8_t*>(out_buffer->get_pointer()))};
+
+                std::byte* payload_pointer{
+                        out_icmp_header.produce(out_buffer->get_pointer()),
+                };
+
                 in_packet.buffer->export_payload(payload_pointer, icmp_header_t::size());
 
-                uint8_t* pointer  = reinterpret_cast<uint8_t*>(out_buffer->get_pointer());
-                uint16_t checksum = utils::checksum(
+                std::byte* pointer  = out_buffer->get_pointer();
+                uint16_t   checksum = utils::checksum(
                         {pointer, static_cast<size_t>(out_buffer->get_remaining_len())}, 0);
 
                 out_icmp_header.checksum = checksum;
                 out_icmp_header.produce(pointer);
 
-                SPDLOG_DEBUG("{}", out_icmp_header);
+                spdlog::debug("{}", out_icmp_header);
                 ipv4_packet out_packet = {.src_ipv4_addr = in_packet.dst_ipv4_addr,
                                           .dst_ipv4_addr = in_packet.src_ipv4_addr,
                                           .proto         = in_packet.proto,
                                           .buffer        = std::move(out_buffer)};
-                SPDLOG_DEBUG("[SEND ICMP REPLY]");
+                spdlog::debug("[SEND ICMP REPLY]");
                 this->enter_send_queue(std::move(out_packet));
         }
 
         std::optional<nop_packet> make_packet(ipv4_packet&& in_packet) override {
-                icmp_header_t in_icmp_header{
-                        icmp_header_t::consume(
-                                reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer())),
+                icmp_header_t const in_icmp_header{
+                        icmp_header_t::consume(in_packet.buffer->get_pointer()),
                 };
-                SPDLOG_DEBUG("[RECEIVED ICMP] {}", in_icmp_header);
+                spdlog::debug("[RECEIVED ICMP] {}", in_icmp_header);
                 if (in_icmp_header.proto_type == 0x08) {
                         make_icmp_reply(in_packet);
                 }

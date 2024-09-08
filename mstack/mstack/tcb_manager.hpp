@@ -53,9 +53,9 @@ public:
         }
 
         void register_tcb(two_ends_t& two_end, std::shared_ptr<listener_t> listener) {
-                SPDLOG_DEBUG("[REGISTER TCB] {}", two_end);
+                spdlog::debug("[REGISTER TCB] {}", two_end);
                 if (!two_end.remote_info || !two_end.local_info) {
-                        SPDLOG_CRITICAL("[EMPTY TCB]");
+                        spdlog::critical("[EMPTY TCB]");
                 }
                 auto tcb{
                         std::make_shared<tcb_t>(this->active_tcbs, listener,
@@ -79,11 +79,11 @@ public:
                                 tcbs[two_end]->next_state = TCP_LISTEN;
                                 tcp_transmit::tcp_in(tcbs[two_end], in_packet);
                         } else {
-                                SPDLOG_ERROR("[REGISTER TCB FAIL]");
+                                spdlog::error("[REGISTER TCB FAIL]");
                         }
 
                 } else {
-                        SPDLOG_WARN("[RECEIVE UNKNOWN TCP PACKET]");
+                        spdlog::warn("[RECEIVE UNKNOWN TCP PACKET]");
                 }
         }
 };

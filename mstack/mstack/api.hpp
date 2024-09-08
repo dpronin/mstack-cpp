@@ -67,8 +67,6 @@ inline std::unique_ptr<tap<MTU>> tap_dev_create(boost::asio::io_context& io_ctx)
 
         dev->register_upper_protocol(ethernetv2::instance());
 
-        arp::instance().register_dev(*dev);
-
         return dev;
 }
 

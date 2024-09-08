@@ -1,5 +1,13 @@
 #pragma once
 
+#include <cstdint>
+
+#include <ostream>
+#include <sstream>
+#include <string>
+
+#include <fmt/format.h>
+
 #include "utils.hpp"
 
 namespace mstack {
@@ -13,7 +21,7 @@ struct icmp_header_t {
 
         static constexpr size_t size() { return 1 + 1 + 2 + 2 + 2; }
 
-        static icmp_header_t consume(uint8_t* ptr) {
+        static icmp_header_t consume(std::byte* ptr) {
                 icmp_header_t icmp_header;
                 icmp_header.proto_type = utils::consume<uint8_t>(ptr);
                 icmp_header.code       = utils::consume<uint8_t>(ptr);
@@ -23,7 +31,7 @@ struct icmp_header_t {
                 return icmp_header;
         }
 
-        uint8_t* produce(uint8_t* ptr) {
+        std::byte* produce(std::byte* ptr) {
                 utils::produce<uint8_t>(ptr, proto_type);
                 utils::produce<uint8_t>(ptr, code);
                 utils::produce<uint16_t>(ptr, checksum);

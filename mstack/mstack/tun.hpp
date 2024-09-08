@@ -75,10 +75,10 @@ private:
                                 if (ec) return;
 
                                 if (_receiver_func) {
-                                        SPDLOG_DEBUG("[TUN RECEIVE] {}", nbytes);
+                                        spdlog::debug("[TUN RECEIVE] {}", nbytes);
                                         _receiver_func(encode_raw_packet({_rbuf.data(), nbytes}));
                                 } else {
-                                        SPDLOG_CRITICAL("[NO RECEIVER FUNC]");
+                                        spdlog::critical("[NO RECEIVER FUNC]");
                                 }
 
                                 async_read();
@@ -87,7 +87,7 @@ private:
 
         void async_write(raw_packet& pkt) {
                 auto const len{decode_raw_packet(pkt, _wbuf)};
-                SPDLOG_DEBUG("[TUN WRITE] {}", len);
+                spdlog::debug("[TUN WRITE] {}", len);
                 boost::asio::async_write(this->_pfd, boost::asio::buffer(_wbuf, len),
                                          [this](auto const& ec, size_t nbytes) {
                                                  if (!ec) notify_to_write();
@@ -100,21 +100,21 @@ private:
                 };
 
                 if (!fd) {
-                        SPDLOG_CRITICAL("[INIT FAIL]");
+                        spdlog::critical("[INIT FAIL]");
                         return;
                 }
 
                 // ? something error
                 _fd = std::move(fd.value());
 
-                SPDLOG_DEBUG("[DEV FD] {}", _fd.get_fd());
+                spdlog::debug("[DEV FD] {}", _fd.get_fd());
 
                 ifreq ifr{};
 
                 ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
 
                 if (int err{_fd.ioctl(TUNSETIFF, ifr)}; err < 0) {
-                        SPDLOG_CRITICAL("[INIT FAIL]");
+                        spdlog::critical("[INIT FAIL]");
                         return;
                 }
 
@@ -122,7 +122,7 @@ private:
                           std::back_inserter(_ndev));
 
                 if (utils::set_interface_up(_ndev) != 0) {
-                        SPDLOG_CRITICAL("[SET UP] {}", _ndev);
+                        spdlog::critical("[SET UP] {}", _ndev);
                         return;
                 }
 

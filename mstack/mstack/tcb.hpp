@@ -125,9 +125,8 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
 
                 if (this->next_state == TCP_SYN_RECEIVED) out_tcp.SYN = 1;
 
-                std::ranges::copy(
-                        pkt, out_buffer->get_pointer() + out_tcp.produce(reinterpret_cast<uint8_t*>(
-                                                                 out_buffer->get_pointer())));
+                std::ranges::copy(pkt, out_buffer->get_pointer() +
+                                               out_tcp.produce(out_buffer->get_pointer()));
 
                 tcp_packet_t out_packet{
                         .proto       = 0x06,

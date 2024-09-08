@@ -39,7 +39,7 @@ struct ipv4_header_t {
                 return 1 + 1 + 2 + 2 + 2 + 1 + 1 + 2 + ipv4_addr_t::size() * 2;
         }
 
-        static ipv4_header_t consume(uint8_t* ptr) {
+        static ipv4_header_t consume(std::byte* ptr) {
                 ipv4_header_t ipv4_header;
                 uint8_t       version_header_length = utils::consume<uint8_t>(ptr);
                 ipv4_header.version                 = version_header_length >> 4;
@@ -60,7 +60,7 @@ struct ipv4_header_t {
                 return ipv4_header;
         }
 
-        void produce(uint8_t* ptr) {
+        void produce(std::byte* ptr) {
                 utils::produce<uint8_t>(ptr, version << 4 | header_length);
                 utils::produce<uint8_t>(ptr, type_of_service);
                 utils::produce<uint16_t>(ptr, total_length);

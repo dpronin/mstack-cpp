@@ -1,7 +1,16 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+
+#include <ostream>
+#include <sstream>
+#include <string>
+
+#include <fmt/format.h>
+#include <spdlog/spdlog.h>
+
 #include "ipv4_addr.hpp"
-#include "logger.hpp"
 #include "mac_addr.hpp"
 #include "utils.hpp"
 
@@ -22,7 +31,7 @@ struct arpv4_header_t {
                 return 2 + 2 + 1 + 1 + 2 + mac_addr_t::size() * 2 + ipv4_addr_t::size() * 2;
         }
 
-        static arpv4_header_t consume(uint8_t* ptr) {
+        static arpv4_header_t consume(std::byte* ptr) {
                 arpv4_header_t arpv4_header;
                 arpv4_header.hw_type    = utils::consume<uint16_t>(ptr);
                 arpv4_header.proto_type = utils::consume<uint16_t>(ptr);
@@ -36,7 +45,7 @@ struct arpv4_header_t {
                 return arpv4_header;
         }
 
-        void produce(uint8_t* ptr) {
+        void produce(std::byte* ptr) {
                 utils::produce<uint16_t>(ptr, hw_type);
                 utils::produce<uint16_t>(ptr, proto_type);
                 utils::produce<uint8_t>(ptr, hw_size);

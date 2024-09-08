@@ -1,8 +1,15 @@
 #pragma once
 
+#include <cstdint>
+
+#include <memory>
+#include <optional>
+
+#include <fmt/format.h>
+#include <spdlog/spdlog.h>
+
 #include "base_packet.hpp"
 #include "ipv4_addr.hpp"
-#include "logger.hpp"
 #include "mac_addr.hpp"
 
 namespace mstack {
@@ -20,7 +27,8 @@ struct ethernetv2_packet {
         std::optional<mac_addr_t>    dst_mac_addr;
         uint16_t                     proto;
         std::unique_ptr<base_packet> buffer;
-        friend std::ostream&         operator<<(std::ostream& out, ethernetv2_packet const& p) {
+
+        friend std::ostream& operator<<(std::ostream& out, ethernetv2_packet const& p) {
                 if (p.src_mac_addr) {
                         out << p.src_mac_addr.value();
                 } else {
@@ -66,7 +74,7 @@ struct ipv4_port_t {
 
         bool operator==(const ipv4_port_t& rhs) const {
                 if (!ipv4_addr || !port_addr) {
-                        SPDLOG_CRITICAL("EMPTY IPV4 PORT");
+                        spdlog::critical("EMPTY IPV4 PORT");
                 }
                 return ipv4_addr == rhs.ipv4_addr.value() && port_addr == rhs.port_addr.value();
         };
@@ -77,7 +85,9 @@ struct ipv4_port_t {
                 } else {
                         out << "NONE";
                 }
+
                 out << ":";
+
                 if (p.port_addr) {
                         out << p.port_addr.value();
                 } else {
@@ -93,7 +103,7 @@ struct two_ends_t {
 
         bool operator==(const two_ends_t& rhs) const {
                 if (!remote_info || !local_info) {
-                        SPDLOG_CRITICAL("EMPTY IPV4 PORT");
+                        spdlog::critical("EMPTY IPV4 PORT");
                 }
                 return remote_info == rhs.remote_info.value() &&
                        local_info == rhs.local_info.value();
@@ -132,7 +142,7 @@ template <>
 struct hash<mstack::ipv4_port_t> {
         size_t operator()(const mstack::ipv4_port_t& ipv4_port) const {
                 if (!ipv4_port.ipv4_addr || !ipv4_port.port_addr) {
-                        SPDLOG_CRITICAL("EMPTY IPV4 PORT");
+                        spdlog::critical("EMPTY IPV4 PORT");
                 }
                 return hash<mstack::ipv4_addr_t>{}(ipv4_port.ipv4_addr.value()) ^
                        hash<mstack::port_addr_t>{}(ipv4_port.port_addr.value());
@@ -142,7 +152,7 @@ template <>
 struct hash<mstack::two_ends_t> {
         size_t operator()(const mstack::two_ends_t& two_ends) const {
                 if (!two_ends.remote_info || !two_ends.local_info) {
-                        SPDLOG_CRITICAL("EMPTY INFO");
+                        spdlog::critical("EMPTY INFO");
                 }
                 return hash<mstack::ipv4_port_t>{}(two_ends.remote_info.value()) ^
                        hash<mstack::ipv4_port_t>{}(two_ends.local_info.value());

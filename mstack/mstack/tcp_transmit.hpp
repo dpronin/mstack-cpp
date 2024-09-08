@@ -1,6 +1,9 @@
 #pragma once
 
-#include "logger.hpp"
+#include <cstdint>
+
+#include <spdlog/spdlog.h>
+
 #include "packets.hpp"
 #include "tcb.hpp"
 
@@ -17,8 +20,7 @@ public:
 
         static bool tcp_handle_close_state(std::shared_ptr<tcb_t> in_tcb, tcp_packet_t& in_packet) {
                 tcp_header_t in_tcp{
-                        tcp_header_t::consume(
-                                reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer())),
+                        tcp_header_t::consume(in_packet.buffer->get_pointer()),
                 };
                 /**
                  *  If the state is CLOSED (i.e., TCB does not exist) then
@@ -61,12 +63,9 @@ public:
                         return false;
                 }
 
-                tcp_header_t in_tcp{
-                        tcp_header_t::consume(
-                                reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer())),
-                };
+                tcp_header_t in_tcp{tcp_header_t::consume(in_packet.buffer->get_pointer())};
 
-                SPDLOG_DEBUG("[TCP LISTEN] {}", in_tcp);
+                spdlog::debug("[TCP LISTEN] {}", in_tcp);
 
                 /**
                  *  first check for an RST
@@ -126,7 +125,7 @@ public:
                         in_tcb->send.unacknowledged = iss;
                         in_tcb->next_state          = TCP_SYN_RECEIVED;
                         in_tcb->active_self();
-                        SPDLOG_DEBUG("[SEND SYN ACK]");
+                        spdlog::debug("[SEND SYN ACK]");
                         return false;
                 }
 
@@ -147,10 +146,7 @@ public:
                         return false;
                 }
 
-                tcp_header_t in_tcp{
-                        tcp_header_t::consume(
-                                reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer())),
-                };
+                tcp_header_t in_tcp{tcp_header_t::consume(in_packet.buffer->get_pointer())};
 
                 // first check the ACK bit
                 if (in_tcp.ACK == 1) {
@@ -298,10 +294,7 @@ public:
                  *      numbers may be held for later processing.
                  */
 
-                tcp_header_t in_tcp{
-                        tcp_header_t::consume(
-                                reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer())),
-                };
+                tcp_header_t in_tcp{tcp_header_t::consume(in_packet.buffer->get_pointer())};
 
                 uint16_t const segment_length =
                         in_packet.buffer->get_remaining_len() - in_tcp.header_length * 4;
@@ -360,30 +353,27 @@ public:
         }
 
         static void tcp_in(std::shared_ptr<tcb_t> in_tcb, tcp_packet_t& in_packet) {
-                SPDLOG_DEBUG("[TCP] [CHECK TCP_CLOSED] {}", *in_tcb);
+                spdlog::debug("[TCP] [CHECK TCP_CLOSED] {}", *in_tcb);
                 if (in_tcb->state == TCP_CLOSED && tcp_handle_close_state(in_tcb, in_packet)) {
                         return;
                 }
 
-                SPDLOG_DEBUG("[TCP] [CHECK TCP_LISTEN] {}", *in_tcb);
+                spdlog::debug("[TCP] [CHECK TCP_LISTEN] {}", *in_tcb);
                 if (in_tcb->state == TCP_LISTEN && tcp_handle_listen_state(in_tcb, in_packet)) {
                         return;
                 }
 
-                SPDLOG_DEBUG("[TCP] [CHECK TCP_SYN_SENY] {}", *in_tcb);
+                spdlog::debug("[TCP] [CHECK TCP_SYN_SENY] {}", *in_tcb);
                 if (in_tcb->state == TCP_SYN_SENT && tcp_handle_syn_sent(in_tcb, in_packet)) {
                         return;
                 }
 
-                tcp_header_t in_tcp{
-                        tcp_header_t::consume(
-                                reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer())),
-                };
+                tcp_header_t in_tcp{tcp_header_t::consume(in_packet.buffer->get_pointer())};
 
-                SPDLOG_DEBUG("[TCP] [PROCESS 1] {}", *in_tcb);
+                spdlog::debug("[TCP] [PROCESS 1] {}", *in_tcb);
                 // first check sequence number
                 if (!tcp_check_segment(in_tcb, in_packet)) {
-                        SPDLOG_DEBUG("[SEGMENT SEQ FAIL]");
+                        spdlog::debug("[SEGMENT SEQ FAIL]");
                         if (!in_tcp.RST) {
                                 // <SEQ=SND.NXT><ACK=RCV.NXT><CTL=ACK>
                                 tcp_send_ack();
@@ -391,7 +381,7 @@ public:
                         return;
                 }
 
-                SPDLOG_DEBUG("[TCP] [PROCESS 2] {}", *in_tcb);
+                spdlog::debug("[TCP] [PROCESS 2] {}", *in_tcb);
                 // TODO: second check the RST bit
                 if (in_tcp.RST == 1) {
                         switch (in_tcb->state) {
@@ -449,7 +439,7 @@ public:
                                         return;
                         }
                 }
-                SPDLOG_DEBUG("[TCP] [PROCESS 3] {}", *in_tcb);
+                spdlog::debug("[TCP] [PROCESS 3] {}", *in_tcb);
                 // TODO: third check security and precedence
                 /**
                  *  SYN-RECEIVED
@@ -473,7 +463,7 @@ public:
                  *  different security or precedence from causing an abort of the
                  *  current connection.
                  */
-                SPDLOG_DEBUG("[TCP] [PROCESS 4] {}", *in_tcb);
+                spdlog::debug("[TCP] [PROCESS 4] {}", *in_tcb);
                 // TODO: fourth, check the SYN bit
                 if (in_tcp.SYN) {
                         switch (in_tcb->state) {
@@ -511,7 +501,7 @@ public:
                 }
 
                 // fifth check the ACK field
-                SPDLOG_DEBUG("[TCP] [PROCESS 5] {}", *in_tcb);
+                spdlog::debug("[TCP] [PROCESS 5] {}", *in_tcb);
                 if (in_tcp.ACK) {
                         switch (in_tcb->state) {
                                 /**
@@ -633,7 +623,7 @@ public:
                         }
                 }
 
-                SPDLOG_DEBUG("[TCP] [PROCESS 6] {}", *in_tcb);
+                spdlog::debug("[TCP] [PROCESS 6] {}", *in_tcb);
                 // TODO: sixth, check the URG bit
                 if (in_tcp.URG == 1) {
                         switch (in_tcb->state) {
@@ -671,7 +661,7 @@ public:
                 int header_len  = in_tcp.header_length * 4;
                 int segment_len = in_packet.buffer->get_remaining_len() - header_len;
 
-                SPDLOG_DEBUG("[TCP] [PROCESS 7] {}", *in_tcb);
+                spdlog::debug("[TCP] [PROCESS 7] {}", *in_tcb);
                 // seventh, process the segment text
                 if (segment_len > 0) {
                         switch (in_tcb->state) {
@@ -709,16 +699,14 @@ public:
                                 case TCP_ESTABLISHED:
                                 case TCP_FIN_WAIT_1:
                                 case TCP_FIN_WAIT_2: {
-                                        SPDLOG_DEBUG("[RECEIVE DATA] {}", segment_len);
+                                        spdlog::debug("[RECEIVE DATA] {}", segment_len);
 
                                         in_tcb->receive.next += segment_len;
 
                                         auto out_buffer{std::make_unique<base_packet>(segment_len)};
 
-                                        in_packet.buffer->export_payload(
-                                                reinterpret_cast<uint8_t*>(
-                                                        out_buffer->get_pointer()),
-                                                header_len);
+                                        in_packet.buffer->export_payload(out_buffer->get_pointer(),
+                                                                         header_len);
 
                                         raw_packet r_packet = {.buffer = std::move(out_buffer)};
 
@@ -749,7 +737,7 @@ public:
                                         break;
                         }
                 }
-                SPDLOG_DEBUG("[TCP] [PROCESS 8] {}", *in_tcb);
+                spdlog::debug("[TCP] [PROCESS 8] {}", *in_tcb);
                 // eighth, check the FIN bit
                 if (in_tcp.FIN == 1) {
                         switch (in_tcb->state) {
@@ -819,7 +807,7 @@ public:
                                 case TCP_TIME_WAIT:
                                         return;
                         }
-                        SPDLOG_DEBUG("[TCP] [PROCESS 9] {}", *in_tcb);
+                        spdlog::debug("[TCP] [PROCESS 9] {}", *in_tcb);
                 }
         }
 };

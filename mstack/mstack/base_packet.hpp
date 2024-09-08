@@ -7,8 +7,6 @@
 #include <memory>
 #include <span>
 
-#include "logger.hpp"
-
 namespace mstack {
 
 class base_packet {
@@ -60,10 +58,10 @@ public:
                 _raw_data = std::make_unique<std::byte[]>(len);
         }
 
-        void export_payload(uint8_t* buf, int len) {
+        void export_payload(std::byte* buf, int len) {
                 int index = 0;
                 for (int i = _head + len; i < _len; i++) {
-                        buf[index++] = static_cast<uint8_t>(_raw_data[i]);
+                        buf[index++] = _raw_data[i];
                 }
         }
 

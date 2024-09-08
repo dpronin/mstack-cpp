@@ -6,34 +6,28 @@
 #include "arp_header.hpp"
 #include "base_protocol.hpp"
 #include "defination.hpp"
-#include "logger.hpp"
 #include "packets.hpp"
+
+#include <spdlog/spdlog.h>
 
 namespace mstack {
 
 class arp : public base_protocol<ethernetv2_packet, ipv4_packet, arp> {
 public:
-        static constexpr uint16_t PROTO = 0x0806;
-        arp_cache_t               arp_cache;
+        static constexpr uint16_t PROTO{0x0806};
 
         int id() override { return PROTO; }
 
-        std::optional<mac_addr_t> query_by_ipv4(ipv4_addr_t ipv4_addr) {
-                return arp_cache.query_arp_cache(ipv4_addr);
+        std::optional<mac_addr_t> query_mac(ipv4_addr_t const& ipv4_addr) {
+                return arp_cache.query(ipv4_addr);
         }
 
-        template <typename DEV>
-        void register_dev(DEV& dev) {
-                arp_cache.register_dev(dev);
-        }
+        void remove(ipv4_addr_t const& k) { arp_cache.reset(k); }
 
-        void send_reply(arpv4_header_t& in_arp) {
-                auto dev_mac_addr  = arp_cache.query_dev_mac_addr(TUNTAP_DEV);
-                auto dev_ipv4_addr = arp_cache.query_dev_ipv4_addr(TUNTAP_DEV);
-                if (!dev_mac_addr || !dev_ipv4_addr) {
-                        SPDLOG_ERROR("[UNKONWN DEV] {}", TUNTAP_DEV);
-                        return;
-                }
+        void add(std::pair<ipv4_addr_t, mac_addr_t> const& kv) { arp_cache.update(kv); }
+
+        void send_reply(arpv4_header_t const& in_arp) {
+                auto const& dev_mac_addr{arp_cache.query(in_arp.dst_ipv4_addr)};
 
                 struct arpv4_header_t out_arp;
                 out_arp.hw_type    = 0x0001;
@@ -43,33 +37,39 @@ public:
                 out_arp.opcode     = 0x02;
 
                 out_arp.src_mac_addr  = dev_mac_addr.value();
-                out_arp.src_ipv4_addr = dev_ipv4_addr.value();
-
+                out_arp.src_ipv4_addr = in_arp.dst_ipv4_addr;
                 out_arp.dst_mac_addr  = in_arp.src_mac_addr;
                 out_arp.dst_ipv4_addr = in_arp.src_ipv4_addr;
 
-                arp_cache.add_arp_cache(in_arp.src_ipv4_addr, in_arp.src_mac_addr);
-                auto out_buffer = std::make_unique<base_packet>(arpv4_header_t::size());
-                out_arp.produce(reinterpret_cast<uint8_t*>(out_buffer->get_pointer()));
+                arp_cache.update(in_arp.src_ipv4_addr, in_arp.src_mac_addr);
 
-                ethernetv2_packet out_packet = {.src_mac_addr = out_arp.src_mac_addr,
-                                                .dst_mac_addr = out_arp.dst_mac_addr,
-                                                .proto        = PROTO,
-                                                .buffer       = std::move(out_buffer)};
+                auto out_buffer{std::make_unique<base_packet>(arpv4_header_t::size())};
+                out_arp.produce(out_buffer->get_pointer());
+
+                ethernetv2_packet out_packet = {
+                        .src_mac_addr = out_arp.src_mac_addr,
+                        .dst_mac_addr = out_arp.dst_mac_addr,
+                        .proto        = PROTO,
+                        .buffer       = std::move(out_buffer),
+                };
 
                 this->enter_send_queue(std::move(out_packet));
-                SPDLOG_DEBUG("[ARP] SEND ARP REPLY {}", out_arp);
-                return;
+
+                spdlog::debug("[ARP] SEND ARP REPLY {}", out_arp);
         };
 
         std::optional<ipv4_packet> make_packet(ethernetv2_packet&& in_packet) override {
-                auto in_arp{
-                        arpv4_header_t::consume(
-                                reinterpret_cast<uint8_t*>(in_packet.buffer->get_pointer())),
+                auto const in_arp{
+                        arpv4_header_t::consume(in_packet.buffer->get_pointer()),
                 };
+
                 if (in_arp.opcode == 0x0001) send_reply(in_arp);
+
                 return std::nullopt;
         }
+
+private:
+        arp_cache_t arp_cache;
 };
 
 }  // namespace mstack

@@ -1,14 +1,17 @@
 #pragma once
 
+#include <optional>
+#include <string>
+
 #include <fcntl.h>
+
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
 #include <unistd.h>
 
-#include <optional>
-
-#include "logger.hpp"
+#include <spdlog/spdlog.h>
 
 namespace mstack {
 
@@ -47,7 +50,7 @@ public:
         static std::optional<file_desc> open(std::string name, int flags) {
                 int fd = ::open(name.c_str(), flags);
                 if (fd == -1) {
-                        SPDLOG_ERROR("[OPEN FAIL] {} {}", name, strerror(errno));
+                        spdlog::error("[OPEN FAIL] {} {}", name, strerror(errno));
                 }
                 return from_fd(fd);
         }
@@ -58,7 +61,7 @@ public:
         int ioctl(int request, X& data) {
                 int err = ::ioctl(_fd, request, &data);
                 if (err < 0) {
-                        SPDLOG_ERROR("[IOCTL FAIL] {}", strerror(errno));
+                        spdlog::error("[IOCTL FAIL] {}", strerror(errno));
                 }
                 return err;
         }

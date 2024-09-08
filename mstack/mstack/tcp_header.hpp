@@ -2,6 +2,8 @@
 
 #include <cstddef>
 
+#include <ostream>
+
 #include "utils.hpp"
 
 namespace mstack {
@@ -45,7 +47,7 @@ struct tcp_header_t {
                 checksum       = 0;
                 urgent_pointer = 0;
         }
-        static tcp_header_t consume(uint8_t* ptr) {
+        static tcp_header_t consume(std::byte* ptr) {
                 tcp_header_t tcp_header;
                 tcp_header.src_port          = utils::consume<port_addr_t>(ptr);
                 tcp_header.dst_port          = utils::consume<port_addr_t>(ptr);
@@ -66,8 +68,8 @@ struct tcp_header_t {
                 return tcp_header;
         }
 
-        ptrdiff_t produce(uint8_t* ptr) {
-                uint8_t* f{ptr};
+        ptrdiff_t produce(std::byte* ptr) {
+                std::byte const* f{ptr};
                 utils::produce<port_addr_t>(ptr, src_port);
                 utils::produce<port_addr_t>(ptr, dst_port);
                 utils::produce<uint32_t>(ptr, seq_no);

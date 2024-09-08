@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <bit>
 #include <format>
+#include <functional>
 #include <span>
 #include <string>
 
@@ -20,7 +21,7 @@
 #include <netlink/route/route.h>
 #include <netlink/socket.h>
 
-#include "logger.hpp"
+#include <spdlog/spdlog.h>
 
 namespace mstack {
 
@@ -59,12 +60,12 @@ inline std::string format(std::format_string<A...> format, A&&... a) {
 template <typename... A>
 inline static int run_cmd(std::format_string<A...> fmt, A&&... a) {
         std::string cmd{mstack::utils::format(fmt, std::forward<A>(a)...)};
-        SPDLOG_INFO("[EXEC COMMAND]: {}", cmd);
+        spdlog::info("[EXEC COMMAND]: {}", cmd);
         return system(cmd.c_str());
 }
 
 inline int set_interface_route(std::string_view dev, std::string_view cidr) {
-        SPDLOG_INFO("[INSTALLING ROUTE]: {} via {}", cidr, dev);
+        spdlog::info("[INSTALLING ROUTE]: {} via {}", cidr, dev);
 
         auto sock{detail::sock_open()};
         if (!sock) return -ENOMEM;
@@ -134,7 +135,7 @@ inline int set_interface_address(std::string dev, std::string cidr) {
 }
 
 inline int set_interface_up(std::string_view dev) {
-        SPDLOG_INFO("[SETTING DEVICE UP]: {}", dev);
+        spdlog::info("[SETTING DEVICE UP]: {}", dev);
 
         auto sock{detail::sock_open()};
         if (!sock) return -ENOMEM;
@@ -163,32 +164,38 @@ inline int set_interface_up(std::string_view dev) {
 }
 
 template <std::integral T>
-auto ntoh(T value) {
+constexpr auto ntoh(T value) {
         auto x{std::bit_cast<std::array<std::byte, sizeof(T)>>(value)};
         std::ranges::reverse(x);
         return std::bit_cast<T>(x);
 }
 
 template <typename T>
-inline T consume(uint8_t*& ptr) {
+constexpr T consume(std::byte*& ptr) {
         T ret = *(reinterpret_cast<T*>(ptr));
         ptr += sizeof(T);
-        return ntoh(ret);
+        if constexpr (sizeof(ret) > 1)
+                return ntoh(ret);
+        else
+                return ret;
 }
 
 template <typename T>
-inline void produce(uint8_t*& p, T t) {
+constexpr void produce(std::byte*& p, T t) {
         T* ptr_ = reinterpret_cast<T*>(p);
-        *ptr_   = ntoh(t);
+        if constexpr (sizeof(T) > 1)
+                *ptr_ = ntoh(t);
+        else
+                *ptr_ = t;
         p += sizeof(T);
 }
 
-inline uint32_t sum_every_16bits(std::span<uint8_t> addr) {
+inline uint32_t sum_every_16bits(std::span<std::byte const> addr) {
         uint32_t sum = 0;
 
         assert(!(reinterpret_cast<uintptr_t>(addr.data()) & 0x1));
 
-        auto const* ptr = reinterpret_cast<uint16_t*>(addr.data());
+        auto const* ptr = reinterpret_cast<uint16_t const*>(addr.data());
 
         auto count{addr.size()};
         while (count > 1) {
@@ -203,7 +210,7 @@ inline uint32_t sum_every_16bits(std::span<uint8_t> addr) {
         return sum;
 }
 
-inline uint16_t checksum(std::span<uint8_t> addr, uint32_t start_sum) {
+inline uint16_t checksum(std::span<std::byte const> addr, uint32_t start_sum) {
         uint32_t sum = start_sum + sum_every_16bits(addr);
 
         /*  Fold 32-bit sum to 16 bits */

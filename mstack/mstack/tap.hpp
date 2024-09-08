@@ -12,6 +12,7 @@
 #include <optional>
 #include <span>
 
+#include "arp.hpp"
 #include "defination.hpp"
 #include "file_desc.hpp"
 #include "ipv4_addr.hpp"
@@ -30,7 +31,7 @@ public:
 private:
         boost::asio::posix::stream_descriptor _pfd;
         file_desc                             _fd;
-        std::optional<mac_addr_t>             _mac_addr;
+        mac_addr_t                            _mac_addr;
         std::optional<ipv4_addr_t>            _ipv4_addr;
         std::string                           _ndev;
 
@@ -64,13 +65,16 @@ private:
 
                 strcpy(ifr.ifr_name, dev.data());
 
-                if (int err{_fd.ioctl(SIOCGIFHWADDR, ifr)}; err < 0) SPDLOG_CRITICAL("[HW FAIL]");
+                if (int err{_fd.ioctl(SIOCGIFHWADDR, ifr)}; err < 0) {
+                        throw std::runtime_error(
+                                std::format("failed to set MAC address, [HW FAIL], err {}", err));
+                }
 
-                std::array<uint8_t, 6> hw_addr;
+                std::array<std::byte, 6> hw_addr;
                 for (int i = 0; i < 6; ++i)
-                        hw_addr[i] = ifr.ifr_addr.sa_data[i];
+                        hw_addr[i] = static_cast<std::byte>(ifr.ifr_addr.sa_data[i]);
 
-                _mac_addr = mac_addr_t(hw_addr);
+                _mac_addr = mac_addr_t{hw_addr};
         }
 
         void async_read() {
@@ -79,10 +83,10 @@ private:
                                 if (ec) return;
 
                                 if (_receiver_func) {
-                                        SPDLOG_DEBUG("[TAP RECEIVE] {}", nbytes);
+                                        spdlog::debug("[TAP RECEIVE] {}", nbytes);
                                         _receiver_func(encode_raw_packet({_rbuf.data(), nbytes}));
                                 } else {
-                                        SPDLOG_CRITICAL("[NO RECEIVER FUNC]");
+                                        spdlog::critical("[NO RECEIVER FUNC]");
                                 }
 
                                 async_read();
@@ -95,21 +99,21 @@ private:
                 };
 
                 if (!fd) {
-                        SPDLOG_CRITICAL("[INIT FAIL]");
+                        spdlog::critical("[INIT FAIL]");
                         return;
                 }
 
                 // ? something error
                 _fd = std::move(fd.value());
 
-                SPDLOG_DEBUG("[DEV FD] {}", _fd.get_fd());
+                spdlog::debug("[DEV FD] {}", _fd.get_fd());
 
                 ifreq ifr{};
 
                 ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
 
                 if (int err{_fd.ioctl(TUNSETIFF, ifr)}; err < 0) {
-                        SPDLOG_CRITICAL("[INIT FAIL]");
+                        spdlog::critical("[INIT FAIL]");
                         return;
                 }
 
@@ -117,13 +121,13 @@ private:
                           std::back_inserter(_ndev));
 
                 if (utils::set_interface_up(_ndev) != 0) {
-                        SPDLOG_CRITICAL("[SET UP] {}", _ndev);
+                        spdlog::critical("[SET UP] {}", _ndev);
                         return;
                 }
 
                 set_mac_addr(_ndev);
 
-                SPDLOG_DEBUG("[INIT MAC] {}", _mac_addr.value());
+                spdlog::debug("[INIT MAC] {}", _mac_addr);
 
                 _available = true;
 
@@ -144,7 +148,7 @@ private:
 
         void async_write(raw_packet& pkt) {
                 auto const len{decode_raw_packet(pkt, _wbuf)};
-                SPDLOG_DEBUG("[TAP WRITE] {}", len);
+                spdlog::debug("[TAP WRITE] {}", len);
                 boost::asio::async_write(this->_pfd, boost::asio::buffer(_wbuf, len),
                                          [this](auto const& ec, size_t nbytes) {
                                                  if (!ec) notify_to_write();
@@ -168,11 +172,21 @@ private:
 public:
         void capture(std::string_view route_pref) { utils::set_interface_route(_ndev, route_pref); }
 
-        std::optional<mac_addr_t> get_mac_addr() const { return _mac_addr; }
+        mac_addr_t const&          mac_addr() const { return _mac_addr; }
+        std::optional<ipv4_addr_t> ipv4_addr() const { return _ipv4_addr; }
 
-        std::optional<ipv4_addr_t> get_ipv4_addr() const { return _ipv4_addr; }
+        void set_ipv4_addr(ipv4_addr_t const& ipv4_addr) {
+                reset_ipv4_addr();
+                _ipv4_addr = ipv4_addr;
+                arp::instance().add({ipv4_addr, _mac_addr});
+        }
 
-        void set_ipv4_addr(ipv4_addr_t ipv4_addr) { _ipv4_addr = ipv4_addr; }
+        void reset_ipv4_addr() {
+                if (_ipv4_addr) {
+                        arp::instance().remove(*_ipv4_addr);
+                        _ipv4_addr.reset();
+                }
+        }
 
         template <typename Protocol>
         void register_upper_protocol(Protocol& protocol) {
