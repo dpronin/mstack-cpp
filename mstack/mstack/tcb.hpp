@@ -69,7 +69,8 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
 
         void enqueue_send(std::span<std::byte const> packet) {
                 send_queue.push_back({packet.begin(), packet.end()});
-                active_self();
+                if (_active_tcbs->size() < send_queue.size())
+                        _active_tcbs->push_back(shared_from_this());
         }
 
         void listen_finish() {
@@ -112,7 +113,7 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
                 out_tcp.src_port = local_info->port_addr.value();
                 out_tcp.dst_port = remote_info->port_addr.value();
                 out_tcp.ack_no   = receive.next;
-                out_tcp.seq_no   = send.unacknowledged;
+                out_tcp.seq_no   = pkt.empty() ? send.unacknowledged : send.next;
 
                 send.next += pkt.size();
 
