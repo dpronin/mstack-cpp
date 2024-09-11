@@ -4,8 +4,7 @@
 #include <any>
 #include <array>
 #include <charconv>
-#include <iostream>
-#include <syncstream>
+#include <print>
 #include <utility>
 
 #include <boost/asio/io_context.hpp>
@@ -32,10 +31,9 @@ void async_read_and_echo(std::shared_ptr<mstack::socket_t>            csk,
                                 static_cast<size_t>(nbytes),
                         },
                 };
-                std::osyncstream osync{std::cout};
-                osync << "read size: " << msg.size() << std::endl;
-                osync << msg << std::endl;
-                osync << "echoing..." << std::endl;
+                std::println("read size: {}", msg.size());
+                std::println("{}", msg);
+                std::println("echoing...");
                 auto* p_csk{csk.get()};
                 p_csk->async_write(
                         std::as_bytes(std::span{msg}),
