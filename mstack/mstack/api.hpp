@@ -78,11 +78,6 @@ inline std::unique_ptr<tun> tun_dev_create(boost::asio::io_context& io_ctx) {
         return dev;
 }
 
-inline std::unique_ptr<socket_t> socket(boost::asio::io_context& io_ctx) {
-        auto& socket_manager{socket_manager::instance()};
-        return socket_manager.socket_create(io_ctx);
-}
-
 template <typename... Args>
 void async_write(socket_t& sk, Args&&... args) {
         sk.async_write(std::forward<Args>(args)...);

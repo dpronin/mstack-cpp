@@ -11,9 +11,7 @@ namespace mstack {
 acceptor::acceptor(boost::asio::io_context& io_ctx, int proto, endpoint const& ep) {
         for (uint16_t fd = 1; fd > 0; ++fd) {
                 if (!__sockets__.contains(fd)) {
-                        auto& socket_manager{socket_manager::instance()};
-
-                        sk_ = socket_manager.socket_create(io_ctx);
+                        sk_ = std::make_unique<socket_t>(io_ctx);
 
                         sk_->proto      = proto;
                         sk_->local_info = {
