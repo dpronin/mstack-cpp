@@ -34,10 +34,10 @@ void acceptor::async_accept(socket_t&                                           
                             std::function<void(boost::system::error_code const&)> cb) {
         auto f = [this, &sk, cb = std::move(cb)] {
                 if (auto& l{tcb_manager::instance().listener_get(sk_->local_info)};
-                    !l.acceptors->empty()) {
+                    !l.acceptors.empty()) {
                         for (int i = 1; i < 65535; i++) {
                                 if (!__sockets__.contains(i)) {
-                                        if (auto tcb{l.acceptors->pop_front().value()}) {
+                                        if (auto tcb{l.acceptors.pop_front().value()}) {
                                                 sk.local_info  = tcb->local_info.value();
                                                 sk.remote_info = tcb->remote_info;
                                                 sk.proto       = l.proto;

@@ -11,6 +11,15 @@ private:
         std::queue<PacketType> packets;
 
 public:
+        circle_buffer()  = default;
+        ~circle_buffer() = default;
+
+        circle_buffer(circle_buffer const&)            = default;
+        circle_buffer& operator=(circle_buffer const&) = default;
+
+        circle_buffer(circle_buffer&&)            = default;
+        circle_buffer& operator=(circle_buffer&&) = default;
+
         bool empty() const { return packets.size() == 0; }
         void push_back(PacketType packet) { packets.push(std::move(packet)); }
 

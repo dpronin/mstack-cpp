@@ -15,18 +15,12 @@
 
 #include "circle_buffer.hpp"
 #include "defination.hpp"
+#include "endpoint.hpp"
 #include "packets.hpp"
 
 namespace mstack {
 
 struct tcb_t;
-
-struct endpoint {
-        ipv4_port_t ep;
-
-        ipv4_addr_t address() const { return ep.ipv4_addr.value(); }
-        port_addr_t port() const { return ep.port_addr.value(); }
-};
 
 struct socket_t {
         explicit socket_t(boost::asio::io_context& io_ctx) : io_ctx(io_ctx) {}
@@ -68,13 +62,13 @@ private:
 };
 
 struct listener_t {
-        listener_t() : acceptors(std::make_shared<circle_buffer<std::shared_ptr<tcb_t>>>()) {}
-        int                                                    fd;
-        int                                                    state = SOCKET_UNCONNECTED;
-        int                                                    proto;
-        std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>> acceptors;
-        std::queue<std::function<void()>>                      on_acceptor_has_tcb;
-        std::optional<ipv4_port_t>                             local_info;
+        listener_t() {}
+        int                                   fd;
+        int                                   state{SOCKET_UNCONNECTED};
+        int                                   proto;
+        circle_buffer<std::shared_ptr<tcb_t>> acceptors;
+        std::queue<std::function<void()>>     on_acceptor_has_tcb;
+        ipv4_port_t                           local_info;
 };
 
 }  // namespace mstack

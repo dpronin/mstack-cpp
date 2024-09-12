@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 
 #include <algorithm>
@@ -57,15 +58,17 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
         send_state_t                                           send;
         receive_state_t                                        receive;
 
-        tcb_t(std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>> active_tcbs,
-              std::shared_ptr<listener_t>                            listener,
-              ipv4_port_t                                            remote_info,
-              ipv4_port_t                                            local_info)
+        explicit tcb_t(std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>> active_tcbs,
+                       std::shared_ptr<listener_t>                            listener,
+                       ipv4_port_t                                            remote_info,
+                       ipv4_port_t                                            local_info)
             : _active_tcbs(active_tcbs),
-              _listener(listener),
+              _listener(std::move(listener)),
               remote_info(remote_info),
               local_info(local_info),
-              state(TCP_CLOSED) {}
+              state(TCP_CLOSED) {
+                assert(_listener);
+        }
 
         void enqueue_send(std::span<std::byte const> packet) {
                 send_queue.push_back({packet.begin(), packet.end()});
@@ -74,13 +77,11 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
         }
 
         void listen_finish() {
-                if (this->_listener && this->_listener->acceptors) {
-                        _listener->acceptors->push_back(shared_from_this());
-                        if (!_listener->on_acceptor_has_tcb.empty()) {
-                                auto cb{std::move(_listener->on_acceptor_has_tcb.front())};
-                                _listener->on_acceptor_has_tcb.pop();
-                                cb();
-                        }
+                _listener->acceptors.push_back(shared_from_this());
+                if (!_listener->on_acceptor_has_tcb.empty()) {
+                        auto cb{std::move(_listener->on_acceptor_has_tcb.front())};
+                        _listener->on_acceptor_has_tcb.pop();
+                        cb();
                 }
         }
 
