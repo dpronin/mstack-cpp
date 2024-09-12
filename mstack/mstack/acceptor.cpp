@@ -38,7 +38,7 @@ void acceptor::async_accept(socket_t&                                           
                         for (int i = 1; i < 65535; i++) {
                                 if (!__sockets__.contains(i)) {
                                         if (auto tcb{l.acceptors.pop_front().value()}) {
-                                                sk.local_info  = tcb->local_info.value();
+                                                sk.local_info  = tcb->local_info;
                                                 sk.remote_info = tcb->remote_info;
                                                 sk.proto       = l.proto;
                                                 sk.state       = SOCKET_CONNECTED;

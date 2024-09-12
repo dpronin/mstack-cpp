@@ -49,8 +49,8 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
         std::shared_ptr<listener_t>                            _listener;
         int                                                    state;
         int                                                    next_state;
-        std::optional<ipv4_port_t>                             remote_info;
-        std::optional<ipv4_port_t>                             local_info;
+        ipv4_port_t                                            local_info;
+        ipv4_port_t                                            remote_info;
         circle_buffer<std::vector<std::byte>>                  send_queue;
         circle_buffer<raw_packet>                              receive_queue;
         std::queue<std::function<void()>>                      on_data_receive;
@@ -60,12 +60,12 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
 
         explicit tcb_t(std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>> active_tcbs,
                        std::shared_ptr<listener_t>                            listener,
-                       ipv4_port_t                                            remote_info,
-                       ipv4_port_t                                            local_info)
+                       ipv4_port_t const&                                     remote_info,
+                       ipv4_port_t const&                                     local_info)
             : _active_tcbs(active_tcbs),
               _listener(std::move(listener)),
-              remote_info(remote_info),
               local_info(local_info),
+              remote_info(remote_info),
               state(TCP_CLOSED) {
                 assert(_listener);
         }
@@ -111,8 +111,8 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
                         out_buffer =
                                 std::make_unique<base_packet>(tcp_header_t::size() + pkt.size());
 
-                out_tcp.src_port = local_info->port_addr.value();
-                out_tcp.dst_port = remote_info->port_addr.value();
+                out_tcp.src_port = local_info.port_addr;
+                out_tcp.dst_port = remote_info.port_addr;
                 out_tcp.ack_no   = receive.next;
                 out_tcp.seq_no   = pkt.empty() ? send.unacknowledged : send.next;
 
@@ -149,9 +149,9 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
         }
 
         friend std::ostream& operator<<(std::ostream& out, tcb_t const& m) {
-                out << m.remote_info.value();
+                out << m.remote_info;
                 out << " -> ";
-                out << m.local_info.value();
+                out << m.local_info;
                 out << " ";
                 out << state_to_string(m.state);
                 return out;

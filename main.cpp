@@ -90,7 +90,7 @@ int main(int argc, char* argv[]) {
 
         do_accept(io_ctx, std::make_unique<mstack::acceptor>(
                                   io_ctx, mstack::tcp::PROTO,
-                                  mstack::endpoint{mstack::ipv4_addr_t{argv[2]}, port}));
+                                  mstack::endpoint{{mstack::ipv4_addr_t{argv[2]}, port}}));
 
         io_ctx.run();
 }

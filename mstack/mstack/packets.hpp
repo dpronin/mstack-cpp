@@ -69,30 +69,15 @@ struct ipv4_packet {
 using port_addr_t = uint16_t;
 
 struct ipv4_port_t {
-        std::optional<ipv4_addr_t> ipv4_addr;
-        std::optional<port_addr_t> port_addr;
+        ipv4_addr_t ipv4_addr;
+        port_addr_t port_addr;
 
-        bool operator==(const ipv4_port_t& rhs) const {
-                if (!ipv4_addr || !port_addr) {
-                        spdlog::critical("EMPTY IPV4 PORT");
-                }
-                return ipv4_addr == rhs.ipv4_addr.value() && port_addr == rhs.port_addr.value();
-        };
+        auto operator<=>(const ipv4_port_t& rhs) const = default;
 
         friend std::ostream& operator<<(std::ostream& out, ipv4_port_t const& p) {
-                if (p.ipv4_addr) {
-                        out << p.ipv4_addr.value();
-                } else {
-                        out << "NONE";
-                }
-
+                out << p.ipv4_addr;
                 out << ":";
-
-                if (p.port_addr) {
-                        out << p.port_addr.value();
-                } else {
-                        out << "NONE";
-                }
+                out << p.port_addr;
                 return out;
         }
 };
@@ -141,11 +126,8 @@ namespace std {
 template <>
 struct hash<mstack::ipv4_port_t> {
         size_t operator()(const mstack::ipv4_port_t& ipv4_port) const {
-                if (!ipv4_port.ipv4_addr || !ipv4_port.port_addr) {
-                        spdlog::critical("EMPTY IPV4 PORT");
-                }
-                return hash<mstack::ipv4_addr_t>{}(ipv4_port.ipv4_addr.value()) ^
-                       hash<mstack::port_addr_t>{}(ipv4_port.port_addr.value());
+                return hash<mstack::ipv4_addr_t>{}(ipv4_port.ipv4_addr) ^
+                       hash<mstack::port_addr_t>{}(ipv4_port.port_addr);
         };
 };
 template <>

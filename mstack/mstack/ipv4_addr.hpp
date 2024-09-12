@@ -25,8 +25,9 @@ public:
         ipv4_addr_t(std::string_view ipv4)
             : _ipv4{boost::asio::ip::make_address_v4(ipv4).to_uint()} {}
 
+        auto operator<=>(const ipv4_addr_t& other) const = default;
+
         uint32_t get_raw_ipv4() const { return _ipv4; }
-        bool     operator==(const ipv4_addr_t& other) const { return _ipv4 == other._ipv4; }
 
         size_t operator()(const ipv4_addr_t& p) const { return std::hash<uint32_t>()(p._ipv4); }
 

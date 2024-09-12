@@ -15,8 +15,8 @@ public:
         std::optional<ipv4_packet> make_packet(tcp_packet_t&& in_packet) override {
                 uint32_t sum{0};
 
-                sum += utils::ntoh(in_packet.local_info->ipv4_addr->get_raw_ipv4());
-                sum += utils::ntoh(in_packet.remote_info->ipv4_addr->get_raw_ipv4());
+                sum += utils::ntoh(in_packet.local_info->ipv4_addr.get_raw_ipv4());
+                sum += utils::ntoh(in_packet.remote_info->ipv4_addr.get_raw_ipv4());
                 sum += utils::ntoh(in_packet.proto);
                 sum += utils::ntoh((uint16_t)in_packet.buffer->get_remaining_len());
 
@@ -33,8 +33,8 @@ public:
                 tcp_header.produce(in_packet.buffer->get_pointer());
 
                 ipv4_packet out_ipv4{
-                        .src_ipv4_addr = in_packet.local_info->ipv4_addr.value(),
-                        .dst_ipv4_addr = in_packet.remote_info->ipv4_addr.value(),
+                        .src_ipv4_addr = in_packet.local_info->ipv4_addr,
+                        .dst_ipv4_addr = in_packet.remote_info->ipv4_addr,
                         .proto         = in_packet.proto,
                         .buffer        = std::move(in_packet.buffer),
                 };
