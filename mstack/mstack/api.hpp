@@ -78,23 +78,9 @@ inline std::unique_ptr<tun> tun_dev_create(boost::asio::io_context& io_ctx) {
         return dev;
 }
 
-inline int socket(boost::asio::io_context& io_ctx,
-                  int                      proto,
-                  ipv4_addr_t              ipv4_addr,
-                  port_addr_t              port_addr) {
+inline std::unique_ptr<socket_t> socket(boost::asio::io_context& io_ctx) {
         auto& socket_manager{socket_manager::instance()};
-        return socket_manager.register_socket(io_ctx, proto, ipv4_addr, port_addr);
-}
-
-inline int listen(int fd) {
-        auto& socket_manager{socket_manager::instance()};
-        return socket_manager.listen(fd);
-}
-
-template <typename... Args>
-void async_accept(boost::asio::io_context& io_ctx, Args&&... args) {
-        auto& socket_manager{socket_manager::instance()};
-        return socket_manager.async_accept(io_ctx, std::forward<Args>(args)...);
+        return socket_manager.socket_create(io_ctx);
 }
 
 template <typename... Args>

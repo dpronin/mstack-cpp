@@ -47,8 +47,12 @@ public:
                 return std::nullopt;
         }
 
-        void listen_port(ipv4_port_t ipv4_port, std::shared_ptr<listener_t> listener) {
-                this->listeners[ipv4_port] = listener;
+        listener_t& listener_get(ipv4_port_t const& ipv4_port) {
+                return *this->listeners[ipv4_port];
+        }
+
+        void listen_port(ipv4_port_t const& ipv4_port, std::shared_ptr<listener_t> listener) {
+                this->listeners[ipv4_port] = std::move(listener);
                 active_ports.insert(ipv4_port);
         }
 
@@ -57,12 +61,9 @@ public:
                 if (!two_end.remote_info || !two_end.local_info) {
                         spdlog::critical("[EMPTY TCB]");
                 }
-                auto tcb{
-                        std::make_shared<tcb_t>(this->active_tcbs, listener,
-                                                two_end.remote_info.value(),
-                                                two_end.local_info.value()),
-                };
-                tcbs[two_end] = tcb;
+                tcbs[two_end] = std::make_shared<tcb_t>(this->active_tcbs, std::move(listener),
+                                                        two_end.remote_info.value(),
+                                                        two_end.local_info.value());
         }
 
         void receive(tcp_packet_t in_packet) {
