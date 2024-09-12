@@ -1,14 +1,11 @@
 #pragma once
 
-#include <utility>
-
 #include <boost/asio/io_context.hpp>
 
 #include "arp.hpp"
 #include "ethernet.hpp"
 #include "icmp.hpp"
 #include "ipv4.hpp"
-#include "socket_manager.hpp"
 #include "tap.hpp"
 #include "tcb_manager.hpp"
 #include "tcp.hpp"
@@ -76,16 +73,6 @@ inline std::unique_ptr<tun> tun_dev_create(boost::asio::io_context& io_ctx) {
         dev->register_upper_protocol(ipv4::instance());
 
         return dev;
-}
-
-template <typename... Args>
-void async_write(socket_t& sk, Args&&... args) {
-        sk.async_write(std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-void async_read(socket_t& sk, Args&&... args) {
-        sk.async_read(std::forward<Args>(args)...);
 }
 
 }  // namespace mstack

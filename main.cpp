@@ -16,16 +16,17 @@
 #include "mstack/acceptor.hpp"
 #include "mstack/api.hpp"
 #include "mstack/socket.hpp"
+#include "mstack/write.hpp"
 
 namespace {
 
-void async_read_and_echo(std::shared_ptr<mstack::socket_t>            csk,
+void async_read_and_echo(std::shared_ptr<mstack::socket_t>            sk,
                          std::shared_ptr<std::array<std::byte, 2000>> buf) {
-        auto* p_csk{csk.get()};
+        auto* p_sk{sk.get()};
         auto* p_buf{buf.get()};
-        p_csk->async_read_some(*p_buf, [csk = std::move(csk), buf = std::move(buf)](
-                                               boost::system::error_code const& ec,
-                                               size_t                           nbytes) mutable {
+        p_sk->async_read_some(*p_buf, [sk = std::move(sk), buf = std::move(buf)](
+                                              boost::system::error_code const& ec,
+                                              size_t                           nbytes) mutable {
                 if (ec) return;
                 auto const msg{
                         std::string_view{
@@ -36,13 +37,13 @@ void async_read_and_echo(std::shared_ptr<mstack::socket_t>            csk,
                 std::println("read size: {}", msg.size());
                 std::println("{}", msg);
                 std::println("echoing...");
-                auto* p_csk{csk.get()};
-                p_csk->async_write(
-                        std::as_bytes(std::span{msg}),
-                        [csk = std::move(csk), buf = std::move(buf)](
+                auto* p_sk{sk.get()};
+                mstack::async_write(
+                        *p_sk, std::as_bytes(std::span{msg}),
+                        [sk = std::move(sk), buf = std::move(buf)](
                                 boost::system::error_code const& ec, size_t nbytes) mutable {
                                 if (ec) return;
-                                async_read_and_echo(std::move(csk), std::move(buf));
+                                async_read_and_echo(std::move(sk), std::move(buf));
                         });
         });
 }
