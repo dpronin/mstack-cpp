@@ -1,3 +1,5 @@
+#pragma once
+
 #include <boost/asio/io_context.hpp>
 #include <boost/system/error_code.hpp>
 
