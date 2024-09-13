@@ -1,5 +1,9 @@
 #pragma once
 
+#include <cstddef>
+
+#include <memory>
+
 #include <boost/asio/io_context.hpp>
 
 #include "arp.hpp"
@@ -68,11 +72,7 @@ inline std::unique_ptr<tap<MTU>> tap_dev_create(boost::asio::io_context& io_ctx)
 }
 
 inline std::unique_ptr<tun> tun_dev_create(boost::asio::io_context& io_ctx) {
-        auto dev{tun::create(io_ctx)};
-
-        dev->register_upper_protocol(ipv4::instance());
-
-        return dev;
+        return std::make_unique<tun>(io_ctx);
 }
 
 }  // namespace mstack
