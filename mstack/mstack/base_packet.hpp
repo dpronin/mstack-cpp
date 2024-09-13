@@ -30,16 +30,18 @@ public:
                 std::ranges::copy(buf, _raw_data.get());
         }
 
-        base_packet(int len)
+        explicit base_packet(int len)
             : _raw_data(std::make_unique<std::byte[]>(len)),
               _head(0),
               _len(len),
               _data_stack_len(0) {}
 
-        ~base_packet()                        = default;
-        base_packet(base_packet&)             = delete;
+        ~base_packet() = default;
+
+        base_packet(base_packet const&)            = delete;
+        base_packet& operator=(base_packet const&) = delete;
+
         base_packet(base_packet&&)            = delete;
-        base_packet& operator=(base_packet&)  = delete;
         base_packet& operator=(base_packet&&) = delete;
 
 public:
