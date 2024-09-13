@@ -80,6 +80,8 @@ public:
                                          std::forward<Completion>(completion));
         }
 
+        std::string const& name() const { return _ndev; }
+
         auto& get_executor() { return _pfd.get_executor(); }
 
         void capture(std::string_view route_pref) { utils::set_interface_route(_ndev, route_pref); }
