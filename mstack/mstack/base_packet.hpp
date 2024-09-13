@@ -1,11 +1,13 @@
 #pragma once
 
 #include <cerrno>
-#include <cstdint>
+#include <cstddef>
 
 #include <algorithm>
 #include <memory>
 #include <span>
+#include <utility>
+#include <vector>
 
 namespace mstack {
 

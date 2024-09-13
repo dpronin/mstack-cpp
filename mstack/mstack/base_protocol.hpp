@@ -80,7 +80,7 @@ public:
                                 packet_queue.push_back(std::move(in_packet_.value()));
                         }
                 }
-                return std::move(this->packet_queue.pop_front());
+                return this->packet_queue.pop_front();
         }
 };
 
@@ -148,7 +148,7 @@ public:
                                 packet_queue.push_back(std::move(in_packet_.value()));
                         }
                 }
-                return std::move(this->packet_queue.pop_front());
+                return this->packet_queue.pop_front();
         }
 };
 
