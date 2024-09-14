@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
                 tundev->capture(std::string_view{argv[2]});
                 mstack::async_dev_read(
                         tundev, std::make_unique_for_overwrite<std::array<std::byte, 1500>>(),
-                        [](std::span<std::byte> buf) {
+                        [](std::span<std::byte const> buf) {
                                 mstack::ipv4::instance().receive(mstack::raw_packet{
                                         .buffer = std::make_unique<mstack::base_packet>(buf),
                                 });
@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
                 tapdev->set_ipv4_addr(std::string_view{argv[2]});
                 mstack::async_dev_read(
                         tapdev, std::make_unique_for_overwrite<std::array<std::byte, 1500>>(),
-                        [](std::span<std::byte> buf) {
+                        [](std::span<std::byte const> buf) {
                                 mstack::ethernetv2::instance().receive(mstack::raw_packet{
                                         .buffer = std::make_unique<mstack::base_packet>(buf),
                                 });
