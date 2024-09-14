@@ -2,18 +2,14 @@
 
 #include <cstddef>
 
-#include <memory>
-
 #include <boost/asio/io_context.hpp>
 
 #include "arp.hpp"
 #include "ethernet.hpp"
 #include "icmp.hpp"
 #include "ipv4.hpp"
-#include "tap.hpp"
 #include "tcb_manager.hpp"
 #include "tcp.hpp"
-#include "tun.hpp"
 
 namespace mstack {
 
@@ -60,19 +56,6 @@ inline void init_stack() {
         ipv4_stack_create();
         arpv4_stack_create();
         ethernetv2_stack_create();
-}
-
-template <size_t MTU>
-inline std::unique_ptr<tap<MTU>> tap_dev_create(boost::asio::io_context& io_ctx) {
-        auto dev{tap<MTU>::create(io_ctx)};
-
-        dev->register_upper_protocol(ethernetv2::instance());
-
-        return dev;
-}
-
-inline std::unique_ptr<tun> tun_dev_create(boost::asio::io_context& io_ctx) {
-        return std::make_unique<tun>(io_ctx);
 }
 
 }  // namespace mstack

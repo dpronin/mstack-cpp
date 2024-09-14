@@ -9,6 +9,7 @@
 
 #include <optional>
 #include <span>
+#include <string>
 
 #include "file_desc.hpp"
 #include "ipv4_addr.hpp"
@@ -76,19 +77,19 @@ public:
         template <typename Completion>
         void async_write(std::span<std::byte const> buf, Completion&& completion) {
                 spdlog::debug("[TUN WRITE]: exactly bytes {}", buf.size());
-                boost::asio::async_write(this->_pfd, boost::asio::buffer(buf),
+                boost::asio::async_write(_pfd, boost::asio::buffer(buf),
                                          std::forward<Completion>(completion));
         }
 
         std::string const& name() const { return _ndev; }
 
+        std::optional<ipv4_addr_t> ipv4_addr() const { return _ipv4_addr; }
+
+        void set_ipv4_addr(ipv4_addr_t ipv4_addr) { _ipv4_addr = ipv4_addr; }
+
         auto& get_executor() { return _pfd.get_executor(); }
 
         void capture(std::string_view route_pref) { utils::set_interface_route(_ndev, route_pref); }
-
-        std::optional<ipv4_addr_t> get_ipv4_addr() const { return _ipv4_addr; }
-
-        void set_ipv4_addr(ipv4_addr_t ipv4_addr) { _ipv4_addr = ipv4_addr; }
 };
 
 }  // namespace mstack
