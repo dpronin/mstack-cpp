@@ -17,9 +17,10 @@ class base_protocol {
 private:
         using packet_from_upper_type = std::function<std::optional<UpperPacketType>(void)>;
         using packet_to_upper_type   = std::function<void(UpperPacketType)>;
+
         std::unordered_map<int, packet_to_upper_type> _protocols;
         std::vector<packet_from_upper_type>           _packet_providers;
-        circle_buffer<UnderPacketType>                packet_queue;
+        circle_buffer<UnderPacketType>                _packet_queue;
 
 public:
         static ChildType& instance() {
@@ -51,36 +52,37 @@ public:
         }
 
         template <typename PacketType>
-        void receive(PacketType&& in_packet) {
-                std::optional<UpperPacketType> in_packet_{make_packet(std::move(in_packet))};
-                if (in_packet_) dispatch(std::move(*in_packet_));
+        void receive(PacketType&& in) {
+                if (auto out{make_packet(std::move(in))}) dispatch(std::move(*out));
         }
+
+        bool has_something_to_send() const { return !_packet_queue.empty(); }
 
         void enter_send_queue(UnderPacketType&& in_packet) {
-                packet_queue.push_back(std::move(in_packet));
-        }
-
-        void dispatch(UpperPacketType&& in_packet) {
-                if (this->_protocols.find(in_packet.proto) == this->_protocols.end()) {
-                        spdlog::debug("[UNKNOWN PACKET] {:X}", in_packet.proto);
-                        return;
-                }
-                auto const proto{in_packet.proto};
-                this->_protocols[proto](std::move(in_packet));
+                _packet_queue.push_back(std::move(in_packet));
         }
 
         std::optional<UnderPacketType> gather_packet() {
-                if (this->packet_queue.empty()) {
-                        for (auto packet_provider : this->_packet_providers) {
-                                std::optional<UpperPacketType> in_packet = packet_provider();
-                                if (!in_packet) continue;
-                                std::optional<UnderPacketType> in_packet_ =
-                                        make_packet(std::move(in_packet.value()));
-                                if (!in_packet_) continue;
-                                packet_queue.push_back(std::move(in_packet_.value()));
+                if (!has_something_to_send()) {
+                        for (auto const& packet_provider : _packet_providers) {
+                                if (auto upper_pkt{packet_provider()}) {
+                                        if (auto pkt{make_packet(std::move(*upper_pkt))}) {
+                                                _packet_queue.push_back(std::move(*pkt));
+                                        }
+                                }
                         }
                 }
-                return this->packet_queue.pop_front();
+                return _packet_queue.pop_front();
+        }
+
+private:
+        void dispatch(UpperPacketType&& in_packet) {
+                if (auto prot_it{_protocols.find(in_packet.proto)}; _protocols.end() != prot_it) {
+                        spdlog::debug("[PROCESS PACKET] PROTO {:#04X}", in_packet.proto);
+                        prot_it->second(std::move(in_packet));
+                } else {
+                        spdlog::debug("[UNKNOWN PACKET] PROTO {:#04X}", in_packet.proto);
+                }
         }
 };
 
@@ -89,9 +91,10 @@ class base_protocol<raw_packet, UpperPacketType, ChildType> {
 private:
         using packet_from_upper_type = std::function<std::optional<UpperPacketType>(void)>;
         using packet_to_upper_type   = std::function<void(UpperPacketType)>;
+
         std::unordered_map<int, packet_to_upper_type> _protocols;
         std::vector<packet_from_upper_type>           _packet_providers;
-        circle_buffer<raw_packet>                     packet_queue;
+        circle_buffer<raw_packet>                     _packet_queue;
 
 public:
         static ChildType& instance() {
@@ -120,35 +123,34 @@ public:
 
         template <typename PacketType>
         void receive(PacketType&& in_packet) {
-                std::optional<UpperPacketType> in_packet_{make_packet(std::move(in_packet))};
-                if (in_packet_) dispatch(std::move(*in_packet_));
+                if (auto pkt{make_packet(std::move(in_packet))}) dispatch(std::move(*pkt));
         }
 
-        void enter_send_queue(raw_packet&& in_packet) {
-                packet_queue.push_back(std::move(in_packet));
-        }
+        bool has_something_to_send() const { return !_packet_queue.empty(); }
+
+        void enter_send_queue(raw_packet&& pkt) { _packet_queue.push_back(std::move(pkt)); }
 
         void dispatch(UpperPacketType&& in_packet) {
-                if (this->_protocols.find(in_packet.proto) == this->_protocols.end()) {
-                        spdlog::debug("[UNKNOWN PACKET] {:X}", in_packet.proto);
-                        return;
+                if (auto prot_it{_protocols.find(in_packet.proto)}; _protocols.end() != prot_it) {
+                        spdlog::debug("[PROCESS PACKET] PROTO {:#04X}", in_packet.proto);
+                        prot_it->second(std::move(in_packet));
+                } else {
+                        spdlog::debug("[UNKNOWN PACKET] PROTO {:#04X}", in_packet.proto);
                 }
-                auto const proto{in_packet.proto};
-                this->_protocols[proto](std::move(in_packet));
         }
 
         std::optional<raw_packet> gather_packet() {
-                if (this->packet_queue.empty()) {
-                        for (auto packet_provider : this->_packet_providers) {
+                if (!has_something_to_send()) {
+                        for (auto packet_provider : _packet_providers) {
                                 std::optional<UpperPacketType> in_packet = packet_provider();
                                 if (!in_packet) continue;
                                 std::optional<raw_packet> in_packet_ =
                                         make_packet(std::move(in_packet.value()));
                                 if (!in_packet_) continue;
-                                packet_queue.push_back(std::move(in_packet_.value()));
+                                _packet_queue.push_back(std::move(in_packet_.value()));
                         }
                 }
-                return this->packet_queue.pop_front();
+                return _packet_queue.pop_front();
         }
 };
 
