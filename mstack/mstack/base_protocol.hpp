@@ -115,17 +115,6 @@ public:
 
         bool has_something_to_send() const { return !_packet_queue.empty(); }
 
-        void enqueue(raw_packet&& pkt) { _packet_queue.push_back(std::move(pkt)); }
-
-        void dispatch(UpperPacketType&& in_packet) {
-                if (auto prot_it{_protocols.find(in_packet.proto)}; _protocols.end() != prot_it) {
-                        spdlog::debug("[PROCESS PACKET] PROTO {:#04X}", in_packet.proto);
-                        prot_it->second(std::move(in_packet));
-                } else {
-                        spdlog::debug("[UNKNOWN PACKET] PROTO {:#04X}", in_packet.proto);
-                }
-        }
-
         std::optional<raw_packet> gather_packet() {
                 if (!has_something_to_send()) {
                         for (auto packet_provider : _packet_providers) {
@@ -140,6 +129,9 @@ public:
                 return _packet_queue.pop_front();
         }
 
+protected:
+        void enqueue(raw_packet&& pkt) { _packet_queue.push_back(std::move(pkt)); }
+
 private:
         virtual std::optional<raw_packet> make_packet(UpperPacketType&& in_packet) {
                 return std::nullopt;
@@ -147,6 +139,15 @@ private:
 
         virtual std::optional<UpperPacketType> make_packet(raw_packet&& in_packet) {
                 return std::nullopt;
+        }
+
+        void dispatch(UpperPacketType&& in_packet) {
+                if (auto prot_it{_protocols.find(in_packet.proto)}; _protocols.end() != prot_it) {
+                        spdlog::debug("[PROCESS PACKET] PROTO {:#04X}", in_packet.proto);
+                        prot_it->second(std::move(in_packet));
+                } else {
+                        spdlog::debug("[UNKNOWN PACKET] PROTO {:#04X}", in_packet.proto);
+                }
         }
 };
 

@@ -16,7 +16,7 @@ public:
                 sum += utils::ntoh(in_packet.local_info.ipv4_addr.raw());
                 sum += utils::ntoh(in_packet.remote_info.ipv4_addr.raw());
                 sum += utils::ntoh(in_packet.proto);
-                sum += utils::ntoh((uint16_t)in_packet.buffer->get_remaining_len());
+                sum += utils::ntoh(static_cast<uint16_t>(in_packet.buffer->get_remaining_len()));
 
                 tcp_header_t tcp_header{tcp_header_t::consume(in_packet.buffer->get_pointer())};
 
