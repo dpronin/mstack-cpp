@@ -72,8 +72,8 @@ public:
                 };
                 if (tcbs.find(two_end) != tcbs.end()) {
                         tcp_transmit::tcp_in(tcbs[two_end], in_packet);
-                } else if (active_ports.find(in_packet.local_info.value()) != active_ports.end()) {
-                        register_tcb(two_end, this->listeners[in_packet.local_info.value()]);
+                } else if (active_ports.find(in_packet.local_info) != active_ports.end()) {
+                        register_tcb(two_end, this->listeners[in_packet.local_info]);
                         if (tcbs.find(two_end) != tcbs.end()) {
                                 tcbs[two_end]->state      = TCP_LISTEN;
                                 tcbs[two_end]->next_state = TCP_LISTEN;

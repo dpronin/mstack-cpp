@@ -11,15 +11,11 @@ namespace mstack {
 class ethernetv2 : public base_protocol<raw_packet, ethernetv2_packet, ethernetv2> {
 public:
         std::optional<raw_packet> make_packet(ethernetv2_packet&& in_packet) override {
-                if (!in_packet.dst_mac_addr || !in_packet.src_mac_addr) {
-                        return std::nullopt;
-                }
-
                 spdlog::debug("[OUT] {}", in_packet);
 
                 ethernetv2_header_t e_packet = {
-                        .dst_mac_addr = in_packet.dst_mac_addr.value(),
-                        .src_mac_addr = in_packet.src_mac_addr.value(),
+                        .dst_mac_addr = in_packet.dst_mac_addr,
+                        .src_mac_addr = in_packet.src_mac_addr,
                         .proto        = in_packet.proto,
                 };
 

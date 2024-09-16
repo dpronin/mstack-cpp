@@ -23,45 +23,29 @@ struct raw_packet {
 };
 
 struct ethernetv2_packet {
-        std::optional<mac_addr_t>    src_mac_addr;
-        std::optional<mac_addr_t>    dst_mac_addr;
+        mac_addr_t                   src_mac_addr;
+        mac_addr_t                   dst_mac_addr;
         uint16_t                     proto;
         std::unique_ptr<base_packet> buffer;
 
         friend std::ostream& operator<<(std::ostream& out, ethernetv2_packet const& p) {
-                if (p.src_mac_addr) {
-                        out << p.src_mac_addr.value();
-                } else {
-                        out << "NONE";
-                }
-                out << "->";
-                if (p.dst_mac_addr) {
-                        out << p.dst_mac_addr.value();
-                } else {
-                        out << "NONE";
-                }
+                out << p.src_mac_addr;
+                out << " -> ";
+                out << p.dst_mac_addr;
                 return out;
         }
 };
 
 struct ipv4_packet {
-        std::optional<ipv4_addr_t>   src_ipv4_addr;
-        std::optional<ipv4_addr_t>   dst_ipv4_addr;
+        ipv4_addr_t                  src_ipv4_addr;
+        ipv4_addr_t                  dst_ipv4_addr;
         uint16_t                     proto;
         std::unique_ptr<base_packet> buffer;
 
         friend std::ostream& operator<<(std::ostream& out, ipv4_packet const& p) {
-                if (p.src_ipv4_addr) {
-                        out << p.src_ipv4_addr.value();
-                } else {
-                        out << "NONE";
-                }
+                out << p.src_ipv4_addr;
                 out << " -> ";
-                if (p.dst_ipv4_addr) {
-                        out << p.dst_ipv4_addr.value();
-                } else {
-                        out << "NONE";
-                }
+                out << p.dst_ipv4_addr;
                 return out;
         }
 };
@@ -115,8 +99,8 @@ struct two_ends_t {
 
 struct tcp_packet_t {
         uint16_t                     proto;
-        std::optional<ipv4_port_t>   remote_info;
-        std::optional<ipv4_port_t>   local_info;
+        ipv4_port_t                  remote_info;
+        ipv4_port_t                  local_info;
         std::unique_ptr<base_packet> buffer;
 };
 

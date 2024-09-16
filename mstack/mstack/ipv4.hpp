@@ -26,8 +26,8 @@ public:
                         .id            = seq++,
                         .ttl           = 0x40,
                         .proto_type    = static_cast<uint8_t>(in_packet.proto),
-                        .src_ip_addr   = in_packet.src_ipv4_addr.value(),
-                        .dst_ip_addr   = in_packet.dst_ipv4_addr.value(),
+                        .src_ip_addr   = in_packet.src_ipv4_addr,
+                        .dst_ip_addr   = in_packet.dst_ipv4_addr,
                 };
 
                 std::byte* pointer = in_packet.buffer->get_pointer();
@@ -38,24 +38,22 @@ public:
 
                 out_ipv4_header.produce(pointer);
 
-                std::optional<mac_addr_t> src_mac_addr{
-                        arp::instance().query_mac(in_packet.src_ipv4_addr.value()),
-                };
-
-                if (!src_mac_addr) spdlog::warn("[NO MAC] {}", in_packet.src_ipv4_addr.value());
-
-                std::optional<mac_addr_t> dst_mac_addr{
-                        arp::instance().query_mac(in_packet.dst_ipv4_addr.value()),
-                };
-
-                if (!dst_mac_addr) spdlog::warn("[NO MAC] {}", in_packet.dst_ipv4_addr.value());
-
                 ethernetv2_packet out_packet{
-                        .src_mac_addr = src_mac_addr,
-                        .dst_mac_addr = dst_mac_addr,
-                        .proto        = PROTO,
-                        .buffer       = std::move(in_packet.buffer),
+                        .proto  = PROTO,
+                        .buffer = std::move(in_packet.buffer),
                 };
+
+                if (auto src_mac_addr{arp::instance().query_mac(in_packet.src_ipv4_addr)}) {
+                        out_packet.src_mac_addr = *src_mac_addr;
+                } else {
+                        spdlog::warn("[NO MAC] {}", in_packet.src_ipv4_addr);
+                }
+
+                if (auto dst_mac_addr{arp::instance().query_mac(in_packet.dst_ipv4_addr)}) {
+                        out_packet.dst_mac_addr = *dst_mac_addr;
+                } else {
+                        spdlog::warn("[NO MAC] {}", in_packet.dst_ipv4_addr);
+                }
 
                 return std::move(out_packet);
         }
