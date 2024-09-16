@@ -44,8 +44,6 @@ public:
 
         bool has_something_to_send() const { return !_packet_queue.empty(); }
 
-        void enqueue(UnderPacketType&& in_packet) { _packet_queue.push_back(std::move(in_packet)); }
-
         std::optional<UnderPacketType> gather_packet() {
                 if (!has_something_to_send()) {
                         for (auto const& packet_provider : _packet_providers) {
@@ -58,6 +56,9 @@ public:
                 }
                 return _packet_queue.pop_front();
         }
+
+protected:
+        void enqueue(UnderPacketType&& in_packet) { _packet_queue.push_back(std::move(in_packet)); }
 
 private:
         virtual std::optional<UnderPacketType> make_packet(UpperPacketType&& in_packet) {
