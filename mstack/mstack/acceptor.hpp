@@ -5,14 +5,19 @@
 
 #include <memory>
 
-#include "socket.hpp"
+#include "netns.hpp"
 
 namespace mstack {
 
+struct socket_t;
+struct endpoint;
+class tcb_manager;
+
 class acceptor {
 public:
-        explicit acceptor(boost::asio::io_context& io_ctx, int proto, endpoint const& ep);
-        ~acceptor() = default;
+        explicit acceptor(netns& net, int proto, endpoint const& ep);
+        explicit acceptor(int proto, endpoint const& ep);
+        ~acceptor();
 
         acceptor(acceptor const&)            = delete;
         acceptor& operator=(acceptor const&) = delete;
@@ -20,8 +25,7 @@ public:
         acceptor(acceptor&&)            = delete;
         acceptor& operator=(acceptor&&) = delete;
 
-        void async_accept(mstack::socket_t&                                     sk,
-                          std::function<void(boost::system::error_code const&)> cb);
+        void async_accept(socket_t& sk, std::function<void(boost::system::error_code const&)> cb);
 
 private:
         void listen();

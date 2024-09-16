@@ -14,6 +14,7 @@
 #include "circle_buffer.hpp"
 #include "defination.hpp"
 #include "packets.hpp"
+#include "raw_packet.hpp"
 #include "socket.hpp"
 #include "tcp_header.hpp"
 

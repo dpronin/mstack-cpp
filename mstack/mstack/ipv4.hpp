@@ -1,19 +1,25 @@
 #pragma once
 
-#include "arp.hpp"
+#include <memory>
+
+#include "arp_cache.hpp"
 #include "base_protocol.hpp"
 #include "ethernetv2_frame.hpp"
 #include "ipv4_header.hpp"
 #include "ipv4_packet.hpp"
-#include "packets.hpp"
 
 namespace mstack {
 
 class ipv4 : public base_protocol<ethernetv2_frame, ipv4_packet, ipv4> {
-public:
+private:
+        std::shared_ptr<arp_cache_t> arp_cache_;
+
         uint16_t seq{0};
 
-        constexpr static int PROTO{0x0800};
+public:
+        constexpr static uint16_t PROTO{0x0800};
+
+        explicit ipv4(std::shared_ptr<arp_cache_t> arp_cache) : arp_cache_(std::move(arp_cache)) {}
 
         std::optional<ethernetv2_frame> make_packet(ipv4_packet&& in_packet) override {
                 spdlog::debug("[OUT] {}", in_packet);
@@ -45,13 +51,13 @@ public:
                         .buffer = std::move(in_packet.buffer),
                 };
 
-                if (auto src_mac_addr{arp::instance().query_mac(in_packet.src_ipv4_addr)}) {
+                if (auto src_mac_addr{arp_cache_->query(in_packet.src_ipv4_addr)}) {
                         out_packet.src_mac_addr = *src_mac_addr;
                 } else {
                         spdlog::warn("[NO MAC] {}", in_packet.src_ipv4_addr);
                 }
 
-                if (auto dst_mac_addr{arp::instance().query_mac(in_packet.dst_ipv4_addr)}) {
+                if (auto dst_mac_addr{arp_cache_->query(in_packet.dst_ipv4_addr)}) {
                         out_packet.dst_mac_addr = *dst_mac_addr;
                 } else {
                         spdlog::warn("[NO MAC] {}", in_packet.dst_ipv4_addr);

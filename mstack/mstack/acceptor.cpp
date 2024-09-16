@@ -4,14 +4,15 @@
 
 #include "socket_manager.hpp"
 
+#include "socket.hpp"
 #include "tcb_manager.hpp"
 
 namespace mstack {
 
-acceptor::acceptor(boost::asio::io_context& io_ctx, int proto, endpoint const& ep) {
+acceptor::acceptor(netns& net, int proto, endpoint const& ep) {
         for (uint16_t fd = 1; fd > 0; ++fd) {
                 if (!__sockets__.contains(fd)) {
-                        sk_ = std::make_unique<socket_t>(io_ctx);
+                        sk_ = std::make_unique<socket_t>(net);
 
                         sk_->proto      = proto;
                         sk_->local_info = {
@@ -30,11 +31,14 @@ acceptor::acceptor(boost::asio::io_context& io_ctx, int proto, endpoint const& e
         throw std::overflow_error{"no available ports for a new acceptor"};
 }
 
+acceptor::acceptor(int proto, endpoint const& ep) : acceptor(netns::_default_(), proto, ep) {}
+
+acceptor::~acceptor() = default;
+
 void acceptor::async_accept(socket_t&                                             sk,
                             std::function<void(boost::system::error_code const&)> cb) {
         auto f = [this, &sk, cb = std::move(cb)] {
-                if (auto& l{tcb_manager::instance().listener_get(sk_->local_info)};
-                    !l.acceptors.empty()) {
+                if (auto& l{sk.net.tcb_m().listener_get(sk_->local_info)}; !l.acceptors.empty()) {
                         for (int i = 1; i < 65535; i++) {
                                 if (!__sockets__.contains(i)) {
                                         if (auto tcb{l.acceptors.pop_front().value()}) {
@@ -54,9 +58,9 @@ void acceptor::async_accept(socket_t&                                           
                 cb(boost::system::errc::make_error_code(boost::system::errc::connection_reset));
         };
 
-        if (auto& l{tcb_manager::instance().listener_get(sk_->local_info)};
+        if (auto& l{sk_->net.tcb_m().listener_get(sk_->local_info)};
             !l.on_acceptor_has_tcb.empty()) {
-                sk_->io_ctx.post(f);
+                sk_->net.io_context_execution().post(f);
         } else {
                 l.on_acceptor_has_tcb.push(f);
         }
@@ -70,7 +74,7 @@ void acceptor::listen() {
         listener->state      = SOCKET_CONNECTING;
         listener->fd         = sk_->fd;
 
-        tcb_manager::instance().listen_port(sk_->local_info, std::move(listener));
+        sk_->net.tcb_m().listen_port(sk_->local_info, std::move(listener));
 }
 
 }  // namespace mstack

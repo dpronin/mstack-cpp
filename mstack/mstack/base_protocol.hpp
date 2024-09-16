@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cassert>
+
+#include <concepts>
 #include <functional>
 #include <optional>
 #include <unordered_map>
@@ -8,7 +11,7 @@
 #include <spdlog/spdlog.h>
 
 #include "circle_buffer.hpp"
-#include "packets.hpp"
+#include "raw_packet.hpp"
 
 namespace mstack {
 
@@ -23,17 +26,16 @@ private:
         circle_buffer<UnderPacketType>                _packet_queue;
 
 public:
-        static ChildType& instance() {
-                static ChildType instance;
-                return instance;
-        }
-
-        template <typename UpperProtocol>
-        void register_upper_protocol(int upper_proto, UpperProtocol& upper_protocol) {
+        template <std::convertible_to<int> Index, typename UpperProtocol>
+        void upper_handler_update(std::pair<Index, std::shared_ptr<UpperProtocol>> kv) {
+                assert(kv.second);
                 _packet_providers.push_back(
-                        [&upper_protocol] { return upper_protocol.gather_packet(); });
-                _protocols[upper_proto] = [&upper_protocol](UpperPacketType packet) {
-                        upper_protocol.receive(std::move(packet));
+                        [wp = std::weak_ptr{kv.second}]() -> decltype(kv.second->gather_packet()) {
+                                if (auto sp = wp.lock()) return sp->gather_packet();
+                                return std::nullopt;
+                        });
+                _protocols[kv.first] = [sp = kv.second](UpperPacketType&& packet) {
+                        sp->receive(std::move(packet));
                 };
         }
 
@@ -94,17 +96,16 @@ private:
         circle_buffer<raw_packet>                     _packet_queue;
 
 public:
-        static ChildType& instance() {
-                static ChildType instance;
-                return instance;
-        }
-
-        template <typename UpperProtocol>
-        void register_upper_protocol(int upper_proto, UpperProtocol& upper_protocol) {
+        template <std::convertible_to<int> Index, typename UpperProtocol>
+        void upper_handler_update(std::pair<Index, std::shared_ptr<UpperProtocol>> kv) {
+                assert(kv.second);
                 _packet_providers.push_back(
-                        [&upper_protocol] { return upper_protocol.gather_packet(); });
-                _protocols[upper_proto] = [&upper_protocol](UpperPacketType packet) {
-                        upper_protocol.receive(std::move(packet));
+                        [wp = std::weak_ptr{kv.second}]() -> decltype(kv.second->gather_packet()) {
+                                if (auto sp = wp.lock()) return sp->gather_packet();
+                                return std::nullopt;
+                        });
+                _protocols[kv.first] = [sp = kv.second](UpperPacketType&& packet) {
+                        sp->receive(std::move(packet));
                 };
         }
 

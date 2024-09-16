@@ -16,14 +16,17 @@
 #include "circle_buffer.hpp"
 #include "defination.hpp"
 #include "endpoint.hpp"
-#include "packets.hpp"
 
 namespace mstack {
 
 struct tcb_t;
+class tcb_manager;
+class netns;
 
 struct socket_t {
-        explicit socket_t(boost::asio::io_context& io_ctx) : io_ctx(io_ctx) {}
+        explicit socket_t(netns& net) : net(net) {}
+        socket_t();
+
         ~socket_t() = default;
 
         socket_t(socket_t const&)            = delete;
@@ -32,10 +35,10 @@ struct socket_t {
         socket_t(socket_t&&)            = delete;
         socket_t& operator=(socket_t&&) = delete;
 
-        boost::asio::io_context&   io_ctx;
-        int                        fd;
-        int                        state = SOCKET_UNCONNECTED;
-        int                        proto;
+        netns&                     net;
+        int                        fd{-1};
+        int                        state{SOCKET_UNCONNECTED};
+        int                        proto{-1};
         ipv4_port_t                local_info;
         std::optional<ipv4_port_t> remote_info;
         std::shared_ptr<tcb_t>     tcb;

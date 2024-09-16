@@ -17,13 +17,13 @@ class arp : public base_protocol<ethernetv2_frame, ipv4_packet, arp> {
 public:
         static constexpr uint16_t PROTO{0x0806};
 
-        std::optional<mac_addr_t> query_mac(ipv4_addr_t const& ipv4_addr) {
-                return arp_cache.query(ipv4_addr);
+        explicit arp(std::shared_ptr<arp_cache_t> arp_cache) : arp_cache_(std::move(arp_cache)) {
+                assert(arp_cache_);
         }
 
-        void remove(ipv4_addr_t const& k) { arp_cache.reset(k); }
+        void remove(ipv4_addr_t const& k) { arp_cache_->reset(k); }
 
-        void add(std::pair<ipv4_addr_t, mac_addr_t> const& kv) { arp_cache.update(kv); }
+        void add(std::pair<ipv4_addr_t, mac_addr_t> const& kv) { arp_cache_->update(kv); }
 
         void send_reply(arpv4_header_t const& in_arp, mac_addr_t const& sha) {
                 arpv4_header_t const out_arp = {
@@ -38,7 +38,7 @@ public:
                         .tpa   = in_arp.spa,
                 };
 
-                arp_cache.update(in_arp.spa, in_arp.sha);
+                arp_cache_->update(in_arp.spa, in_arp.sha);
 
                 auto out_buffer{std::make_unique<base_packet>(arpv4_header_t::size())};
                 out_arp.produce(out_buffer->get_pointer());
@@ -89,7 +89,7 @@ public:
                 };
 
                 if (in_arp.oper == 0x01) {
-                        if (auto const& dev_mac_addr{arp_cache.query(in_arp.tpa)}) {
+                        if (auto const& dev_mac_addr{arp_cache_->query(in_arp.tpa)}) {
                                 send_reply(in_arp, *dev_mac_addr);
                         }
                 }
@@ -98,7 +98,7 @@ public:
         }
 
 private:
-        arp_cache_t arp_cache;
+        std::shared_ptr<arp_cache_t> arp_cache_;
 };
 
 }  // namespace mstack

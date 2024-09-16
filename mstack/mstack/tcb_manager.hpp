@@ -16,8 +16,6 @@ namespace mstack {
 
 class tcb_manager {
 private:
-        tcb_manager() : active_tcbs(std::make_shared<circle_buffer<std::shared_ptr<tcb_t>>>()) {}
-        ~tcb_manager() = default;
         std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>>       active_tcbs;
         std::unordered_map<two_ends_t, std::shared_ptr<tcb_t>>       tcbs;
         std::unordered_set<ipv4_port_t>                              active_ports;
@@ -26,15 +24,14 @@ private:
 public:
         constexpr static int PROTO{0x06};
 
-        tcb_manager(const tcb_manager&)            = delete;
-        tcb_manager(tcb_manager&&)                 = delete;
+        tcb_manager() : active_tcbs(std::make_shared<circle_buffer<std::shared_ptr<tcb_t>>>()) {}
+        ~tcb_manager() = default;
+
+        tcb_manager(const tcb_manager&) = delete;
+        tcb_manager(tcb_manager&&)      = delete;
+
         tcb_manager& operator=(const tcb_manager&) = delete;
         tcb_manager& operator=(tcb_manager&&)      = delete;
-
-        static tcb_manager& instance() {
-                static tcb_manager instance;
-                return instance;
-        }
 
         std::optional<tcp_packet_t> gather_packet() {
                 while (!active_tcbs->empty()) {

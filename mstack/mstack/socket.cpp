@@ -3,11 +3,12 @@
 #include <memory>
 #include <utility>
 
+#include "netns.hpp"
 #include "socket.hpp"
 
-#include "tcb.hpp"
-
 namespace mstack {
+
+socket_t::socket_t() : net(netns::_default_()) {}
 
 void socket_t::async_read_some(std::span<std::byte>                                          buf,
                                std::function<void(boost::system::error_code const&, size_t)> cb) {
@@ -18,7 +19,7 @@ void socket_t::async_read_some(std::span<std::byte>                             
         };
 
         if (!this->tcb->receive_queue.empty())
-                io_ctx.post(f);
+                net.io_context_execution().post(f);
         else
                 this->tcb->on_data_receive.push(f);
 }
@@ -58,7 +59,7 @@ void socket_t::async_write(std::span<std::byte const>                           
                            std::function<void(boost::system::error_code const&, size_t)> cb) {
         assert(this->tcb);
         this->tcb->enqueue_send(buf);
-        io_ctx.post([sz = buf.size(), cb = std::move(cb)] { cb({}, sz); });
+        net.io_context_execution().post([sz = buf.size(), cb = std::move(cb)] { cb({}, sz); });
 }
 
 }  // namespace mstack

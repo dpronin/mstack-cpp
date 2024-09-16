@@ -18,10 +18,6 @@ struct nop_packet {
         uint16_t proto;
 };
 
-struct raw_packet {
-        std::unique_ptr<base_packet> buffer;
-};
-
 struct two_ends_t {
         std::optional<ipv4_port_t> remote_info;
         std::optional<ipv4_port_t> local_info;

@@ -11,21 +11,24 @@
 #include <span>
 #include <string>
 
+#include "api.hpp"
 #include "file_desc.hpp"
 #include "ipv4_addr.hpp"
+#include "netns.hpp"
 #include "utils.hpp"
 
 namespace mstack {
 
 class tun {
 private:
-        boost::asio::posix::stream_descriptor _pfd;
-        file_desc                             _fd;
-        std::optional<ipv4_addr_t>            _ipv4_addr;
-        std::string                           _ndev;
+        netns&                                net_;
+        boost::asio::posix::stream_descriptor pfd_;
+        file_desc                             fd_;
+        std::optional<ipv4_addr_t>            ipv4_addr_;
+        std::string                           ndev_;
 
 public:
-        explicit tun(boost::asio::io_context& io_ctx) : _pfd(io_ctx) {
+        explicit tun(netns& net) : net_(net), pfd_(net_.io_context_execution()) {
                 auto fd{
                         file_desc::open("/dev/net/tun", file_desc::RDWR | file_desc::NONBLOCK),
                 };
@@ -35,29 +38,43 @@ public:
                         return;
                 }
 
-                _fd = std::move(fd.value());
+                fd_ = std::move(fd.value());
 
-                spdlog::debug("[DEV FD] {}", _fd.get_fd());
+                spdlog::debug("[DEV FD] {}", fd_.get_fd());
 
                 ifreq ifr{};
 
                 ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
 
-                if (int err{_fd.ioctl(TUNSETIFF, ifr)}; err < 0) {
+                if (int err{fd_.ioctl(TUNSETIFF, ifr)}; err < 0) {
                         spdlog::critical("[INIT FAIL]");
                         return;
                 }
 
                 std::copy(std::begin(ifr.ifr_name), std::end(ifr.ifr_name),
-                          std::back_inserter(_ndev));
+                          std::back_inserter(ndev_));
 
-                if (utils::set_interface_up(_ndev) != 0) {
-                        spdlog::critical("[SET UP] {}", _ndev);
+                if (utils::set_interface_up(ndev_) != 0) {
+                        spdlog::critical("[SET UP] {}", ndev_);
                         return;
                 }
 
-                _pfd.assign(_fd.get_fd());
+                pfd_.assign(fd_.get_fd());
+
+                mstack::async_dev_read(
+                        *this, std::make_unique_for_overwrite<std::array<std::byte, 1500>>(),
+                        [this](std::span<std::byte const> buf) {
+                                this->net().ip().receive(mstack::raw_packet{
+                                        .buffer = std::make_unique<mstack::base_packet>(buf),
+                                });
+                        });
+
+                mstack::async_dev_write_tick(
+                        *this, std::make_unique_for_overwrite<std::array<std::byte, 1500>>(),
+                        [this] { return this->net().ip().gather_packet(); });
         }
+
+        tun() : tun(netns::_default_()) {}
 
         ~tun() = default;
 
@@ -70,26 +87,27 @@ public:
         template <typename Completion>
         void async_read_some(std::span<std::byte> buf, Completion&& completion) {
                 spdlog::debug("[TUN READ SOME]: max bytes {}", buf.size());
-                _pfd.async_read_some(boost::asio::buffer(buf),
+                pfd_.async_read_some(boost::asio::buffer(buf),
                                      std::forward<Completion>(completion));
         }
 
         template <typename Completion>
         void async_write(std::span<std::byte const> buf, Completion&& completion) {
                 spdlog::debug("[TUN WRITE]: exactly bytes {}", buf.size());
-                boost::asio::async_write(_pfd, boost::asio::buffer(buf),
+                boost::asio::async_write(pfd_, boost::asio::buffer(buf),
                                          std::forward<Completion>(completion));
         }
 
-        std::string const& name() const { return _ndev; }
+        std::string const& name() const { return ndev_; }
 
-        std::optional<ipv4_addr_t> ipv4_addr() const { return _ipv4_addr; }
+        std::optional<ipv4_addr_t> ipv4_addr() const { return ipv4_addr_; }
 
-        void set_ipv4_addr(ipv4_addr_t ipv4_addr) { _ipv4_addr = ipv4_addr; }
+        void set_ipv4_addr(ipv4_addr_t ipv4_addr) { ipv4_addr_ = ipv4_addr; }
 
-        auto& get_executor() { return _pfd.get_executor(); }
+        netns&       net() { return net_; }
+        netns const& net() const { return net_; }
 
-        void capture(std::string_view route_pref) { utils::set_interface_route(_ndev, route_pref); }
+        void capture(std::string_view route_pref) { utils::set_interface_route(ndev_, route_pref); }
 };
 
 }  // namespace mstack
