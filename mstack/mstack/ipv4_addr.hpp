@@ -12,7 +12,7 @@ namespace mstack {
 
 class ipv4_addr_t {
 private:
-        uint32_t _ipv4 = 0;
+        uint32_t v_ = 0;
 
 public:
         ipv4_addr_t()                              = default;
@@ -21,26 +21,22 @@ public:
         ipv4_addr_t(ipv4_addr_t&&)                 = default;
         ipv4_addr_t& operator=(const ipv4_addr_t&) = default;
         ipv4_addr_t& operator=(ipv4_addr_t&&)      = default;
-        ipv4_addr_t(uint32_t ipv4) : _ipv4(ipv4) {}
-        ipv4_addr_t(std::string_view ipv4)
-            : _ipv4{boost::asio::ip::make_address_v4(ipv4).to_uint()} {}
+        ipv4_addr_t(uint32_t ipv4) : v_(ipv4) {}
+        ipv4_addr_t(std::string_view ipv4) : v_{boost::asio::ip::make_address_v4(ipv4).to_uint()} {}
 
         auto operator<=>(const ipv4_addr_t& other) const = default;
 
-        uint32_t get_raw_ipv4() const { return _ipv4; }
-
-        size_t operator()(const ipv4_addr_t& p) const { return std::hash<uint32_t>()(p._ipv4); }
+        uint32_t raw() const { return v_; }
 
         static constexpr size_t size() { return 4; }
 
-        void consume(std::byte*& ptr) { _ipv4 = utils::consume<uint32_t>(ptr); }
+        void consume(std::byte*& ptr) { v_ = utils::consume<uint32_t>(ptr); }
 
-        void produce(std::byte*& ptr) const { utils::produce<uint32_t>(ptr, _ipv4); }
+        void produce(std::byte*& ptr) const { utils::produce<uint32_t>(ptr, v_); }
 
         friend std::ostream& operator<<(std::ostream& out, ipv4_addr_t ipv4) {
-                out << utils::format("{}.{}.{}.{}", (ipv4._ipv4 >> 24) & 0xFF,
-                                     (ipv4._ipv4 >> 16) & 0xFF, (ipv4._ipv4 >> 8) & 0xFF,
-                                     (ipv4._ipv4 >> 0) & 0xFF);
+                out << utils::format("{}.{}.{}.{}", (ipv4.v_ >> 24) & 0xFF, (ipv4.v_ >> 16) & 0xFF,
+                                     (ipv4.v_ >> 8) & 0xFF, (ipv4.v_ >> 0) & 0xFF);
                 return out;
         }
 
@@ -60,7 +56,8 @@ namespace std {
 template <>
 struct hash<mstack::ipv4_addr_t> {
         size_t operator()(const mstack::ipv4_addr_t& ipv4_addr) const {
-                return hash<uint32_t>{}(ipv4_addr.get_raw_ipv4());
+                return hash<uint32_t>{}(ipv4_addr.raw());
         }
 };
-};  // namespace std
+
+}  // namespace std

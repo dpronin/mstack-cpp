@@ -13,8 +13,8 @@ public:
         std::optional<ipv4_packet> make_packet(tcp_packet_t&& in_packet) override {
                 uint32_t sum{0};
 
-                sum += utils::ntoh(in_packet.local_info.ipv4_addr.get_raw_ipv4());
-                sum += utils::ntoh(in_packet.remote_info.ipv4_addr.get_raw_ipv4());
+                sum += utils::ntoh(in_packet.local_info.ipv4_addr.raw());
+                sum += utils::ntoh(in_packet.remote_info.ipv4_addr.raw());
                 sum += utils::ntoh(in_packet.proto);
                 sum += utils::ntoh((uint16_t)in_packet.buffer->get_remaining_len());
 
