@@ -56,7 +56,7 @@ struct ipv4_packet {
                 } else {
                         out << "NONE";
                 }
-                out << "->";
+                out << " -> ";
                 if (p.dst_ipv4_addr) {
                         out << p.dst_ipv4_addr.value();
                 } else {

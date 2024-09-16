@@ -2,7 +2,6 @@
 
 #include <cstddef>
 
-#include <chrono>
 #include <utility>
 
 #include <boost/asio/io_context.hpp>

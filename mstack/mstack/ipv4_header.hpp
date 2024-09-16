@@ -60,7 +60,7 @@ struct ipv4_header_t {
                 return ipv4_header;
         }
 
-        void produce(std::byte* ptr) {
+        void produce(std::byte* ptr) const {
                 utils::produce<uint8_t>(ptr, version << 4 | header_length);
                 utils::produce<uint8_t>(ptr, type_of_service);
                 utils::produce<uint16_t>(ptr, total_length);
