@@ -28,13 +28,11 @@ public:
                 return instance;
         }
 
-        virtual int id() = 0;
-
         template <typename UpperProtocol>
-        void register_upper_protocol(UpperProtocol& upper_protocol) {
+        void register_upper_protocol(int upper_proto, UpperProtocol& upper_protocol) {
                 _packet_providers.push_back(
                         [&upper_protocol] { return upper_protocol.gather_packet(); });
-                _protocols[upper_protocol.id()] = [&upper_protocol](UpperPacketType packet) {
+                _protocols[upper_proto] = [&upper_protocol](UpperPacketType packet) {
                         upper_protocol.receive(std::move(packet));
                 };
         }
@@ -100,13 +98,11 @@ public:
                 return instance;
         }
 
-        virtual int id() = 0;
-
         template <typename UpperProtocol>
-        void register_upper_protocol(UpperProtocol& upper_protocol) {
+        void register_upper_protocol(int upper_proto, UpperProtocol& upper_protocol) {
                 _packet_providers.push_back(
                         [&upper_protocol] { return upper_protocol.gather_packet(); });
-                _protocols[upper_protocol.id()] = [&upper_protocol](UpperPacketType packet) {
+                _protocols[upper_proto] = [&upper_protocol](UpperPacketType packet) {
                         upper_protocol.receive(std::move(packet));
                 };
         }

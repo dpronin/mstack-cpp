@@ -60,8 +60,6 @@ private:
 public:
         static constexpr uint16_t PROTO{0x01};
 
-        int id() override { return PROTO; }
-
         std::optional<nop_packet> make_packet(ipv4_packet&& in_packet) override {
                 auto const in_icmp_header{icmp_header_t::consume(in_packet.buffer->get_pointer())};
 

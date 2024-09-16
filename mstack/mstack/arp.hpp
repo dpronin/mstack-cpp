@@ -16,8 +16,6 @@ class arp : public base_protocol<ethernetv2_packet, ipv4_packet, arp> {
 public:
         static constexpr uint16_t PROTO{0x0806};
 
-        int id() override { return PROTO; }
-
         std::optional<mac_addr_t> query_mac(ipv4_addr_t const& ipv4_addr) {
                 return arp_cache.query(ipv4_addr);
         }

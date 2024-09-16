@@ -9,11 +9,9 @@ namespace mstack {
 
 class ipv4 : public base_protocol<ethernetv2_packet, ipv4_packet, ipv4> {
 public:
-        arp&                 arp_instance = arp::instance();
-        int                  seq          = 0;
-        constexpr static int PROTO        = 0x0800;
+        int seq = 0;
 
-        int id() override { return PROTO; }
+        constexpr static int PROTO{0x0800};
 
         std::optional<ethernetv2_packet> make_packet(ipv4_packet&& in_packet) override {
                 spdlog::debug("[OUT] {}", in_packet);
@@ -38,13 +36,13 @@ public:
                 out_ipv4_header.produce(pointer);
 
                 std::optional<mac_addr_t> src_mac_addr{
-                        arp_instance.query_mac(in_packet.src_ipv4_addr.value()),
+                        arp::instance().query_mac(in_packet.src_ipv4_addr.value()),
                 };
 
                 if (!src_mac_addr) spdlog::warn("[NO MAC] {}", in_packet.src_ipv4_addr.value());
 
                 std::optional<mac_addr_t> dst_mac_addr{
-                        arp_instance.query_mac(in_packet.dst_ipv4_addr.value()),
+                        arp::instance().query_mac(in_packet.dst_ipv4_addr.value()),
                 };
 
                 if (!dst_mac_addr) spdlog::warn("[NO MAC] {}", in_packet.dst_ipv4_addr.value());

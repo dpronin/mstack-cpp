@@ -23,7 +23,7 @@ inline auto& tcp_stack_create() {
         auto& stack{tcp::instance()};
 
         auto& tcb_manager{tcb_manager::instance()};
-        stack.register_upper_protocol(tcb_manager);
+        stack.register_upper_protocol(tcb_manager::PROTO, tcb_manager);
 
         return stack;
 }
@@ -36,8 +36,8 @@ inline auto& icmp_stack_create() {
 inline auto& ipv4_stack_create() {
         auto& stack{ipv4::instance()};
 
-        stack.register_upper_protocol(icmp::instance());
-        stack.register_upper_protocol(tcp::instance());
+        stack.register_upper_protocol(icmp::PROTO, icmp::instance());
+        stack.register_upper_protocol(tcp::PROTO, tcp::instance());
 
         return stack;
 }
@@ -50,8 +50,8 @@ inline auto& arpv4_stack_create() {
 inline auto& ethernetv2_stack_create() {
         auto& stack{ethernetv2::instance()};
 
-        stack.register_upper_protocol(ipv4::instance());
-        stack.register_upper_protocol(arp::instance());
+        stack.register_upper_protocol(ipv4::PROTO, ipv4::instance());
+        stack.register_upper_protocol(arp::PROTO, arp::instance());
 
         return stack;
 }

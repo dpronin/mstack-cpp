@@ -24,6 +24,8 @@ private:
         std::unordered_map<ipv4_port_t, std::shared_ptr<listener_t>> listeners;
 
 public:
+        constexpr static int PROTO{0x06};
+
         tcb_manager(const tcb_manager&)            = delete;
         tcb_manager(tcb_manager&&)                 = delete;
         tcb_manager& operator=(const tcb_manager&) = delete;
@@ -33,9 +35,6 @@ public:
                 static tcb_manager instance;
                 return instance;
         }
-
-public:
-        int id() { return 0x06; }
 
         std::optional<tcp_packet_t> gather_packet() {
                 while (!active_tcbs->empty()) {
