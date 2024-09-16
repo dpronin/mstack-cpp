@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include <functional>
 #include <memory>
 #include <optional>
 
@@ -9,8 +10,7 @@
 #include <spdlog/spdlog.h>
 
 #include "base_packet.hpp"
-#include "ipv4_addr.hpp"
-#include "mac_addr.hpp"
+#include "ipv4_port.hpp"
 
 namespace mstack {
 
@@ -20,50 +20,6 @@ struct nop_packet {
 
 struct raw_packet {
         std::unique_ptr<base_packet> buffer;
-};
-
-struct ethernetv2_packet {
-        mac_addr_t                   src_mac_addr;
-        mac_addr_t                   dst_mac_addr;
-        uint16_t                     proto;
-        std::unique_ptr<base_packet> buffer;
-
-        friend std::ostream& operator<<(std::ostream& out, ethernetv2_packet const& p) {
-                out << p.src_mac_addr;
-                out << " -> ";
-                out << p.dst_mac_addr;
-                return out;
-        }
-};
-
-struct ipv4_packet {
-        ipv4_addr_t                  src_ipv4_addr;
-        ipv4_addr_t                  dst_ipv4_addr;
-        uint16_t                     proto;
-        std::unique_ptr<base_packet> buffer;
-
-        friend std::ostream& operator<<(std::ostream& out, ipv4_packet const& p) {
-                out << p.src_ipv4_addr;
-                out << " -> ";
-                out << p.dst_ipv4_addr;
-                return out;
-        }
-};
-
-using port_addr_t = uint16_t;
-
-struct ipv4_port_t {
-        ipv4_addr_t ipv4_addr;
-        port_addr_t port_addr;
-
-        auto operator<=>(const ipv4_port_t& rhs) const = default;
-
-        friend std::ostream& operator<<(std::ostream& out, ipv4_port_t const& p) {
-                out << p.ipv4_addr;
-                out << ":";
-                out << p.port_addr;
-                return out;
-        }
 };
 
 struct two_ends_t {
@@ -107,13 +63,7 @@ struct tcp_packet_t {
 };  // namespace mstack
 
 namespace std {
-template <>
-struct hash<mstack::ipv4_port_t> {
-        size_t operator()(const mstack::ipv4_port_t& ipv4_port) const {
-                return hash<mstack::ipv4_addr_t>{}(ipv4_port.ipv4_addr) ^
-                       hash<mstack::port_addr_t>{}(ipv4_port.port_addr);
-        };
-};
+
 template <>
 struct hash<mstack::two_ends_t> {
         size_t operator()(const mstack::two_ends_t& two_ends) const {
@@ -126,27 +76,6 @@ struct hash<mstack::two_ends_t> {
 };
 
 }  // namespace std
-
-template <>
-struct fmt::formatter<mstack::ethernetv2_packet> : fmt::formatter<std::string> {
-        auto format(mstack::ethernetv2_packet const& c, format_context& ctx) {
-                return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
-        }
-};
-
-template <>
-struct fmt::formatter<mstack::ipv4_packet> : fmt::formatter<std::string> {
-        auto format(mstack::ipv4_packet const& c, format_context& ctx) {
-                return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
-        }
-};
-
-template <>
-struct fmt::formatter<mstack::ipv4_port_t> : fmt::formatter<std::string> {
-        auto format(mstack::ipv4_port_t const& c, format_context& ctx) {
-                return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
-        }
-};
 
 template <>
 struct fmt::formatter<mstack::two_ends_t> : fmt::formatter<std::string> {

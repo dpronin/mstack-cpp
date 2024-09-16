@@ -5,14 +5,15 @@
 #include "arp_cache.hpp"
 #include "arp_header.hpp"
 #include "base_protocol.hpp"
+#include "ethernetv2_frame.hpp"
+#include "ipv4_packet.hpp"
 #include "mac_addr.hpp"
-#include "packets.hpp"
 
 #include <spdlog/spdlog.h>
 
 namespace mstack {
 
-class arp : public base_protocol<ethernetv2_packet, ipv4_packet, arp> {
+class arp : public base_protocol<ethernetv2_frame, ipv4_packet, arp> {
 public:
         static constexpr uint16_t PROTO{0x0806};
 
@@ -42,7 +43,7 @@ public:
                 auto out_buffer{std::make_unique<base_packet>(arpv4_header_t::size())};
                 out_arp.produce(out_buffer->get_pointer());
 
-                ethernetv2_packet out_packet = {
+                ethernetv2_frame out_packet = {
                         .src_mac_addr = out_arp.sha,
                         .dst_mac_addr = out_arp.tha,
                         .proto        = PROTO,
@@ -70,7 +71,7 @@ public:
                 auto out_buffer{std::make_unique<base_packet>(arpv4_header_t::size())};
                 out_arp.produce(out_buffer->get_pointer());
 
-                ethernetv2_packet out_packet = {
+                ethernetv2_frame out_packet = {
                         .src_mac_addr = out_arp.sha,
                         .dst_mac_addr = out_arp.tha,
                         .proto        = PROTO,
@@ -82,7 +83,7 @@ public:
                 spdlog::debug("[ARP] SEND ARP REQUEST {}", out_arp);
         }
 
-        std::optional<ipv4_packet> make_packet(ethernetv2_packet&& in_packet) override {
+        std::optional<ipv4_packet> make_packet(ethernetv2_frame&& in_packet) override {
                 auto const in_arp{
                         arpv4_header_t::consume(in_packet.buffer->get_pointer()),
                 };

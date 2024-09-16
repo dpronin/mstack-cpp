@@ -2,18 +2,20 @@
 
 #include "arp.hpp"
 #include "base_protocol.hpp"
+#include "ethernetv2_frame.hpp"
 #include "ipv4_header.hpp"
+#include "ipv4_packet.hpp"
 #include "packets.hpp"
 
 namespace mstack {
 
-class ipv4 : public base_protocol<ethernetv2_packet, ipv4_packet, ipv4> {
+class ipv4 : public base_protocol<ethernetv2_frame, ipv4_packet, ipv4> {
 public:
         uint16_t seq{0};
 
         constexpr static int PROTO{0x0800};
 
-        std::optional<ethernetv2_packet> make_packet(ipv4_packet&& in_packet) override {
+        std::optional<ethernetv2_frame> make_packet(ipv4_packet&& in_packet) override {
                 spdlog::debug("[OUT] {}", in_packet);
 
                 in_packet.buffer->reflush_packet(ipv4_header_t::size());
@@ -38,7 +40,7 @@ public:
 
                 out_ipv4_header.produce(pointer);
 
-                ethernetv2_packet out_packet{
+                ethernetv2_frame out_packet{
                         .proto  = PROTO,
                         .buffer = std::move(in_packet.buffer),
                 };
@@ -80,7 +82,7 @@ public:
                 return r;
         }
 
-        std::optional<ipv4_packet> make_packet(ethernetv2_packet&& in_packet) override {
+        std::optional<ipv4_packet> make_packet(ethernetv2_frame&& in_packet) override {
                 return make_packet(raw_packet{.buffer = std::move(in_packet.buffer)});
         };
 };

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "base_protocol.hpp"
+#include "ipv4_packet.hpp"
 #include "packets.hpp"
 #include "tcp_header.hpp"
 
