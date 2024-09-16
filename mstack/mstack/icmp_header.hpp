@@ -22,16 +22,16 @@ struct icmp_header_t {
         static constexpr size_t size() { return 1 + 1 + 2 + 2 + 2; }
 
         static icmp_header_t consume(std::byte* ptr) {
-                icmp_header_t icmp_header;
-                icmp_header.proto_type = utils::consume<uint8_t>(ptr);
-                icmp_header.code       = utils::consume<uint8_t>(ptr);
-                icmp_header.checksum   = utils::consume<uint16_t>(ptr);
-                icmp_header.id         = utils::consume<uint16_t>(ptr);
-                icmp_header.seq        = utils::consume<uint16_t>(ptr);
-                return icmp_header;
+                return {
+                        .proto_type = utils::consume<uint8_t>(ptr),
+                        .code       = utils::consume<uint8_t>(ptr),
+                        .checksum   = utils::consume<uint16_t>(ptr),
+                        .id         = utils::consume<uint16_t>(ptr),
+                        .seq        = utils::consume<uint16_t>(ptr),
+                };
         }
 
-        std::byte* produce(std::byte* ptr) {
+        std::byte* produce(std::byte* ptr) const {
                 utils::produce<uint8_t>(ptr, proto_type);
                 utils::produce<uint8_t>(ptr, code);
                 utils::produce<uint16_t>(ptr, checksum);
@@ -42,12 +42,8 @@ struct icmp_header_t {
 
         friend std::ostream& operator<<(std::ostream& out, icmp_header_t const& m) {
                 using u = uint32_t;
-                out << "[ICMP PACKET] ";
-                out << u(m.proto_type) << " ";
-                out << u(m.code) << " ";
-                out << u(m.id) << " ";
-                out << u(m.seq);
-                return out;
+                return out << std::format("[ICMP PACKET] {} {} {} {}", u(m.proto_type), u(m.code),
+                                          u(m.id), u(m.seq));
         };
 };
 

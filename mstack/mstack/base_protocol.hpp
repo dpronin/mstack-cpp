@@ -39,18 +39,6 @@ public:
                 };
         }
 
-        virtual std::optional<UnderPacketType> make_packet(UpperPacketType&& in_packet) {
-                return std::nullopt;
-        }
-
-        virtual std::optional<UpperPacketType> make_packet(UnderPacketType&& in_packet) {
-                return std::nullopt;
-        }
-
-        virtual std::optional<UpperPacketType> make_packet(raw_packet&& in_packet) {
-                return std::nullopt;
-        }
-
         template <typename PacketType>
         void receive(PacketType&& in) {
                 if (auto out{make_packet(std::move(in))}) dispatch(std::move(*out));
@@ -58,9 +46,7 @@ public:
 
         bool has_something_to_send() const { return !_packet_queue.empty(); }
 
-        void enter_send_queue(UnderPacketType&& in_packet) {
-                _packet_queue.push_back(std::move(in_packet));
-        }
+        void enqueue(UnderPacketType&& in_packet) { _packet_queue.push_back(std::move(in_packet)); }
 
         std::optional<UnderPacketType> gather_packet() {
                 if (!has_something_to_send()) {
@@ -76,6 +62,18 @@ public:
         }
 
 private:
+        virtual std::optional<UnderPacketType> make_packet(UpperPacketType&& in_packet) {
+                return std::nullopt;
+        }
+
+        virtual std::optional<UpperPacketType> make_packet(UnderPacketType&& in_packet) {
+                return std::nullopt;
+        }
+
+        virtual std::optional<UpperPacketType> make_packet(raw_packet&& in_packet) {
+                return std::nullopt;
+        }
+
         void dispatch(UpperPacketType&& in_packet) {
                 if (auto prot_it{_protocols.find(in_packet.proto)}; _protocols.end() != prot_it) {
                         spdlog::debug("[PROCESS PACKET] PROTO {:#04X}", in_packet.proto);
@@ -113,14 +111,6 @@ public:
                 };
         }
 
-        virtual std::optional<raw_packet> make_packet(UpperPacketType&& in_packet) {
-                return std::nullopt;
-        }
-
-        virtual std::optional<UpperPacketType> make_packet(raw_packet&& in_packet) {
-                return std::nullopt;
-        }
-
         template <typename PacketType>
         void receive(PacketType&& in_packet) {
                 if (auto pkt{make_packet(std::move(in_packet))}) dispatch(std::move(*pkt));
@@ -128,7 +118,7 @@ public:
 
         bool has_something_to_send() const { return !_packet_queue.empty(); }
 
-        void enter_send_queue(raw_packet&& pkt) { _packet_queue.push_back(std::move(pkt)); }
+        void enqueue(raw_packet&& pkt) { _packet_queue.push_back(std::move(pkt)); }
 
         void dispatch(UpperPacketType&& in_packet) {
                 if (auto prot_it{_protocols.find(in_packet.proto)}; _protocols.end() != prot_it) {
@@ -151,6 +141,15 @@ public:
                         }
                 }
                 return _packet_queue.pop_front();
+        }
+
+private:
+        virtual std::optional<raw_packet> make_packet(UpperPacketType&& in_packet) {
+                return std::nullopt;
+        }
+
+        virtual std::optional<UpperPacketType> make_packet(raw_packet&& in_packet) {
+                return std::nullopt;
         }
 };
 

@@ -51,7 +51,7 @@ public:
                         .buffer       = std::move(out_buffer),
                 };
 
-                enter_send_queue(std::move(out_packet));
+                enqueue(std::move(out_packet));
 
                 spdlog::debug("[ARP] SEND ARP REPLY {}", out_arp);
         }
@@ -79,7 +79,7 @@ public:
                         .buffer       = std::move(out_buffer),
                 };
 
-                enter_send_queue(std::move(out_packet));
+                enqueue(std::move(out_packet));
 
                 spdlog::debug("[ARP] SEND ARP REQUEST {}", out_arp);
         }
