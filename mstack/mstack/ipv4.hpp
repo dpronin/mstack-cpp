@@ -9,7 +9,7 @@ namespace mstack {
 
 class ipv4 : public base_protocol<ethernetv2_packet, ipv4_packet, ipv4> {
 public:
-        int seq = 0;
+        uint16_t seq{0};
 
         constexpr static int PROTO{0x0800};
 
@@ -17,22 +17,25 @@ public:
                 spdlog::debug("[OUT] {}", in_packet);
 
                 in_packet.buffer->reflush_packet(ipv4_header_t::size());
-                ipv4_header_t out_ipv4_header;
 
-                out_ipv4_header.version       = 0x4;
-                out_ipv4_header.header_length = 0x5;
-                out_ipv4_header.total_length =
-                        in_packet.buffer->get_total_len() + ipv4_header_t::size();
-                out_ipv4_header.id          = seq++;
-                out_ipv4_header.ttl         = 0x40;
-                out_ipv4_header.proto_type  = in_packet.proto;
-                out_ipv4_header.src_ip_addr = (in_packet.src_ipv4_addr).value();
-                out_ipv4_header.dst_ip_addr = (in_packet.dst_ipv4_addr).value();
+                ipv4_header_t out_ipv4_header = {
+                        .version       = 0x4,
+                        .header_length = 0x5,
+                        .total_length  = static_cast<uint16_t>(in_packet.buffer->get_total_len() +
+                                                               ipv4_header_t::size()),
+                        .id            = seq++,
+                        .ttl           = 0x40,
+                        .proto_type    = static_cast<uint8_t>(in_packet.proto),
+                        .src_ip_addr   = in_packet.src_ipv4_addr.value(),
+                        .dst_ip_addr   = in_packet.dst_ipv4_addr.value(),
+                };
 
                 std::byte* pointer = in_packet.buffer->get_pointer();
                 out_ipv4_header.produce(pointer);
-                uint16_t checksum = utils::checksum({pointer, ipv4_header_t::size()}, 0);
-                out_ipv4_header.header_checksum = checksum;
+
+                out_ipv4_header.header_checksum =
+                        utils::checksum({pointer, ipv4_header_t::size()}, 0);
+
                 out_ipv4_header.produce(pointer);
 
                 std::optional<mac_addr_t> src_mac_addr{
