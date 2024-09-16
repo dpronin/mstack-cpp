@@ -15,12 +15,7 @@ private:
         uint32_t v_ = 0;
 
 public:
-        ipv4_addr_t()                              = default;
-        ~ipv4_addr_t()                             = default;
-        ipv4_addr_t(const ipv4_addr_t&)            = default;
-        ipv4_addr_t(ipv4_addr_t&&)                 = default;
-        ipv4_addr_t& operator=(const ipv4_addr_t&) = default;
-        ipv4_addr_t& operator=(ipv4_addr_t&&)      = default;
+        ipv4_addr_t() = default;
         ipv4_addr_t(uint32_t ipv4) : v_(ipv4) {}
         ipv4_addr_t(std::string_view ipv4) : v_{boost::asio::ip::make_address_v4(ipv4).to_uint()} {}
 
