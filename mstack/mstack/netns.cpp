@@ -7,6 +7,7 @@
 #include "ethernet.hpp"
 #include "icmp.hpp"
 #include "ipv4.hpp"
+#include "routing_table.hpp"
 #include "tcb_manager.hpp"
 #include "tcp.hpp"
 
@@ -23,23 +24,25 @@ public:
         impl(impl&&)            = delete;
         impl& operator=(impl&&) = delete;
 
-        ethernetv2&  eth() noexcept { return *eth_; }
-        arp&         arpv4() noexcept { return *arp_; }
-        ipv4&        ip() noexcept { return *ipv4_; }
-        tcb_manager& tcb_m() noexcept { return *tcb_m_; }
+        ethernetv2&    eth() noexcept { return *eth_; }
+        arp_cache_t&   arp_cache() noexcept { return *arp_cache_; }
+        routing_table& rt() noexcept { return *rt_; }
+        ipv4&          ip() noexcept { return *ipv4_; }
+        tcb_manager&   tcb_m() noexcept { return *tcb_m_; }
 
         boost::asio::io_context& io_context_execution() { return io_ctx_; }
 
 private:
         boost::asio::io_context io_ctx_;
 
-        std::shared_ptr<tcb_manager> tcb_m_;
-        std::shared_ptr<tcp>         tcp_;
-        std::shared_ptr<icmp>        icmp_;
-        std::shared_ptr<arp_cache_t> arp_cache_;
-        std::shared_ptr<arp>         arp_;
-        std::shared_ptr<ipv4>        ipv4_;
-        std::shared_ptr<ethernetv2>  eth_;
+        std::shared_ptr<tcb_manager>   tcb_m_;
+        std::shared_ptr<tcp>           tcp_;
+        std::shared_ptr<icmp>          icmp_;
+        std::shared_ptr<routing_table> rt_;
+        std::shared_ptr<arp_cache_t>   arp_cache_;
+        std::shared_ptr<arp>           arp_;
+        std::shared_ptr<ipv4>          ipv4_;
+        std::shared_ptr<ethernetv2>    eth_;
 };
 
 netns::impl::impl()
@@ -47,8 +50,9 @@ netns::impl::impl()
       tcp_(std::make_shared<tcp>()),
       icmp_(std::make_shared<icmp>()),
       arp_cache_(std::make_shared<arp_cache_t>()),
-      arp_(std::make_shared<arp>(arp_cache_)),
-      ipv4_(std::make_shared<ipv4>(arp_cache_)),
+      rt_(std::make_shared<routing_table>()),
+      arp_(std::make_shared<arp>(rt_, arp_cache_)),
+      ipv4_(std::make_shared<ipv4>(rt_, arp_cache_)),
       eth_(std::make_shared<ethernetv2>()) {
         tcp_->upper_handler_update(std::pair{mstack::tcb_manager::PROTO, tcb_m_});
         ipv4_->upper_handler_update(std::pair{mstack::icmp::PROTO, icmp_});
@@ -61,10 +65,11 @@ netns::netns() : pimpl_(std::make_unique<impl>()) {}
 
 netns::~netns() noexcept = default;
 
-ethernetv2&  netns::eth() noexcept { return pimpl_->eth(); }
-arp&         netns::arpv4() noexcept { return pimpl_->arpv4(); }
-ipv4&        netns::ip() noexcept { return pimpl_->ip(); }
-tcb_manager& netns::tcb_m() noexcept { return pimpl_->tcb_m(); }
+ethernetv2&    netns::eth() noexcept { return pimpl_->eth(); }
+arp_cache_t&   netns::arp_cache() noexcept { return pimpl_->arp_cache(); }
+routing_table& netns::rt() noexcept { return pimpl_->rt(); }
+ipv4&          netns::ip() noexcept { return pimpl_->ip(); }
+tcb_manager&   netns::tcb_m() noexcept { return pimpl_->tcb_m(); }
 
 boost::asio::io_context& netns::io_context_execution() noexcept {
         return pimpl_->io_context_execution();

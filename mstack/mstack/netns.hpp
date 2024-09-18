@@ -5,9 +5,10 @@
 
 #include <boost/asio/io_context.hpp>
 
-#include "mstack/arp.hpp"
+#include "mstack/arp_cache.hpp"
 #include "mstack/ethernet.hpp"
 #include "mstack/ipv4.hpp"
+#include "mstack/routing_table.hpp"
 #include "mstack/tcb_manager.hpp"
 
 namespace mstack {
@@ -32,10 +33,11 @@ public:
         netns(netns&&)            = delete;
         netns& operator=(netns&&) = delete;
 
-        ethernetv2&  eth() noexcept;
-        arp&         arpv4() noexcept;
-        ipv4&        ip() noexcept;
-        tcb_manager& tcb_m() noexcept;
+        ethernetv2&    eth() noexcept;
+        arp_cache_t&   arp_cache() noexcept;
+        routing_table& rt() noexcept;
+        ipv4&          ip() noexcept;
+        tcb_manager&   tcb_m() noexcept;
 
         boost::asio::io_context& io_context_execution() noexcept;
 

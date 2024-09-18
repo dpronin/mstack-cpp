@@ -4,28 +4,29 @@
 #include <unordered_map>
 #include <utility>
 
+#include <spdlog/spdlog.h>
+
 #include "ipv4_addr.hpp"
-#include "mac_addr.hpp"
 
 #include <spdlog/spdlog.h>
 
 namespace mstack {
 
-class arp_cache_t {
+class routing_table {
 public:
         void reset(ipv4_addr_t const& addr) {
                 if (auto it{cache_.find(addr)}; cache_.end() != it) {
-                        spdlog::debug("[NEIGH] del: {} -> {}", it->first, it->second);
+                        spdlog::debug("[RT TBL] rem: {} via {}", it->first, it->second);
                         cache_.erase(it);
                 }
         }
 
-        void update(std::pair<ipv4_addr_t, mac_addr_t> const& kv) {
-                spdlog::debug("[NEIGH] upd: {} -> {}", kv.first, kv.second);
+        void update(std::pair<ipv4_addr_t, ipv4_addr_t> const& kv) {
+                spdlog::debug("[RT TBL] upd: {} via {}", kv.first, kv.second);
                 cache_.insert(kv);
         }
 
-        std::optional<mac_addr_t> query(ipv4_addr_t const& addr) {
+        std::optional<ipv4_addr_t> query(ipv4_addr_t const& addr) {
                 if (auto it{cache_.find(addr)}; cache_.end() != it) {
                         return it->second;
                 }
@@ -33,7 +34,7 @@ public:
         }
 
 private:
-        std::unordered_map<ipv4_addr_t, mac_addr_t> cache_;
+        std::unordered_map<ipv4_addr_t, ipv4_addr_t> cache_;
 };
 
 }  // namespace mstack

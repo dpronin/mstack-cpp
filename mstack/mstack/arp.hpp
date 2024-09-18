@@ -8,6 +8,7 @@
 #include "base_protocol.hpp"
 #include "ethernetv2_frame.hpp"
 #include "mac_addr.hpp"
+#include "routing_table.hpp"
 
 #include <spdlog/spdlog.h>
 
@@ -17,7 +18,9 @@ class arp : public base_protocol<ethernetv2_frame, void, arp> {
 public:
         static constexpr uint16_t PROTO{0x0806};
 
-        explicit arp(std::shared_ptr<arp_cache_t> arp_cache) : arp_cache_(std::move(arp_cache)) {
+        explicit arp(std::shared_ptr<routing_table> rt, std::shared_ptr<arp_cache_t> arp_cache)
+            : rt_(std::move(rt)), arp_cache_(std::move(arp_cache)) {
+                assert(rt_);
                 assert(arp_cache_);
         }
         ~arp() = default;
@@ -27,10 +30,6 @@ public:
 
         arp(arp&&)            = delete;
         arp& operator=(arp&&) = delete;
-
-        void remove(ipv4_addr_t const& k) { arp_cache_->reset(k); }
-
-        void add(std::pair<ipv4_addr_t, mac_addr_t> const& kv) { arp_cache_->update(kv); }
 
 private:
         void send_reply(arpv4_header_t const& in_arp, mac_addr_t const& sha) {
@@ -46,7 +45,8 @@ private:
                         .tpa   = in_arp.spa,
                 };
 
-                arp_cache_->update(in_arp.spa, in_arp.sha);
+                rt_->update({in_arp.spa, in_arp.spa});
+                arp_cache_->update({in_arp.spa, in_arp.sha});
 
                 auto out_buffer{std::make_unique<base_packet>(arpv4_header_t::size())};
                 out_arp.produce(out_buffer->get_pointer());
@@ -106,7 +106,8 @@ private:
         }
 
 private:
-        std::shared_ptr<arp_cache_t> arp_cache_;
+        std::shared_ptr<routing_table> rt_;
+        std::shared_ptr<arp_cache_t>   arp_cache_;
 };
 
 }  // namespace mstack

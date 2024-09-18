@@ -23,6 +23,10 @@
 
 namespace {
 
+using namespace std::string_view_literals;
+
+constexpr auto kBindIPv4AddrDefault{"192.168.0.1"sv};
+
 void async_read_and_echo(std::shared_ptr<mstack::socket_t>            sk,
                          std::shared_ptr<std::array<std::byte, 2000>> buf) {
         auto* p_sk{sk.get()};
@@ -67,16 +71,14 @@ int tun_go(int argc, char const* argv[]) {
         auto& net{mstack::netns::_default_()};
         auto& io_ctx{net.io_context_execution()};
 
-        auto tundev{mstack::tun{}};
+        auto dev{mstack::tun{}};
 
         auto bind_ipv4port{std::string_view{argv[0]}};
 
         auto bind_ipv4{bind_ipv4port.substr(0, bind_ipv4port.find(':'))};
         bind_ipv4port.remove_prefix(std::min(bind_ipv4port.size(), bind_ipv4.size() + 1));
 
-        if (bind_ipv4.empty()) bind_ipv4 = "10.10.10.1";
-
-        tundev.capture(bind_ipv4);
+        if (bind_ipv4.empty()) bind_ipv4 = kBindIPv4AddrDefault;
 
         auto bind_port{bind_ipv4port};
         bind_ipv4port.remove_prefix(std::min(bind_ipv4port.size(), bind_port.size() + 1));
@@ -96,17 +98,16 @@ int tap_go(int argc, char const* argv[]) {
         auto& net{mstack::netns::_default_()};
         auto& io_ctx{net.io_context_execution()};
 
-        auto tapdev{mstack::tap{}};
+        auto dev{mstack::tap{}};
 
         auto bind_ipv4port{std::string_view{argv[0]}};
 
         auto bind_ipv4{bind_ipv4port.substr(0, bind_ipv4port.find(':'))};
         bind_ipv4port.remove_prefix(std::min(bind_ipv4port.size(), bind_ipv4.size() + 1));
 
-        if (bind_ipv4.empty()) bind_ipv4 = "10.10.10.1";
+        if (bind_ipv4.empty()) bind_ipv4 = kBindIPv4AddrDefault;
 
-        tapdev.capture(bind_ipv4);
-        tapdev.set_ipv4_addr(bind_ipv4);
+        dev.set_ipv4_addr(bind_ipv4);
 
         auto bind_port{bind_ipv4port};
         bind_ipv4port.remove_prefix(std::min(bind_ipv4port.size(), bind_port.size() + 1));

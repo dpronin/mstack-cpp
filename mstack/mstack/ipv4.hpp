@@ -9,6 +9,7 @@
 #include "ethernetv2_frame.hpp"
 #include "ipv4_header.hpp"
 #include "ipv4_packet.hpp"
+#include "routing_table.hpp"
 
 namespace mstack {
 
@@ -16,7 +17,9 @@ class ipv4 : public base_protocol<ethernetv2_frame, ipv4_packet, ipv4> {
 public:
         constexpr static uint16_t PROTO{0x0800};
 
-        explicit ipv4(std::shared_ptr<arp_cache_t> arp_cache) : arp_cache_(std::move(arp_cache)) {
+        explicit ipv4(std::shared_ptr<routing_table> rt, std::shared_ptr<arp_cache_t> arp_cache)
+            : rt_(std::move(rt)), arp_cache_(std::move(arp_cache)) {
+                assert(rt_);
                 assert(arp_cache_);
         }
         ~ipv4() = default;
@@ -57,16 +60,24 @@ private:
                         .buffer = std::move(in_packet.buffer),
                 };
 
-                if (auto src_mac_addr{arp_cache_->query(in_packet.src_ipv4_addr)}) {
-                        out_packet.src_mac_addr = *src_mac_addr;
+                if (auto srch_addr{rt_->query(in_packet.src_ipv4_addr)}) {
+                        if (auto src_mac_addr{arp_cache_->query(*srch_addr)}) {
+                                out_packet.src_mac_addr = *src_mac_addr;
+                        } else {
+                                spdlog::warn("[IPv4] NO MAC for SRCH {}", *srch_addr);
+                        }
                 } else {
-                        spdlog::warn("[NO MAC] {}", in_packet.src_ipv4_addr);
+                        spdlog::warn("[IPv4] NO SRCH for {}", in_packet.dst_ipv4_addr);
                 }
 
-                if (auto dst_mac_addr{arp_cache_->query(in_packet.dst_ipv4_addr)}) {
-                        out_packet.dst_mac_addr = *dst_mac_addr;
+                if (auto nh_addr{rt_->query(in_packet.dst_ipv4_addr)}) {
+                        if (auto dst_mac_addr{arp_cache_->query(*nh_addr)}) {
+                                out_packet.dst_mac_addr = *dst_mac_addr;
+                        } else {
+                                spdlog::warn("[IPv4] NO MAC for NH {}", *nh_addr);
+                        }
                 } else {
-                        spdlog::warn("[NO MAC] {}", in_packet.dst_ipv4_addr);
+                        spdlog::warn("[IPv4] NO NH for {}", in_packet.dst_ipv4_addr);
                 }
 
                 return std::move(out_packet);
@@ -98,7 +109,8 @@ private:
                 return make_packet(raw_packet{.buffer = std::move(in_packet.buffer)});
         };
 
-        std::shared_ptr<arp_cache_t> arp_cache_;
+        std::shared_ptr<routing_table> rt_;
+        std::shared_ptr<arp_cache_t>   arp_cache_;
 
         uint16_t seq_{0};
 };

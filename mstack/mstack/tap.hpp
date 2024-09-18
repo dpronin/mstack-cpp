@@ -111,14 +111,14 @@ public:
 
         template <typename Completion>
         void async_read_some(std::span<std::byte> buf, Completion&& completion) {
-                spdlog::debug("[TUN READ SOME]: max bytes {}", buf.size());
+                spdlog::debug("[TAP READ SOME]: max bytes {}", buf.size());
                 pfd_.async_read_some(boost::asio::buffer(buf),
                                      std::forward<Completion>(completion));
         }
 
         template <typename Completion>
         void async_write(std::span<std::byte const> buf, Completion&& completion) {
-                spdlog::debug("[TUN WRITE]: exactly bytes {}", buf.size());
+                spdlog::debug("[TAP WRITE]: exactly bytes {}", buf.size());
                 boost::asio::async_write(pfd_, boost::asio::buffer(buf),
                                          std::forward<Completion>(completion));
         }
@@ -127,19 +127,23 @@ public:
 
         auto& get_executor() { return pfd_.get_executor(); }
 
-        void capture(std::string_view route_pref) { utils::set_interface_route(ndev_, route_pref); }
-
         std::optional<ipv4_addr_t> ipv4_addr() const { return ipv4_addr_; }
 
         void set_ipv4_addr(ipv4_addr_t const& ipv4_addr) {
                 reset_ipv4_addr();
                 ipv4_addr_ = ipv4_addr;
-                net_.arpv4().add({ipv4_addr, mac_addr_});
+                net_.arp_cache().update({ipv4_addr, mac_addr_});
+                net_.rt().update({ipv4_addr, ipv4_addr});
+        }
+
+        void be_srch_for(ipv4_addr_t const& ipv4_addr) {
+                if (ipv4_addr_ != ipv4_addr) net_.rt().update({ipv4_addr, *ipv4_addr_});
         }
 
         void reset_ipv4_addr() {
                 if (ipv4_addr_) {
-                        net_.arpv4().remove(*ipv4_addr_);
+                        net_.arp_cache().reset(*ipv4_addr_);
+                        net_.rt().reset(*ipv4_addr_);
                         ipv4_addr_.reset();
                 }
         }

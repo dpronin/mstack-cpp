@@ -106,8 +106,6 @@ public:
 
         netns&       net() { return net_; }
         netns const& net() const { return net_; }
-
-        void capture(std::string_view route_pref) { utils::set_interface_route(ndev_, route_pref); }
 };
 
 }  // namespace mstack
