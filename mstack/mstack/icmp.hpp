@@ -5,11 +5,10 @@
 #include "base_protocol.hpp"
 #include "icmp_header.hpp"
 #include "ipv4_packet.hpp"
-#include "nop_packet.hpp"
 
 namespace mstack {
 
-class icmp : public base_protocol<ipv4_packet, nop_packet, icmp> {
+class icmp : public base_protocol<ipv4_packet, void, icmp> {
 public:
         static constexpr uint16_t PROTO{0x01};
 
@@ -56,19 +55,17 @@ private:
                         },
                 };
 
-                spdlog::debug("[SEND ICMP REPLY]");
+                spdlog::debug("[ENQUEUE ICMP REPLY]");
 
                 this->enqueue(std::move(out_packet));
         }
 
-        std::optional<nop_packet> make_packet(ipv4_packet&& in_packet) override {
+        void process(ipv4_packet&& in_packet) {
                 auto const in_icmp_header{icmp_header_t::consume(in_packet.buffer->get_pointer())};
 
                 spdlog::debug("[RECEIVED ICMP] {}", in_icmp_header);
 
                 if (in_icmp_header.proto_type == 0x08) make_icmp_reply(in_packet);
-
-                return std::nullopt;
         }
 };
 

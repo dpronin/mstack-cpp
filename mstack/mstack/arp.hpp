@@ -7,14 +7,13 @@
 #include "arp_header.hpp"
 #include "base_protocol.hpp"
 #include "ethernetv2_frame.hpp"
-#include "ipv4_packet.hpp"
 #include "mac_addr.hpp"
 
 #include <spdlog/spdlog.h>
 
 namespace mstack {
 
-class arp : public base_protocol<ethernetv2_frame, ipv4_packet, arp> {
+class arp : public base_protocol<ethernetv2_frame, void, arp> {
 public:
         static constexpr uint16_t PROTO{0x0806};
 
@@ -59,9 +58,9 @@ private:
                         .buffer       = std::move(out_buffer),
                 };
 
-                enqueue(std::move(out_packet));
+                spdlog::debug("[ARP] ENQUEUE ARP REPLY {}", out_arp);
 
-                spdlog::debug("[ARP] SEND ARP REPLY {}", out_arp);
+                this->enqueue(std::move(out_packet));
         }
 
         void send_request(mac_addr_t const& sha, ipv4_addr_t const& spa, ipv4_addr_t const& tpa) {
@@ -87,12 +86,12 @@ private:
                         .buffer       = std::move(out_buffer),
                 };
 
-                enqueue(std::move(out_packet));
+                spdlog::debug("[ARP] ENQUEUE ARP REQUEST {}", out_arp);
 
-                spdlog::debug("[ARP] SEND ARP REQUEST {}", out_arp);
+                this->enqueue(std::move(out_packet));
         }
 
-        std::optional<ipv4_packet> make_packet(ethernetv2_frame&& in_packet) override {
+        void process(ethernetv2_frame&& in_packet) {
                 auto const in_arp{
                         arpv4_header_t::consume(in_packet.buffer->get_pointer()),
                 };
@@ -102,8 +101,6 @@ private:
                                 send_reply(in_arp, *dev_mac_addr);
                         }
                 }
-
-                return std::nullopt;
         }
 
 private:
