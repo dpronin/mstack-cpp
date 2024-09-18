@@ -60,6 +60,15 @@ public:
         }
 
 protected:
+        base_protocol()  = default;
+        ~base_protocol() = default;
+
+        base_protocol(base_protocol const&)            = delete;
+        base_protocol& operator=(base_protocol const&) = delete;
+
+        base_protocol(base_protocol&&)            = delete;
+        base_protocol& operator=(base_protocol&&) = delete;
+
         void enqueue(UnderPacketType&& in_packet) { _packet_queue.push_back(std::move(in_packet)); }
 
 private:
@@ -131,6 +140,15 @@ public:
         }
 
 protected:
+        base_protocol()  = default;
+        ~base_protocol() = default;
+
+        base_protocol(base_protocol const&)            = delete;
+        base_protocol& operator=(base_protocol const&) = delete;
+
+        base_protocol(base_protocol&&)            = delete;
+        base_protocol& operator=(base_protocol&&) = delete;
+
         void enqueue(raw_packet&& pkt) { _packet_queue.push_back(std::move(pkt)); }
 
 private:
