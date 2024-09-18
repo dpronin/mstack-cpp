@@ -60,7 +60,7 @@ private:
                 this->enqueue(std::move(out_packet));
         }
 
-        void process(ipv4_packet&& in_packet) {
+        void process(ipv4_packet&& in_packet) override {
                 auto const in_icmp_header{icmp_header_t::consume(in_packet.buffer->get_pointer())};
 
                 spdlog::debug("[RECEIVED ICMP] {}", in_icmp_header);

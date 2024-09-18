@@ -91,10 +91,12 @@ private:
                 this->enqueue(std::move(out_packet));
         }
 
-        void process(ethernetv2_frame&& in_packet) {
+        void process(ethernetv2_frame&& in_packet) override {
                 auto const in_arp{
                         arpv4_header_t::consume(in_packet.buffer->get_pointer()),
                 };
+
+                spdlog::debug("[RECEIVED ARP] {}", in_arp);
 
                 if (in_arp.oper == 0x01) {
                         if (auto const& dev_mac_addr{arp_cache_->query(in_arp.tpa)}) {
