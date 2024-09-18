@@ -27,7 +27,7 @@ struct ethernetv2_header_t {
         void produce(std::byte* ptr) {
                 dst_mac_addr.produce(ptr);
                 src_mac_addr.produce(ptr);
-                utils::produce<uint16_t>(ptr, proto);
+                utils::produce(ptr, proto);
         }
 };
 

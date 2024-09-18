@@ -70,15 +70,15 @@ struct tcp_header_t {
 
         ptrdiff_t produce(std::byte* ptr) {
                 std::byte const* f{ptr};
-                utils::produce<port_addr_t>(ptr, src_port);
-                utils::produce<port_addr_t>(ptr, dst_port);
-                utils::produce<uint32_t>(ptr, seq_no);
-                utils::produce<uint32_t>(ptr, ack_no);
+                utils::produce(ptr, src_port);
+                utils::produce(ptr, dst_port);
+                utils::produce(ptr, seq_no);
+                utils::produce(ptr, ack_no);
                 utils::produce<uint16_t>(ptr, header_length << 12 | NOP << 6 | URG << 5 | ACK << 4 |
                                                       PSH << 3 | RST << 2 | SYN << 1 | FIN);
-                utils::produce<uint16_t>(ptr, window_size);
-                utils::produce<uint16_t>(ptr, checksum);
-                utils::produce<uint16_t>(ptr, urgent_pointer);
+                utils::produce(ptr, window_size);
+                utils::produce(ptr, checksum);
+                utils::produce(ptr, urgent_pointer);
                 return ptr - f;
         }
 

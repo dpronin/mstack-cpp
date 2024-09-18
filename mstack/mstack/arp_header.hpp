@@ -46,11 +46,11 @@ struct arpv4_header_t {
         }
 
         void produce(std::byte* ptr) const {
-                utils::produce<uint16_t>(ptr, htype);
-                utils::produce<uint16_t>(ptr, ptype);
-                utils::produce<uint8_t>(ptr, hlen);
-                utils::produce<uint8_t>(ptr, plen);
-                utils::produce<uint16_t>(ptr, oper);
+                utils::produce(ptr, htype);
+                utils::produce(ptr, ptype);
+                utils::produce(ptr, hlen);
+                utils::produce(ptr, plen);
+                utils::produce(ptr, oper);
                 this->sha.produce(ptr);
                 this->spa.produce(ptr);
                 this->tha.produce(ptr);

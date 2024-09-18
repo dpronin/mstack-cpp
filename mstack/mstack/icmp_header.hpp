@@ -32,11 +32,11 @@ struct icmp_header_t {
         }
 
         std::byte* produce(std::byte* ptr) const {
-                utils::produce<uint8_t>(ptr, proto_type);
-                utils::produce<uint8_t>(ptr, code);
-                utils::produce<uint16_t>(ptr, checksum);
-                utils::produce<uint16_t>(ptr, id);
-                utils::produce<uint16_t>(ptr, seq);
+                utils::produce(ptr, proto_type);
+                utils::produce(ptr, code);
+                utils::produce(ptr, checksum);
+                utils::produce(ptr, id);
+                utils::produce(ptr, seq);
                 return ptr;
         }
 

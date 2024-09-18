@@ -8,7 +8,7 @@ namespace mstack {
 struct ipv4_header_t {
         uint8_t     version : 4;
         uint8_t     header_length : 4;
-        uint8_t     type_of_service;
+        uint8_t     tos;
         uint16_t    total_length;
         uint16_t    id;
         uint16_t    NOP : 1;
@@ -30,7 +30,7 @@ struct ipv4_header_t {
                 uint8_t       version_header_length = utils::consume<uint8_t>(ptr);
                 ipv4_header.version                 = version_header_length >> 4;
                 ipv4_header.header_length           = version_header_length & 0xF;
-                ipv4_header.type_of_service         = utils::consume<uint8_t>(ptr);
+                ipv4_header.tos                     = utils::consume<uint8_t>(ptr);
                 ipv4_header.total_length            = utils::consume<uint16_t>(ptr);
                 ipv4_header.id                      = utils::consume<uint16_t>(ptr);
                 uint16_t flags_farg_offset          = utils::consume<uint16_t>(ptr);
@@ -48,13 +48,13 @@ struct ipv4_header_t {
 
         void produce(std::byte* ptr) const {
                 utils::produce<uint8_t>(ptr, version << 4 | header_length);
-                utils::produce<uint8_t>(ptr, type_of_service);
-                utils::produce<uint16_t>(ptr, total_length);
-                utils::produce<uint16_t>(ptr, id);
+                utils::produce(ptr, tos);
+                utils::produce(ptr, total_length);
+                utils::produce(ptr, id);
                 utils::produce<uint16_t>(ptr, NOP << 15 | DF << 14 | MF << 13 | frag_offset);
-                utils::produce<uint8_t>(ptr, ttl);
-                utils::produce<uint8_t>(ptr, proto_type);
-                utils::produce<uint16_t>(ptr, header_checksum);
+                utils::produce(ptr, ttl);
+                utils::produce(ptr, proto_type);
+                utils::produce(ptr, header_checksum);
                 src_ip_addr.produce(ptr);
                 dst_ip_addr.produce(ptr);
         }
