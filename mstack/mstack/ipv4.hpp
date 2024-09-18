@@ -13,18 +13,21 @@
 namespace mstack {
 
 class ipv4 : public base_protocol<ethernetv2_frame, ipv4_packet, ipv4> {
-private:
-        std::shared_ptr<arp_cache_t> arp_cache_;
-
-        uint16_t seq_{0};
-
 public:
         constexpr static uint16_t PROTO{0x0800};
 
         explicit ipv4(std::shared_ptr<arp_cache_t> arp_cache) : arp_cache_(std::move(arp_cache)) {
                 assert(arp_cache_);
         }
+        ~ipv4() = default;
 
+        ipv4(ipv4 const&)            = delete;
+        ipv4& operator=(ipv4 const&) = delete;
+
+        ipv4(ipv4&&)            = delete;
+        ipv4& operator=(ipv4&&) = delete;
+
+private:
         std::optional<ethernetv2_frame> make_packet(ipv4_packet&& in_packet) override {
                 spdlog::debug("[OUT] {}", in_packet);
 
@@ -94,6 +97,10 @@ public:
         std::optional<ipv4_packet> make_packet(ethernetv2_frame&& in_packet) override {
                 return make_packet(raw_packet{.buffer = std::move(in_packet.buffer)});
         };
+
+        std::shared_ptr<arp_cache_t> arp_cache_;
+
+        uint16_t seq_{0};
 };
 
 }  // namespace mstack

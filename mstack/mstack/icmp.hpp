@@ -4,11 +4,15 @@
 
 #include "base_protocol.hpp"
 #include "icmp_header.hpp"
-#include "packets.hpp"
+#include "ipv4_packet.hpp"
+#include "nop_packet.hpp"
 
 namespace mstack {
 
 class icmp : public base_protocol<ipv4_packet, nop_packet, icmp> {
+public:
+        static constexpr uint16_t PROTO{0x01};
+
 private:
         void make_icmp_reply(ipv4_packet const& in_packet) {
                 auto const in_icmp_header{
@@ -56,9 +60,6 @@ private:
 
                 this->enqueue(std::move(out_packet));
         }
-
-public:
-        static constexpr uint16_t PROTO{0x01};
 
         std::optional<nop_packet> make_packet(ipv4_packet&& in_packet) override {
                 auto const in_icmp_header{icmp_header_t::consume(in_packet.buffer->get_pointer())};

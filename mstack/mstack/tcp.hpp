@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "base_protocol.hpp"
 #include "ipv4_packet.hpp"
 #include "packets.hpp"
@@ -11,6 +13,7 @@ class tcp : public base_protocol<ipv4_packet, tcp_packet_t, tcp> {
 public:
         constexpr static int PROTO{0x06};
 
+private:
         std::optional<ipv4_packet> make_packet(tcp_packet_t&& in_packet) override {
                 uint32_t sum{0};
 

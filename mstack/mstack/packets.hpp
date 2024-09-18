@@ -14,10 +14,6 @@
 
 namespace mstack {
 
-struct nop_packet {
-        uint16_t proto;
-};
-
 struct two_ends_t {
         std::optional<ipv4_port_t> remote_info;
         std::optional<ipv4_port_t> local_info;

@@ -10,7 +10,7 @@
 #include <span>
 #include <string>
 
-#include <linux/if.h>
+#include <net/if.h>
 
 #include <netlink/addr.h>
 #include <netlink/cache.h>

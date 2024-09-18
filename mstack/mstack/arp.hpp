@@ -21,11 +21,19 @@ public:
         explicit arp(std::shared_ptr<arp_cache_t> arp_cache) : arp_cache_(std::move(arp_cache)) {
                 assert(arp_cache_);
         }
+        ~arp() = default;
+
+        arp(arp const&)            = delete;
+        arp& operator=(arp const&) = delete;
+
+        arp(arp&&)            = delete;
+        arp& operator=(arp&&) = delete;
 
         void remove(ipv4_addr_t const& k) { arp_cache_->reset(k); }
 
         void add(std::pair<ipv4_addr_t, mac_addr_t> const& kv) { arp_cache_->update(kv); }
 
+private:
         void send_reply(arpv4_header_t const& in_arp, mac_addr_t const& sha) {
                 arpv4_header_t const out_arp = {
                         .htype = 0x0001,

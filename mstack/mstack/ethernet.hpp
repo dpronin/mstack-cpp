@@ -10,7 +10,7 @@
 namespace mstack {
 
 class ethernetv2 : public base_protocol<raw_packet, ethernetv2_frame, ethernetv2> {
-public:
+private:
         std::optional<raw_packet> make_packet(ethernetv2_frame&& in_packet) override {
                 spdlog::debug("[OUT] {}", in_packet);
 
