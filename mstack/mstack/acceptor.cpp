@@ -2,8 +2,6 @@
 
 #include <stdexcept>
 
-#include "socket_manager.hpp"
-
 #include "socket.hpp"
 #include "tcb_manager.hpp"
 
@@ -11,7 +9,7 @@ namespace mstack {
 
 acceptor::acceptor(netns& net, int proto, endpoint const& ep) {
         for (uint16_t fd = 1; fd > 0; ++fd) {
-                if (!__sockets__.contains(fd)) {
+                if (!net.tcb_m().sockets().contains(fd)) {
                         sk_ = std::make_unique<socket_t>(net);
 
                         sk_->proto      = proto;
@@ -20,7 +18,7 @@ acceptor::acceptor(netns& net, int proto, endpoint const& ep) {
                                 .port_addr = ep.port(),
                         };
 
-                        __sockets__.insert(fd);
+                        net.tcb_m().sockets().insert(fd);
 
                         listen();
 
@@ -40,7 +38,7 @@ void acceptor::async_accept(socket_t&                                           
         auto f = [this, &sk, cb = std::move(cb)] {
                 if (auto& l{sk.net.tcb_m().listener_get(sk_->local_info)}; !l.acceptors.empty()) {
                         for (int i = 1; i < 65535; i++) {
-                                if (!__sockets__.contains(i)) {
+                                if (!sk.net.tcb_m().sockets().contains(i)) {
                                         if (auto tcb{l.acceptors.pop_front().value()}) {
                                                 sk.local_info  = tcb->local_info;
                                                 sk.remote_info = tcb->remote_info;
