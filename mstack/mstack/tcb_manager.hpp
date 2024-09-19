@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <optional>
+#include <system_error>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -20,10 +21,9 @@ namespace mstack {
 
 class tcb_manager {
 private:
-        std::unordered_set<uint16_t>                                 sockets_;
         std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>>       active_tcbs_;
         std::unordered_map<two_ends_t, std::shared_ptr<tcb_t>>       tcbs_;
-        std::unordered_set<ipv4_port_t>                              active_ports_;
+        std::unordered_set<ipv4_port_t>                              bound_;
         std::unordered_map<ipv4_port_t, std::shared_ptr<listener_t>> listeners_;
 
 public:
@@ -38,9 +38,6 @@ public:
         tcb_manager& operator=(const tcb_manager&) = delete;
         tcb_manager& operator=(tcb_manager&&)      = delete;
 
-        auto const& sockets() const { return sockets_; }
-        auto&       sockets() { return sockets_; }
-
         std::optional<tcp_packet_t> gather_packet() {
                 while (!active_tcbs_->empty()) {
                         std::optional<std::shared_ptr<tcb_t>> tcb = active_tcbs_->pop_front();
@@ -51,14 +48,22 @@ public:
                 return std::nullopt;
         }
 
-        listener_t& listener_get(ipv4_port_t const& ipv4_port) {
-                return *this->listeners_[ipv4_port];
+        std::shared_ptr<listener_t> listener_get(ipv4_port_t const& ipv4_port) {
+                return listeners_[ipv4_port];
         }
 
-        void listen_port(ipv4_port_t const& ipv4_port, std::shared_ptr<listener_t> listener) {
+        void bind(ipv4_port_t const& ipv4_port) {
+                if (!bound_.insert(ipv4_port).second)
+                        throw std::system_error(std::make_error_code(std::errc::address_in_use));
+        }
+
+        void listen(ipv4_port_t const& ipv4_port, std::shared_ptr<listener_t> listener) {
+                if (!bound_.contains(ipv4_port)) {
+                        throw std::system_error(
+                                std::make_error_code(std::errc::address_not_available));
+                }
                 assert(listener);
-                this->listeners_[ipv4_port] = std::move(listener);
-                active_ports_.insert(ipv4_port);
+                listeners_[ipv4_port] = std::move(listener);
         }
 
         void receive(tcp_packet_t in_packet) {
@@ -69,25 +74,25 @@ public:
 
                 if (auto tcb_it{tcbs_.find(two_end)}; tcbs_.end() != tcb_it) {
                         tcp_transmit::tcp_in(tcb_it->second, in_packet);
-                } else if (active_ports_.find(in_packet.local_info) != active_ports_.end()) {
-                        register_tcb(two_end, this->listeners_[in_packet.local_info]);
+                } else if (bound_.find(in_packet.local_info) != bound_.end()) {
+                        register_tcb(two_end, listeners_[in_packet.local_info]);
                         if (auto tcb_it{tcbs_.find(two_end)}; tcbs_.end() != tcb_it) {
                                 tcb_it->second->state      = TCP_LISTEN;
                                 tcb_it->second->next_state = TCP_LISTEN;
                                 tcp_transmit::tcp_in(tcb_it->second, in_packet);
                         } else {
-                                spdlog::error("[REGISTER TCB FAIL]");
+                                spdlog::error("[TCB MNGR] fail register");
                         }
                 } else {
-                        spdlog::warn("[RECEIVE UNKNOWN TCP PACKET]");
+                        spdlog::warn("[TCB MNGR] receive unknown tcp packet");
                 }
         }
 
 private:
         void register_tcb(two_ends_t const& two_end, std::shared_ptr<listener_t> listener) {
                 assert(listener);
-                spdlog::debug("[REGISTER TCB] {}", two_end);
-                tcbs_[two_end] = std::make_shared<tcb_t>(this->active_tcbs_, std::move(listener),
+                spdlog::debug("[TCB MNGR] reg {}", two_end);
+                tcbs_[two_end] = std::make_shared<tcb_t>(active_tcbs_, std::move(listener),
                                                          two_end.remote_info, two_end.local_info);
         }
 };

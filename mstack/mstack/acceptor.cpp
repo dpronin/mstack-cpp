@@ -1,32 +1,24 @@
 #include "acceptor.hpp"
 
-#include <stdexcept>
+#include <cassert>
+
+#include <memory>
+#include <utility>
 
 #include "socket.hpp"
+#include "tcb.hpp"
 #include "tcb_manager.hpp"
 
 namespace mstack {
 
-acceptor::acceptor(netns& net, int proto, endpoint const& ep) {
-        for (uint16_t fd = 1; fd > 0; ++fd) {
-                if (!net.tcb_m().sockets().contains(fd)) {
-                        sk_ = std::make_unique<socket>(net);
-
-                        sk_->proto      = proto;
-                        sk_->local_info = {
-                                .ipv4_addr = ep.address(),
-                                .port_addr = ep.port(),
-                        };
-
-                        net.tcb_m().sockets().insert(fd);
-
-                        listen();
-
-                        return;
-                }
-        }
-
-        throw std::overflow_error{"no available ports for a new acceptor"};
+acceptor::acceptor(netns& net, int proto, endpoint const& ep) : sk_{std::make_unique<socket>(net)} {
+        sk_->proto      = proto;
+        sk_->local_info = {
+                .ipv4_addr = ep.address(),
+                .port_addr = ep.port(),
+        };
+        bind();
+        listen();
 }
 
 acceptor::acceptor(int proto, endpoint const& ep) : acceptor(netns::_default_(), proto, ep) {}
@@ -34,44 +26,37 @@ acceptor::acceptor(int proto, endpoint const& ep) : acceptor(netns::_default_(),
 acceptor::~acceptor() = default;
 
 void acceptor::async_accept(socket& sk, std::function<void(boost::system::error_code const&)> cb) {
-        auto f = [this, &sk, cb = std::move(cb)] {
-                if (auto& l{sk.net.tcb_m().listener_get(sk_->local_info)}; !l.acceptors.empty()) {
-                        for (int i = 1; i < 65535; i++) {
-                                if (!sk.net.tcb_m().sockets().contains(i)) {
-                                        if (auto tcb{l.acceptors.pop_front().value()}) {
-                                                sk.local_info  = tcb->local_info;
-                                                sk.remote_info = tcb->remote_info;
-                                                sk.proto       = l.proto;
-                                                sk.state       = SOCKET_CONNECTED;
-                                                sk.tcb         = std::move(tcb);
-                                                sk.fd          = i;
-                                                cb({});
-                                                return;
-                                        }
-                                        break;
-                                }
-                        }
-                }
-                cb(boost::system::errc::make_error_code(boost::system::errc::connection_reset));
+        auto f = [&sk, cb = std::move(cb)](std::shared_ptr<tcb_t> tcb) {
+                assert(tcb);
+                sk.proto       = tcb->_listener->proto;
+                sk.local_info  = tcb->local_info;
+                sk.remote_info = tcb->remote_info;
+                sk.state       = SOCKET_CONNECTED;
+                sk.tcb         = std::move(tcb);
+                cb({});
         };
 
-        if (auto& l{sk_->net.tcb_m().listener_get(sk_->local_info)};
-            !l.on_acceptor_has_tcb.empty()) {
-                sk_->net.io_context_execution().post(f);
+        if (auto listener{sk_->net.tcb_m().listener_get(sk_->local_info)};
+            !listener->acceptors.empty()) {
+                sk_->net.io_context_execution().post(
+                        [f = std::move(f), tcb = listener->acceptors.pop_front().value()] mutable {
+                                f(std::move(tcb));
+                        });
         } else {
-                l.on_acceptor_has_tcb.push(f);
+                listener->on_acceptor_has_tcb.push(f);
         }
 }
+
+void acceptor::bind() { sk_->net.tcb_m().bind(sk_->local_info); }
 
 void acceptor::listen() {
         auto listener{std::make_unique<listener_t>()};
 
-        listener->local_info = sk_->local_info;
         listener->proto      = sk_->proto;
+        listener->local_info = sk_->local_info;
         listener->state      = SOCKET_CONNECTING;
-        listener->fd         = sk_->fd;
 
-        sk_->net.tcb_m().listen_port(sk_->local_info, std::move(listener));
+        sk_->net.tcb_m().listen(sk_->local_info, std::move(listener));
 }
 
 }  // namespace mstack

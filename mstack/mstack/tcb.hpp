@@ -50,6 +50,7 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
         std::shared_ptr<listener_t>                            _listener;
         int                                                    state;
         int                                                    next_state;
+        int                                                    proto;
         ipv4_port_t                                            local_info;
         ipv4_port_t                                            remote_info;
         circle_buffer<std::vector<std::byte>>                  send_queue;
@@ -82,7 +83,7 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
                 if (!_listener->on_acceptor_has_tcb.empty()) {
                         auto cb{std::move(_listener->on_acceptor_has_tcb.front())};
                         _listener->on_acceptor_has_tcb.pop();
-                        cb();
+                        cb(shared_from_this());
                 }
         }
 

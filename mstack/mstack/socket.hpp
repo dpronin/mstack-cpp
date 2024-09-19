@@ -61,7 +61,6 @@ private:
 
 public:
         netns&                     net;
-        int                        fd{-1};
         int                        state{SOCKET_UNCONNECTED};
         int                        proto{-1};
         ipv4_port_t                local_info;
@@ -70,13 +69,11 @@ public:
 };
 
 struct listener_t {
-        listener_t() {}
-        int                                   fd;
-        int                                   state{SOCKET_UNCONNECTED};
-        int                                   proto;
-        circle_buffer<std::shared_ptr<tcb_t>> acceptors;
-        std::queue<std::function<void()>>     on_acceptor_has_tcb;
-        ipv4_port_t                           local_info;
+        int                                                     proto;
+        ipv4_port_t                                             local_info;
+        int                                                     state{SOCKET_UNCONNECTED};
+        circle_buffer<std::shared_ptr<tcb_t>>                   acceptors;
+        std::queue<std::function<void(std::shared_ptr<tcb_t>)>> on_acceptor_has_tcb;
 };
 
 }  // namespace mstack

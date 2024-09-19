@@ -28,6 +28,7 @@ public:
         void async_accept(socket& sk, std::function<void(boost::system::error_code const&)> cb);
 
 private:
+        void bind();
         void listen();
 
         std::unique_ptr<socket> sk_;
