@@ -15,7 +15,7 @@ namespace mstack {
 
 struct mac_addr_t {
 private:
-        std::array<std::byte, 6> mac{};
+        std::array<std::byte, 6> mac_{};
 
 public:
         mac_addr_t() = default;
@@ -30,9 +30,9 @@ public:
                 requires(1 == sizeof(T))
         mac_addr_t(std::array<T, 6> const& mac_from) {
                 if constexpr (std::same_as<std::byte, std::decay_t<decltype(mac_from[0])>>)
-                        std::ranges::copy(mac_from, mac.begin());
+                        std::ranges::copy(mac_from, mac_.begin());
                 else
-                        std::ranges::transform(mac_from, mac.begin(),
+                        std::ranges::transform(mac_from, mac_.begin(),
                                                [](auto x) { return static_cast<std::byte>(x); });
         }
 
@@ -40,26 +40,38 @@ public:
                 requires(1 == sizeof(T))
         mac_addr_t(std::byte const (&mac_from)[6]) {
                 if constexpr (std::same_as<std::byte, std::decay_t<decltype(mac_from[0])>>)
-                        std::ranges::copy(mac_from, mac.begin());
+                        std::ranges::copy(mac_from, mac_.begin());
                 else
-                        std::ranges::transform(mac_from, mac.begin(),
+                        std::ranges::transform(mac_from, mac_.begin(),
                                                [](auto x) { return static_cast<std::byte>(x); });
         }
 
         explicit mac_addr_t(std::string_view mac_from) {
                 for (int i = 0; i < 17; i += 3) {
-                        mac[i / 3] = static_cast<std::byte>(
+                        mac_[i / 3] = static_cast<std::byte>(
                                 std::stoi(std::string{mac_from.substr(i, 2)}, 0, 16));
                 }
-        };
+        }
+
+        auto operator<=>(mac_addr_t const& other) const = default;
+
+        bool is_broadcast() const {
+                return std::ranges::all_of(
+                        mac_, [](std::byte byte) { return static_cast<std::byte>(0xff) == byte; });
+        }
+
+        bool is_zero() const {
+                return std::ranges::all_of(
+                        mac_, [](std::byte byte) { return static_cast<std::byte>(0x0) == byte; });
+        }
 
         void consume(std::byte*& ptr) {
-                for (auto& d : mac)
+                for (auto& d : mac_)
                         d = utils::consume<std::byte>(ptr);
         }
 
         void produce(std::byte*& ptr) const {
-                for (auto d : mac)
+                for (auto d : mac_)
                         utils::produce<std::byte>(ptr, d);
         }
 
@@ -67,8 +79,9 @@ public:
 
         friend std::ostream& operator<<(std::ostream& out, const mac_addr_t& m) {
                 using u = uint32_t;
-                out << std::format("{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}", u(m.mac[0]),
-                                   u(m.mac[1]), u(m.mac[2]), u(m.mac[3]), u(m.mac[4]), u(m.mac[5]));
+                out << std::format("{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}", u(m.mac_[0]),
+                                   u(m.mac_[1]), u(m.mac_[2]), u(m.mac_[3]), u(m.mac_[4]),
+                                   u(m.mac_[5]));
                 return out;
         }
 };
