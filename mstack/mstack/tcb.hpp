@@ -55,7 +55,7 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
         ipv4_port_t                                            remote_info;
         circle_buffer<std::vector<std::byte>>                  send_queue;
         circle_buffer<raw_packet>                              receive_queue;
-        std::queue<std::function<void()>>                      on_data_receive;
+        std::queue<std::function<void(raw_packet)>>            on_data_receive;
         circle_buffer<tcp_packet_t>                            ctl_packets;
         send_state_t                                           send;
         receive_state_t                                        receive;

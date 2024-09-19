@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "netns.hpp"
+#include "raw_packet.hpp"
 #include "socket.hpp"
 
 namespace mstack {
@@ -18,16 +19,18 @@ void socket::async_connect(endpoint const&                                      
 
 void socket::async_read_some(std::span<std::byte>                                          buf,
                              std::function<void(boost::system::error_code const&, size_t)> cb) {
-        auto f = [this, buf, cb = std::move(cb)] {
-                assert(!this->tcb->receive_queue.empty());
-                auto pkt{this->tcb->receive_queue.pop_front().value()};
+        auto f = [buf, cb = std::move(cb)](raw_packet pkt) {
                 cb({}, pkt.buffer->export_data(buf));
         };
 
-        if (!this->tcb->receive_queue.empty())
-                net.io_context_execution().post(f);
-        else
+        if (!this->tcb->receive_queue.empty()) {
+                auto pkt{std::move(this->tcb->receive_queue.pop_front().value())};
+                net.io_context_execution().post(
+                        [f = std::move(f), pkt_wrapper = std::make_shared<raw_packet>(std::move(
+                                                   pkt))] mutable { f(std::move(*pkt_wrapper)); });
+        } else {
                 this->tcb->on_data_receive.push(f);
+        }
 }
 
 void socket::async_read(std::span<std::byte>                                          buf,

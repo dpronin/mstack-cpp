@@ -15,8 +15,8 @@ class tcb_manager;
 
 class acceptor {
 public:
-        explicit acceptor(netns& net, int proto, endpoint const& ep);
-        explicit acceptor(int proto, endpoint const& ep);
+        explicit acceptor(netns& net, endpoint const& ep);
+        explicit acceptor(endpoint const& ep);
         ~acceptor();
 
         acceptor(acceptor const&)            = delete;

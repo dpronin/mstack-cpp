@@ -708,14 +708,13 @@ public:
                                         in_packet.buffer->export_payload(out_buffer->get_pointer(),
                                                                          header_len);
 
-                                        raw_packet r_packet = {.buffer = std::move(out_buffer)};
-
-                                        in_tcb->receive_queue.push_back(std::move(r_packet));
-
-                                        if (!in_tcb->on_data_receive.empty()) {
+                                        if (auto pkt{raw_packet{.buffer = std::move(out_buffer)}};
+                                            !in_tcb->on_data_receive.empty()) {
                                                 auto cb{std::move(in_tcb->on_data_receive.front())};
                                                 in_tcb->on_data_receive.pop();
-                                                cb();
+                                                cb(std::move(pkt));
+                                        } else {
+                                                in_tcb->receive_queue.push_back(std::move(pkt));
                                         }
 
                                         in_tcb->active_self();

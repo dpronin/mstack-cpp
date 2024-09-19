@@ -60,12 +60,11 @@ private:
                                  std::function<void(boost::system::error_code const&, size_t)> cb);
 
 public:
-        netns&                     net;
-        int                        state{SOCKET_UNCONNECTED};
-        int                        proto{-1};
-        ipv4_port_t                local_info;
-        std::optional<ipv4_port_t> remote_info;
-        std::shared_ptr<tcb_t>     tcb;
+        netns&                  net;
+        int                     state{SOCKET_UNCONNECTED};
+        endpoint                local_info;
+        std::optional<endpoint> remote_info;
+        std::shared_ptr<tcb_t>  tcb;
 };
 
 struct listener_t {

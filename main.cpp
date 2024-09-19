@@ -87,7 +87,7 @@ int tun_go(int argc, char const* argv[]) {
         std::from_chars(bind_port.data(), bind_port.data() + bind_port.size(), port);
 
         do_accept(std::make_unique<mstack::acceptor>(
-                mstack::tcp::PROTO, mstack::endpoint{{mstack::ipv4_addr_t{bind_ipv4}, port}}));
+                mstack::endpoint{mstack::tcp::PROTO, {mstack::ipv4_addr_t{bind_ipv4}, port}}));
 
         io_ctx.run();
 
@@ -116,7 +116,7 @@ int tap_go(int argc, char const* argv[]) {
         std::from_chars(bind_port.data(), bind_port.data() + bind_port.size(), port);
 
         do_accept(std::make_unique<mstack::acceptor>(
-                mstack::tcp::PROTO, mstack::endpoint{{mstack::ipv4_addr_t{bind_ipv4}, port}}));
+                mstack::endpoint{mstack::tcp::PROTO, {mstack::ipv4_addr_t{bind_ipv4}, port}}));
 
         io_ctx.run();
 
