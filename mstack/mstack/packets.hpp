@@ -6,7 +6,10 @@
 #include <string>
 
 #include <fmt/format.h>
+
 #include <spdlog/spdlog.h>
+
+#include <boost/container_hash/hash.hpp>
 
 #include "base_packet.hpp"
 #include "ipv4_port.hpp"
@@ -41,12 +44,18 @@ namespace std {
 template <>
 struct hash<mstack::two_ends_t> {
         size_t operator()(const mstack::two_ends_t& two_ends) const {
-                return hash<mstack::ipv4_port_t>{}(two_ends.remote_info) ^
-                       hash<mstack::ipv4_port_t>{}(two_ends.local_info);
+                size_t seed{0zu};
+                boost::hash_combine(seed, two_ends.remote_info);
+                boost::hash_combine(seed, two_ends.local_info);
+                return seed;
         }
 };
 
 }  // namespace std
+
+namespace mstack {
+inline size_t hash_value(two_ends_t const& v) { return std::hash<two_ends_t>{}(v); }
+}  // namespace mstack
 
 template <>
 struct fmt::formatter<mstack::two_ends_t> : fmt::formatter<std::string> {

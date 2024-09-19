@@ -27,4 +27,8 @@ else ()
     target_link_libraries(mstack PUBLIC boost_system)
 endif ()
 
+if (TARGET Boost::headers)
+    target_link_libraries(mstack PUBLIC Boost::headers)
+endif ()
+
 add_library(mstack::mstack ALIAS mstack)

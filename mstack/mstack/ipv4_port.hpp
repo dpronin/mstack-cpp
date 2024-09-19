@@ -9,6 +9,8 @@
 
 #include <fmt/format.h>
 
+#include <boost/container_hash/hash.hpp>
+
 #include "ipv4_addr.hpp"
 
 namespace mstack {
@@ -43,9 +45,15 @@ namespace std {
 template <>
 struct hash<mstack::ipv4_port_t> {
         size_t operator()(const mstack::ipv4_port_t& ipv4_port) const {
-                return hash<mstack::ipv4_addr_t>{}(ipv4_port.ipv4_addr) ^
-                       hash<mstack::port_addr_t>{}(ipv4_port.port_addr);
+                auto seed{0zu};
+                boost::hash_combine(seed, ipv4_port.ipv4_addr);
+                boost::hash_combine(seed, ipv4_port.port_addr);
+                return seed;
         };
 };
 
 }  // namespace std
+
+namespace mstack {
+inline size_t hash_value(ipv4_port_t const& v) { return std::hash<ipv4_port_t>{}(v); }
+}  // namespace mstack

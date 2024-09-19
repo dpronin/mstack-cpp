@@ -10,6 +10,7 @@
 #include <string_view>
 
 #include <boost/asio/ip/address_v4.hpp>
+#include <boost/container_hash/hash.hpp>
 
 #include "utils.hpp"
 
@@ -62,3 +63,7 @@ struct hash<mstack::ipv4_addr_t> {
 };
 
 }  // namespace std
+
+namespace mstack {
+inline size_t hash_value(ipv4_addr_t const& v) { return std::hash<ipv4_addr_t>{}(v); }
+}  // namespace mstack
