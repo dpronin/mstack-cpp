@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <utility>
 
 #include <boost/asio/io_context.hpp>
 
@@ -16,14 +15,13 @@ namespace mstack {
 class netns {
 public:
         static netns& _default_() {
-                static netns net;
+                static boost::asio::io_context io_ctx;
+                static netns                   net{io_ctx};
                 return net;
         }
 
-        template <typename... Args>
-        static auto create(Args&&... args) {
-                return std::unique_ptr<netns>{new netns{std::forward<Args>(args)...}};
-        }
+        explicit netns(boost::asio::io_context& io_ctx);
+        explicit netns() : netns(_default_().io_context_execution()) {}
 
         ~netns() noexcept;
 
@@ -42,8 +40,6 @@ public:
         boost::asio::io_context& io_context_execution() noexcept;
 
 private:
-        netns();
-
         class impl;
         std::unique_ptr<impl> pimpl_;
 };

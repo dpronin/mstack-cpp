@@ -21,6 +21,9 @@ struct ipv4_port_t {
         ipv4_addr_t ipv4_addr;
         port_addr_t port_addr;
 
+        ipv4_addr_t address() const { return ipv4_addr; }
+        port_addr_t port() const { return port_addr; }
+
         auto operator<=>(const ipv4_port_t& rhs) const = default;
 
         friend std::ostream& operator<<(std::ostream& out, ipv4_port_t const& p) {

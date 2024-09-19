@@ -15,7 +15,7 @@ namespace mstack {
 
 class netns::impl {
 public:
-        impl();
+        explicit impl(boost::asio::io_context& io_ctx);
         ~impl() = default;
 
         impl(impl const&)            = delete;
@@ -33,7 +33,7 @@ public:
         boost::asio::io_context& io_context_execution() { return io_ctx_; }
 
 private:
-        boost::asio::io_context io_ctx_;
+        boost::asio::io_context& io_ctx_;
 
         std::shared_ptr<tcb_manager>   tcb_m_;
         std::shared_ptr<tcp>           tcp_;
@@ -45,8 +45,9 @@ private:
         std::shared_ptr<ethernetv2>    eth_;
 };
 
-netns::impl::impl()
-    : tcb_m_(std::make_shared<tcb_manager>()),
+netns::impl::impl(boost::asio::io_context& io_ctx)
+    : io_ctx_(io_ctx),
+      tcb_m_(std::make_shared<tcb_manager>()),
       tcp_(std::make_shared<tcp>()),
       icmp_(std::make_shared<icmp>()),
       arp_cache_(std::make_shared<arp_cache_t>()),
@@ -61,7 +62,7 @@ netns::impl::impl()
         eth_->upper_handler_update(std::pair{mstack::arp::PROTO, arp_});
 }
 
-netns::netns() : pimpl_(std::make_unique<impl>()) {}
+netns::netns(boost::asio::io_context& io_ctx) : pimpl_(std::make_unique<impl>(io_ctx)) {}
 
 netns::~netns() noexcept = default;
 
