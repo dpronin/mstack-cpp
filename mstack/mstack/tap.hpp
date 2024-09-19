@@ -113,14 +113,14 @@ public:
 
         template <typename Completion>
         void async_read_some(std::span<std::byte> buf, Completion&& completion) {
-                spdlog::debug("[TAP READ SOME]: max bytes {}", buf.size());
+                spdlog::debug("[TAP READ SOME]: max {} bytes", buf.size());
                 pfd_.async_read_some(boost::asio::buffer(buf),
                                      std::forward<Completion>(completion));
         }
 
         template <typename Completion>
         void async_write(std::span<std::byte const> buf, Completion&& completion) {
-                spdlog::debug("[TAP WRITE]: exactly bytes {}", buf.size());
+                spdlog::debug("[TAP WRITE]: exactly {} bytes", buf.size());
                 boost::asio::async_write(pfd_, boost::asio::buffer(buf),
                                          std::forward<Completion>(completion));
         }
