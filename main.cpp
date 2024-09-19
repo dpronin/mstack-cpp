@@ -27,7 +27,7 @@ using namespace std::string_view_literals;
 
 constexpr auto kBindIPv4AddrDefault{"192.168.0.1"sv};
 
-void async_read_and_echo(std::shared_ptr<mstack::socket_t>            sk,
+void async_read_and_echo(std::shared_ptr<mstack::socket>              sk,
                          std::shared_ptr<std::array<std::byte, 2000>> buf) {
         auto* p_sk{sk.get()};
         auto* p_buf{buf.get()};
@@ -56,7 +56,7 @@ void async_read_and_echo(std::shared_ptr<mstack::socket_t>            sk,
 }
 
 void do_accept(std::shared_ptr<mstack::acceptor> acceptor) {
-        auto  sk{std::make_shared<mstack::socket_t>()};
+        auto  sk{std::make_shared<mstack::socket>()};
         auto* p_acceptor{acceptor.get()};
         auto* p_sk{sk.get()};
         p_acceptor->async_accept(*p_sk, [acceptor = std::move(acceptor), sk = std::move(sk)](

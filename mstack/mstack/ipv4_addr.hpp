@@ -1,8 +1,13 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+
+#include <format>
 #include <functional>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 #include <boost/asio/ip/address_v4.hpp>
 
@@ -18,6 +23,7 @@ public:
         ipv4_addr_t() = default;
         ipv4_addr_t(uint32_t ipv4) : v_(ipv4) {}
         ipv4_addr_t(std::string_view ipv4) : v_{boost::asio::ip::make_address_v4(ipv4).to_uint()} {}
+        ipv4_addr_t(std::string const& ipv4) : ipv4_addr_t(std::string_view{ipv4}) {}
 
         auto operator<=>(const ipv4_addr_t& other) const = default;
 
@@ -30,8 +36,8 @@ public:
         void produce(std::byte*& ptr) const { utils::produce(ptr, v_); }
 
         friend std::ostream& operator<<(std::ostream& out, ipv4_addr_t ipv4) {
-                out << utils::format("{}.{}.{}.{}", (ipv4.v_ >> 24) & 0xFF, (ipv4.v_ >> 16) & 0xFF,
-                                     (ipv4.v_ >> 8) & 0xFF, (ipv4.v_ >> 0) & 0xFF);
+                out << std::format("{}.{}.{}.{}", (ipv4.v_ >> 24) & 0xFF, (ipv4.v_ >> 16) & 0xFF,
+                                   (ipv4.v_ >> 8) & 0xFF, (ipv4.v_ >> 0) & 0xFF);
                 return out;
         }
 

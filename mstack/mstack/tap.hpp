@@ -49,7 +49,8 @@ private:
         }
 
 public:
-        explicit tap(netns& net) : net_(net), pfd_(net_.io_context_execution()) {
+        explicit tap(netns& net = netns::_default_(), std::string_view name = "")
+            : net_(net), pfd_(net_.io_context_execution()) {
                 auto fd{
                         file_desc::open("/dev/net/tun", file_desc::RDWR | file_desc::NONBLOCK),
                 };
@@ -67,6 +68,8 @@ public:
                 ifreq ifr{};
 
                 ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
+
+                if (!name.empty()) std::ranges::copy(name, std::begin(ifr.ifr_name));
 
                 if (int err{fd_.ioctl(TUNSETIFF, ifr)}; err < 0) {
                         spdlog::critical("[INIT FAIL]");
@@ -99,7 +102,6 @@ public:
                         *this, std::make_unique_for_overwrite<std::array<std::byte, 1500>>(),
                         [this] { return this->net().eth().gather_packet(); });
         }
-        tap() : tap(netns::_default_()) {}
 
         ~tap() = default;
 

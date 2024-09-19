@@ -9,7 +9,7 @@
 
 namespace mstack {
 
-struct socket_t;
+struct socket;
 struct endpoint;
 class tcb_manager;
 
@@ -25,12 +25,12 @@ public:
         acceptor(acceptor&&)            = delete;
         acceptor& operator=(acceptor&&) = delete;
 
-        void async_accept(socket_t& sk, std::function<void(boost::system::error_code const&)> cb);
+        void async_accept(socket& sk, std::function<void(boost::system::error_code const&)> cb);
 
 private:
         void listen();
 
-        std::unique_ptr<socket_t> sk_;
+        std::unique_ptr<socket> sk_;
 };
 
 }  // namespace mstack

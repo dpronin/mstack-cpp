@@ -53,13 +53,8 @@ inline sock_ptr sock_open() noexcept {
 }  // namespace detail
 
 template <typename... A>
-inline std::string format(std::format_string<A...> format, A&&... a) {
-        return std::format(format, std::forward<A>(a)...);
-}
-
-template <typename... A>
 inline static int run_cmd(std::format_string<A...> fmt, A&&... a) {
-        std::string cmd{mstack::utils::format(fmt, std::forward<A>(a)...)};
+        std::string cmd{std::format(fmt, std::forward<A>(a)...)};
         spdlog::info("[EXEC COMMAND]: {}", cmd);
         return system(cmd.c_str());
 }

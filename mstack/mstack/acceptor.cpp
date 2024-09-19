@@ -10,7 +10,7 @@ namespace mstack {
 acceptor::acceptor(netns& net, int proto, endpoint const& ep) {
         for (uint16_t fd = 1; fd > 0; ++fd) {
                 if (!net.tcb_m().sockets().contains(fd)) {
-                        sk_ = std::make_unique<socket_t>(net);
+                        sk_ = std::make_unique<socket>(net);
 
                         sk_->proto      = proto;
                         sk_->local_info = {
@@ -33,8 +33,7 @@ acceptor::acceptor(int proto, endpoint const& ep) : acceptor(netns::_default_(),
 
 acceptor::~acceptor() = default;
 
-void acceptor::async_accept(socket_t&                                             sk,
-                            std::function<void(boost::system::error_code const&)> cb) {
+void acceptor::async_accept(socket& sk, std::function<void(boost::system::error_code const&)> cb) {
         auto f = [this, &sk, cb = std::move(cb)] {
                 if (auto& l{sk.net.tcb_m().listener_get(sk_->local_info)}; !l.acceptors.empty()) {
                         for (int i = 1; i < 65535; i++) {

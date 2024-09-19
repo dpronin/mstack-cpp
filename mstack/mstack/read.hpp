@@ -11,7 +11,7 @@
 
 namespace mstack {
 
-inline void async_read(socket_t&                                                     sk,
+inline void async_read(socket&                                                       sk,
                        std::span<std::byte>                                          buf,
                        std::function<void(boost::system::error_code const&, size_t)> cb) {
         sk.async_read(buf, std::move(cb));

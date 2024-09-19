@@ -1,9 +1,13 @@
 #pragma once
 
+#include <cassert>
+
 #include <memory>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
+
+#include <spdlog/spdlog.h>
 
 #include "circle_buffer.hpp"
 #include "defination.hpp"
@@ -52,40 +56,39 @@ public:
         }
 
         void listen_port(ipv4_port_t const& ipv4_port, std::shared_ptr<listener_t> listener) {
+                assert(listener);
                 this->listeners_[ipv4_port] = std::move(listener);
                 active_ports_.insert(ipv4_port);
         }
 
-        void register_tcb(two_ends_t& two_end, std::shared_ptr<listener_t> listener) {
-                spdlog::debug("[REGISTER TCB] {}", two_end);
-                if (!two_end.remote_info || !two_end.local_info) {
-                        spdlog::critical("[EMPTY TCB]");
-                }
-                tcbs_[two_end] = std::make_shared<tcb_t>(this->active_tcbs_, std::move(listener),
-                                                         two_end.remote_info.value(),
-                                                         two_end.local_info.value());
-        }
-
         void receive(tcp_packet_t in_packet) {
-                two_ends_t two_end = {
+                two_ends_t const two_end = {
                         .remote_info = in_packet.remote_info,
                         .local_info  = in_packet.local_info,
                 };
-                if (tcbs_.find(two_end) != tcbs_.end()) {
-                        tcp_transmit::tcp_in(tcbs_[two_end], in_packet);
+
+                if (auto tcb_it{tcbs_.find(two_end)}; tcbs_.end() != tcb_it) {
+                        tcp_transmit::tcp_in(tcb_it->second, in_packet);
                 } else if (active_ports_.find(in_packet.local_info) != active_ports_.end()) {
                         register_tcb(two_end, this->listeners_[in_packet.local_info]);
-                        if (tcbs_.find(two_end) != tcbs_.end()) {
-                                tcbs_[two_end]->state      = TCP_LISTEN;
-                                tcbs_[two_end]->next_state = TCP_LISTEN;
-                                tcp_transmit::tcp_in(tcbs_[two_end], in_packet);
+                        if (auto tcb_it{tcbs_.find(two_end)}; tcbs_.end() != tcb_it) {
+                                tcb_it->second->state      = TCP_LISTEN;
+                                tcb_it->second->next_state = TCP_LISTEN;
+                                tcp_transmit::tcp_in(tcb_it->second, in_packet);
                         } else {
                                 spdlog::error("[REGISTER TCB FAIL]");
                         }
-
                 } else {
                         spdlog::warn("[RECEIVE UNKNOWN TCP PACKET]");
                 }
+        }
+
+private:
+        void register_tcb(two_ends_t const& two_end, std::shared_ptr<listener_t> listener) {
+                assert(listener);
+                spdlog::debug("[REGISTER TCB] {}", two_end);
+                tcbs_[two_end] = std::make_shared<tcb_t>(this->active_tcbs_, std::move(listener),
+                                                         two_end.remote_info, two_end.local_info);
         }
 };
 

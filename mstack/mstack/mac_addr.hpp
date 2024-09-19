@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <concepts>
+#include <format>
 #include <string>
 #include <string_view>
 
@@ -66,9 +67,8 @@ public:
 
         friend std::ostream& operator<<(std::ostream& out, const mac_addr_t& m) {
                 using u = uint32_t;
-                out << utils::format("{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}", u(m.mac[0]),
-                                     u(m.mac[1]), u(m.mac[2]), u(m.mac[3]), u(m.mac[4]),
-                                     u(m.mac[5]));
+                out << std::format("{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}", u(m.mac[0]),
+                                   u(m.mac[1]), u(m.mac[2]), u(m.mac[3]), u(m.mac[4]), u(m.mac[5]));
                 return out;
         }
 };
