@@ -352,7 +352,7 @@ public:
                 return false;
         }
 
-        static void tcp_in(std::shared_ptr<tcb_t> in_tcb, tcp_packet_t& in_packet) {
+        static void tcp_in(std::shared_ptr<tcb_t> in_tcb, tcp_packet_t&& in_packet) {
                 spdlog::debug("[TCP] [CHECK TCP_CLOSED] {}", *in_tcb);
                 if (in_tcb->state == TCP_CLOSED && tcp_handle_close_state(in_tcb, in_packet)) {
                         return;
@@ -714,7 +714,7 @@ public:
                                                 in_tcb->on_data_receive.pop();
                                                 cb(std::move(pkt));
                                         } else {
-                                                in_tcb->receive_queue.push_back(std::move(pkt));
+                                                in_tcb->receive_queue.push(std::move(pkt));
                                         }
 
                                         in_tcb->active_self();

@@ -8,9 +8,26 @@
 
 namespace mstack {
 
-class icmp : public base_protocol<ipv4_packet, void, icmp> {
+class icmp : public base_protocol<ipv4_packet, void> {
 public:
         static constexpr uint16_t PROTO{0x01};
+
+        explicit icmp(boost::asio::io_context& io_ctx) : base_protocol(io_ctx) {}
+        ~icmp() = default;
+
+        icmp(icmp const&)            = delete;
+        icmp& operator=(icmp const&) = delete;
+
+        icmp(icmp&&)            = delete;
+        icmp& operator=(icmp&&) = delete;
+
+        void process(ipv4_packet&& in_packet) override {
+                auto const in_icmp_header{icmp_header_t::consume(in_packet.buffer->get_pointer())};
+
+                spdlog::debug("[RECEIVED ICMP] {}", in_icmp_header);
+
+                if (in_icmp_header.proto_type == 0x08) make_icmp_reply(in_packet);
+        }
 
 private:
         void make_icmp_reply(ipv4_packet const& in_packet) {
@@ -57,15 +74,7 @@ private:
 
                 spdlog::debug("[ENQUEUE ICMP REPLY]");
 
-                this->enqueue(std::move(out_packet));
-        }
-
-        void process(ipv4_packet&& in_packet) override {
-                auto const in_icmp_header{icmp_header_t::consume(in_packet.buffer->get_pointer())};
-
-                spdlog::debug("[RECEIVED ICMP] {}", in_icmp_header);
-
-                if (in_icmp_header.proto_type == 0x08) make_icmp_reply(in_packet);
+                enqueue(std::move(out_packet));
         }
 };
 

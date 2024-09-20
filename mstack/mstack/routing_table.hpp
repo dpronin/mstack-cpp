@@ -26,7 +26,7 @@ public:
                 cache_.insert(kv);
         }
 
-        std::optional<ipv4_addr_t> query(ipv4_addr_t const& addr) {
+        std::optional<ipv4_addr_t> query(ipv4_addr_t const& addr) const {
                 if (auto it{cache_.find(addr)}; cache_.end() != it) {
                         return it->second;
                 }

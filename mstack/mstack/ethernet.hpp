@@ -9,9 +9,18 @@
 
 namespace mstack {
 
-class ethernetv2 : public base_protocol<raw_packet, ethernetv2_frame, ethernetv2> {
-private:
-        std::optional<raw_packet> make_packet(ethernetv2_frame&& in_packet) override {
+class ethernetv2 : public base_protocol<void, ethernetv2_frame> {
+public:
+        explicit ethernetv2(boost::asio::io_context& io_ctx) : base_protocol(io_ctx) {}
+        ~ethernetv2() = default;
+
+        ethernetv2(ethernetv2 const&)            = delete;
+        ethernetv2& operator=(ethernetv2 const&) = delete;
+
+        ethernetv2(ethernetv2&&)            = delete;
+        ethernetv2& operator=(ethernetv2&&) = delete;
+
+        void process(ethernetv2_frame&& in_packet) override {
                 spdlog::debug("[OUT] {}", in_packet);
 
                 ethernetv2_header_t e_packet = {
@@ -23,9 +32,10 @@ private:
                 in_packet.buffer->reflush_packet(ethernetv2_header_t::size());
                 e_packet.produce(in_packet.buffer->get_pointer());
 
-                return raw_packet{.buffer = std::move(in_packet.buffer)};
+                enqueue(raw_packet{.buffer = std::move(in_packet.buffer)});
         }
 
+private:
         std::optional<ethernetv2_frame> make_packet(raw_packet&& in_packet) override {
                 auto e_header{ethernetv2_header_t::consume(in_packet.buffer->get_pointer())};
 

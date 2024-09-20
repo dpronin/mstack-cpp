@@ -73,13 +73,13 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
         }
 
         void enqueue_send(std::span<std::byte const> packet) {
-                send_queue.push_back({packet.begin(), packet.end()});
+                send_queue.push({packet.begin(), packet.end()});
                 if (_active_tcbs->size() < send_queue.size())
-                        _active_tcbs->push_back(shared_from_this());
+                        _active_tcbs->push(shared_from_this());
         }
 
         void listen_finish() {
-                _listener->acceptors.push_back(shared_from_this());
+                _listener->acceptors.push(shared_from_this());
                 if (!_listener->on_acceptor_has_tcb.empty()) {
                         auto cb{std::move(_listener->on_acceptor_has_tcb.front())};
                         _listener->on_acceptor_has_tcb.pop();
@@ -88,7 +88,7 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
         }
 
         void active_self() {
-                if (_active_tcbs->empty()) _active_tcbs->push_back(shared_from_this());
+                if (_active_tcbs->empty()) _active_tcbs->push(shared_from_this());
         }
 
         std::unique_ptr<base_packet> prepare_data_optional(int& option_len) { return {}; }
@@ -105,7 +105,7 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
 
                 auto pkt{std::vector<std::byte>{}};
 
-                if (!send_queue.empty()) pkt = send_queue.pop_front().value();
+                if (!send_queue.empty()) pkt = send_queue.pop().value();
 
                 if (data_buffer)
                         out_buffer = std::move(data_buffer);
@@ -147,7 +147,7 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
         }
 
         std::optional<tcp_packet_t> gather_packet() {
-                return ctl_packets.empty() ? make_packet() : ctl_packets.pop_front();
+                return ctl_packets.empty() ? make_packet() : ctl_packets.pop();
         }
 
         friend std::ostream& operator<<(std::ostream& out, tcb_t const& m) {

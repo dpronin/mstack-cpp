@@ -5,6 +5,8 @@
 
 #include <utility>
 
+#include <boost/asio/io_context.hpp>
+
 #include "arp_cache.hpp"
 #include "arp_header.hpp"
 #include "base_protocol.hpp"
@@ -17,12 +19,14 @@
 
 namespace mstack {
 
-class arp : public base_protocol<ethernetv2_frame, void, arp> {
+class arp : public base_protocol<ethernetv2_frame, void> {
 public:
         static constexpr uint16_t PROTO{0x0806};
 
-        explicit arp(std::shared_ptr<routing_table> rt, std::shared_ptr<arp_cache_t> arp_cache)
-            : rt_(std::move(rt)), arp_cache_(std::move(arp_cache)) {
+        explicit arp(boost::asio::io_context&       io_ctx,
+                     std::shared_ptr<routing_table> rt,
+                     std::shared_ptr<arp_cache_t>   arp_cache)
+            : base_protocol(io_ctx), rt_(std::move(rt)), arp_cache_(std::move(arp_cache)) {
                 assert(rt_);
                 assert(arp_cache_);
         }
@@ -69,7 +73,7 @@ private:
 
                 spdlog::debug("[ARP] ENQUEUE ARP REPLY {}", out_arp);
 
-                this->enqueue(std::move(out_packet));
+                enqueue(std::move(out_packet));
         }
 
         void process_request(arpv4_header_t const& in_arp) {
@@ -104,7 +108,7 @@ private:
 
                 spdlog::debug("[ARP] ENQUEUE ARP REQUEST {}", out_arp);
 
-                this->enqueue(std::move(out_packet));
+                enqueue(std::move(out_packet));
         }
 
         void process_reply(arpv4_header_t const& in_arp) {

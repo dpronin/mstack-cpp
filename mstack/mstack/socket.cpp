@@ -24,7 +24,7 @@ void socket::async_read_some(std::span<std::byte>                               
         };
 
         if (!this->tcb->receive_queue.empty()) {
-                auto pkt{std::move(this->tcb->receive_queue.pop_front().value())};
+                auto pkt{std::move(this->tcb->receive_queue.pop().value())};
                 net.io_context_execution().post(
                         [f = std::move(f), pkt_wrapper = std::make_shared<raw_packet>(std::move(
                                                    pkt))] mutable { f(std::move(*pkt_wrapper)); });

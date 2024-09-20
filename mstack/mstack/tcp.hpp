@@ -9,12 +9,20 @@
 
 namespace mstack {
 
-class tcp : public base_protocol<ipv4_packet, tcp_packet_t, tcp> {
+class tcp : public base_protocol<ipv4_packet, tcp_packet_t> {
 public:
         constexpr static int PROTO{0x06};
 
-private:
-        std::optional<ipv4_packet> make_packet(tcp_packet_t&& in_packet) override {
+        explicit tcp(boost::asio::io_context& io_ctx) : base_protocol(io_ctx) {}
+        ~tcp() = default;
+
+        tcp(tcp const&)            = delete;
+        tcp& operator=(tcp const&) = delete;
+
+        tcp(tcp&&)            = delete;
+        tcp& operator=(tcp&&) = delete;
+
+        void process(tcp_packet_t&& in_packet) override {
                 uint32_t sum{0};
 
                 sum += utils::ntoh(in_packet.local_info.ipv4_addr.raw());
@@ -43,9 +51,10 @@ private:
                         .buffer        = std::move(in_packet.buffer),
                 };
 
-                return std::move(out_ipv4);
+                enqueue(std::move(out_ipv4));
         }
 
+private:
         std::optional<tcp_packet_t> make_packet(ipv4_packet&& in_packet) override {
                 auto const tcp_header{tcp_header_t::consume(in_packet.buffer->get_pointer())};
 

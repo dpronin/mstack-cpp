@@ -18,7 +18,6 @@
 #include "mstack/socket.hpp"
 #include "mstack/tap.hpp"
 #include "mstack/tcp.hpp"
-#include "mstack/tun.hpp"
 #include "mstack/write.hpp"
 
 namespace {
@@ -67,34 +66,14 @@ void do_accept(std::shared_ptr<mstack::acceptor> acceptor) {
         });
 }
 
-int tun_go(int argc, char const* argv[]) {
-        auto& net{mstack::netns::_default_()};
-        auto& io_ctx{net.io_context_execution()};
+}  // namespace
 
-        auto dev{mstack::tun{}};
+int main(int argc, char const* argv[]) {
+        spdlog::set_level(spdlog::level::debug);
 
-        auto bind_ipv4port{std::string_view{argv[0]}};
+        --argc;
+        ++argv;
 
-        auto bind_ipv4{bind_ipv4port.substr(0, bind_ipv4port.find(':'))};
-        bind_ipv4port.remove_prefix(std::min(bind_ipv4port.size(), bind_ipv4.size() + 1));
-
-        if (bind_ipv4.empty()) bind_ipv4 = kBindIPv4AddrDefault;
-
-        auto bind_port{bind_ipv4port};
-        bind_ipv4port.remove_prefix(std::min(bind_ipv4port.size(), bind_port.size() + 1));
-
-        uint16_t port{0};
-        std::from_chars(bind_port.data(), bind_port.data() + bind_port.size(), port);
-
-        do_accept(std::make_unique<mstack::acceptor>(
-                mstack::endpoint{mstack::tcp::PROTO, {mstack::ipv4_addr_t{bind_ipv4}, port}}));
-
-        io_ctx.run();
-
-        return EXIT_SUCCESS;
-}
-
-int tap_go(int argc, char const* argv[]) {
         auto& net{mstack::netns::_default_()};
         auto& io_ctx{net.io_context_execution()};
 
@@ -121,24 +100,4 @@ int tap_go(int argc, char const* argv[]) {
         io_ctx.run();
 
         return EXIT_SUCCESS;
-}
-
-}  // namespace
-
-int main(int argc, char const* argv[]) {
-        spdlog::set_level(spdlog::level::debug);
-
-        --argc;
-        ++argv;
-
-        if (argc < 1) return EXIT_FAILURE;
-
-        if (auto type{std::string_view{argv[0]}}; "TUN" == type) {
-                return tun_go(argc - 1, ++argv);
-        } else if ("TAP" == type) {
-                return tap_go(argc - 1, ++argv);
-        } else {
-                spdlog::critical("invalid type '{}' given", type);
-                return EXIT_FAILURE;
-        }
 }

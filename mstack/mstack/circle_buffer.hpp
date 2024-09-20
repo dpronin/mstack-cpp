@@ -21,11 +21,11 @@ public:
         circle_buffer& operator=(circle_buffer&&) = default;
 
         bool empty() const { return packets.size() == 0; }
-        void push_back(PacketType packet) { packets.push(std::move(packet)); }
+        void push(PacketType packet) { packets.push(std::move(packet)); }
 
         size_t size() const { return packets.size(); }
 
-        std::optional<PacketType> pop_front() {
+        std::optional<PacketType> pop() {
                 std::optional<PacketType> r;
                 if (!empty()) {
                         r = std::move(packets.front());

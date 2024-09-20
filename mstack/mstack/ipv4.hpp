@@ -13,12 +13,14 @@
 
 namespace mstack {
 
-class ipv4 : public base_protocol<ethernetv2_frame, ipv4_packet, ipv4> {
+class ipv4 : public base_protocol<ethernetv2_frame, ipv4_packet> {
 public:
         constexpr static uint16_t PROTO{0x0800};
 
-        explicit ipv4(std::shared_ptr<routing_table> rt, std::shared_ptr<arp_cache_t> arp_cache)
-            : rt_(std::move(rt)), arp_cache_(std::move(arp_cache)) {
+        explicit ipv4(boost::asio::io_context&             io_ctx,
+                      std::shared_ptr<routing_table const> rt,
+                      std::shared_ptr<arp_cache_t const>   arp_cache)
+            : base_protocol(io_ctx), rt_(std::move(rt)), arp_cache_(std::move(arp_cache)) {
                 assert(rt_);
                 assert(arp_cache_);
         }
@@ -31,8 +33,8 @@ public:
         ipv4& operator=(ipv4&&) = delete;
 
 private:
-        std::optional<ethernetv2_frame> make_packet(ipv4_packet&& in_packet) override {
-                spdlog::debug("[OUT] {}", in_packet);
+        void process(ipv4_packet&& in_packet) override {
+                spdlog::debug("[IPV4] HDL FROM U-LAYER {}", in_packet);
 
                 in_packet.buffer->reflush_packet(ipv4_header_t::size());
 
@@ -80,7 +82,7 @@ private:
                         spdlog::warn("[IPv4] NO NH for {}", in_packet.dst_ipv4_addr);
                 }
 
-                return std::move(out_packet);
+                enqueue(std::move(out_packet));
         }
 
         std::optional<ipv4_packet> make_packet(raw_packet&& in_packet) override {
@@ -106,11 +108,12 @@ private:
         }
 
         std::optional<ipv4_packet> make_packet(ethernetv2_frame&& in_packet) override {
+                spdlog::debug("[IPV4] HDL FROM L-LAYER {}", in_packet);
                 return make_packet(raw_packet{.buffer = std::move(in_packet.buffer)});
-        };
+        }
 
-        std::shared_ptr<routing_table> rt_;
-        std::shared_ptr<arp_cache_t>   arp_cache_;
+        std::shared_ptr<routing_table const> rt_;
+        std::shared_ptr<arp_cache_t const>   arp_cache_;
 
         uint16_t seq_{0};
 };

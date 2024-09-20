@@ -24,42 +24,47 @@ public:
         impl(impl&&)            = delete;
         impl& operator=(impl&&) = delete;
 
-        ethernetv2&    eth() noexcept { return *eth_; }
+        ethernetv2&    eth() noexcept { return eth_; }
         arp_cache_t&   arp_cache() noexcept { return *arp_cache_; }
         routing_table& rt() noexcept { return *rt_; }
-        ipv4&          ip() noexcept { return *ipv4_; }
-        tcb_manager&   tcb_m() noexcept { return *tcb_m_; }
+        ipv4&          ip() noexcept { return ipv4_; }
+        tcb_manager&   tcb_m() noexcept { return tcb_m_; }
 
         boost::asio::io_context& io_context_execution() { return io_ctx_; }
 
 private:
         boost::asio::io_context& io_ctx_;
 
-        std::shared_ptr<tcb_manager>   tcb_m_;
-        std::shared_ptr<tcp>           tcp_;
-        std::shared_ptr<icmp>          icmp_;
+        tcb_manager                    tcb_m_;
+        tcp                            tcp_;
+        icmp                           icmp_;
         std::shared_ptr<routing_table> rt_;
         std::shared_ptr<arp_cache_t>   arp_cache_;
-        std::shared_ptr<arp>           arp_;
-        std::shared_ptr<ipv4>          ipv4_;
-        std::shared_ptr<ethernetv2>    eth_;
+        arp                            arp_;
+        ipv4                           ipv4_;
+        ethernetv2                     eth_;
 };
 
 netns::impl::impl(boost::asio::io_context& io_ctx)
     : io_ctx_(io_ctx),
-      tcb_m_(std::make_shared<tcb_manager>()),
-      tcp_(std::make_shared<tcp>()),
-      icmp_(std::make_shared<icmp>()),
+      tcb_m_(io_ctx_),
+      tcp_(io_ctx_),
+      icmp_(io_ctx_),
       arp_cache_(std::make_shared<arp_cache_t>()),
       rt_(std::make_shared<routing_table>()),
-      arp_(std::make_shared<arp>(rt_, arp_cache_)),
-      ipv4_(std::make_shared<ipv4>(rt_, arp_cache_)),
-      eth_(std::make_shared<ethernetv2>()) {
-        tcp_->upper_handler_update(std::pair{mstack::tcb_manager::PROTO, tcb_m_});
-        ipv4_->upper_handler_update(std::pair{mstack::icmp::PROTO, icmp_});
-        ipv4_->upper_handler_update(std::pair{mstack::tcp::PROTO, tcp_});
-        eth_->upper_handler_update(std::pair{mstack::ipv4::PROTO, ipv4_});
-        eth_->upper_handler_update(std::pair{mstack::arp::PROTO, arp_});
+      arp_(io_ctx_, rt_, arp_cache_),
+      ipv4_(io_ctx_, rt_, arp_cache_),
+      eth_(io_ctx_) {
+        tcb_m_.under_proto_update(tcp_);
+        tcp_.upper_proto_update(mstack::tcb_manager::PROTO, tcb_m_);
+        tcp_.under_proto_update(ipv4_);
+        icmp_.under_proto_update(ipv4_);
+        ipv4_.upper_proto_update(mstack::icmp::PROTO, icmp_);
+        ipv4_.upper_proto_update(mstack::tcp::PROTO, tcp_);
+        ipv4_.under_proto_update(eth_);
+        arp_.under_proto_update(eth_);
+        eth_.upper_proto_update(mstack::ipv4::PROTO, ipv4_);
+        eth_.upper_proto_update(mstack::arp::PROTO, arp_);
 }
 
 netns::netns(boost::asio::io_context& io_ctx) : pimpl_(std::make_unique<impl>(io_ctx)) {}
