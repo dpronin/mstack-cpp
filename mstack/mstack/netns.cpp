@@ -38,9 +38,9 @@ private:
         tcb_manager                    tcb_m_;
         tcp                            tcp_;
         icmp                           icmp_;
-        std::shared_ptr<routing_table> rt_;
         std::shared_ptr<arp_cache_t>   arp_cache_;
         arp                            arp_;
+        std::shared_ptr<routing_table> rt_;
         ipv4                           ipv4_;
         ethernetv2                     eth_;
 };
@@ -51,9 +51,9 @@ netns::impl::impl(boost::asio::io_context& io_ctx)
       tcp_(io_ctx_),
       icmp_(io_ctx_),
       arp_cache_(std::make_shared<arp_cache_t>()),
+      arp_(io_ctx_, arp_cache_),
       rt_(std::make_shared<routing_table>()),
-      arp_(io_ctx_, rt_, arp_cache_),
-      ipv4_(io_ctx_, rt_, arp_cache_),
+      ipv4_(io_ctx_, rt_, arp_),
       eth_(io_ctx_) {
         tcb_m_.under_proto_update(tcp_);
         tcp_.upper_proto_update(mstack::tcb_manager::PROTO, tcb_m_);

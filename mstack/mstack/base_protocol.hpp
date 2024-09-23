@@ -147,8 +147,10 @@ private:
 
 template <typename UnderPacketType>
 class base_protocol<UnderPacketType, void> {
+protected:
+        boost::asio::io_context& io_ctx_;
+
 private:
-        boost::asio::io_context&               io_ctx_;
         std::function<void(UnderPacketType&&)> under_proto_;
         circle_buffer<UnderPacketType>         packet_queue_;
 

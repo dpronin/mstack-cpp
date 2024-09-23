@@ -1,40 +1,33 @@
 #pragma once
 
+#include <memory>
 #include <optional>
 #include <unordered_map>
-#include <utility>
-
-#include <spdlog/spdlog.h>
 
 #include "ipv4_addr.hpp"
 
-#include <spdlog/spdlog.h>
-
 namespace mstack {
+
+class tap;
 
 class routing_table {
 public:
-        void reset(ipv4_addr_t const& addr) {
-                if (auto it{cache_.find(addr)}; cache_.end() != it) {
-                        spdlog::debug("[RT TBL] rem: {} via {}", it->first, it->second);
-                        cache_.erase(it);
-                }
-        }
+        struct record {
+                ipv4_addr_t          addr;
+                std::shared_ptr<tap> dev;
+        };
 
-        void update(std::pair<ipv4_addr_t, ipv4_addr_t> const& kv) {
-                spdlog::debug("[RT TBL] upd: {} via {}", kv.first, kv.second);
-                cache_.insert(kv);
-        }
+        void reset(ipv4_addr_t const& addr);
 
-        std::optional<ipv4_addr_t> query(ipv4_addr_t const& addr) const {
-                if (auto it{cache_.find(addr)}; cache_.end() != it) {
-                        return it->second;
-                }
-                return std::nullopt;
-        }
+        void update(ipv4_addr_t const& hop, record const& value);
+        void update_default(record const& value);
+
+        std::optional<record> query(ipv4_addr_t const& addr) const;
+        std::optional<record> query_default() const;
 
 private:
-        std::unordered_map<ipv4_addr_t, ipv4_addr_t> cache_;
+        std::unordered_map<ipv4_addr_t, record> table_;
+        std::optional<record>                   default_;
 };
 
 }  // namespace mstack

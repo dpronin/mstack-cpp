@@ -74,30 +74,39 @@ int main(int argc, char const* argv[]) {
         --argc;
         ++argv;
 
-        auto& net{mstack::netns::_default_()};
-        auto& io_ctx{net.io_context_execution()};
+        auto bind_devipv4port{std::string_view{argv[0]}};
 
-        auto dev{mstack::tap{}};
+        auto dev_name{bind_devipv4port.substr(0, bind_devipv4port.find(':'))};
+        bind_devipv4port.remove_prefix(std::min(bind_devipv4port.size(), dev_name.size() + 1));
 
-        auto bind_ipv4port{std::string_view{argv[0]}};
+        auto& netns{mstack::netns::_default_()};
 
-        auto bind_ipv4{bind_ipv4port.substr(0, bind_ipv4port.find(':'))};
-        bind_ipv4port.remove_prefix(std::min(bind_ipv4port.size(), bind_ipv4.size() + 1));
+        auto dev{mstack::tap::create(netns, dev_name)};
+
+        auto bind_ipv4{bind_devipv4port.substr(0, bind_devipv4port.find(':'))};
+        bind_devipv4port.remove_prefix(std::min(bind_devipv4port.size(), bind_ipv4.size() + 1));
 
         if (bind_ipv4.empty()) bind_ipv4 = kBindIPv4AddrDefault;
 
-        dev.set_ipv4_addr(bind_ipv4);
+        dev->set_ipv4_addr(bind_ipv4);
 
-        auto bind_port{bind_ipv4port};
-        bind_ipv4port.remove_prefix(std::min(bind_ipv4port.size(), bind_port.size() + 1));
+        auto bind_port{bind_devipv4port};
+        bind_devipv4port.remove_prefix(std::min(bind_devipv4port.size(), bind_port.size() + 1));
 
         uint16_t port{0};
         std::from_chars(bind_port.data(), bind_port.data() + bind_port.size(), port);
 
-        do_accept(std::make_unique<mstack::acceptor>(
-                mstack::endpoint{mstack::tcp::PROTO, {mstack::ipv4_addr_t{bind_ipv4}, port}}));
+        do_accept(std::make_unique<mstack::acceptor>(mstack::endpoint{
+                mstack::tcp::PROTO,
+                {mstack::ipv4_addr_t{bind_ipv4}, port},
+        }));
 
-        io_ctx.run();
+        netns.rt().update_default({
+                .addr = mstack::ipv4_addr_t{std::string_view{argv[1]}},
+                .dev  = dev,
+        });
+
+        netns.io_context_execution().run();
 
         return EXIT_SUCCESS;
 }
