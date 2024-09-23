@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <format>
+#include <random>
 #include <stdexcept>
 
 #include <linux/if_tun.h>
@@ -24,32 +25,23 @@
 namespace mstack {
 
 void tap::set_mac_addr() {
-        ifreq ifr{};
-
-        std::ranges::copy(ndev_, ifr.ifr_name);
-
-        if (int const ec{fd_.ioctl(SIOCGIFHWADDR, ifr)}; ec < 0) {
-                throw std::runtime_error(
-                        std::format("failed to set MAC address, [HW FAIL], err {}", ec));
-        }
-
         std::array<std::byte, 6> hw_addr;
-
-        std::transform(ifr.ifr_addr.sa_data, ifr.ifr_addr.sa_data + hw_addr.size(), hw_addr.begin(),
-                       [](auto byte) { return static_cast<std::byte>(byte); });
-
-        mac_addr_ = mac_addr_t{hw_addr};
+        std::generate(hw_addr.begin() + 1, hw_addr.end(),
+                      [rd = std::random_device{}] mutable { return static_cast<std::byte>(rd()); });
+        hw_addr[0] = ((hw_addr[0] >> 1) | static_cast<std::byte>(0x1)) << 1;
+        mac_addr_  = mac_addr_t{hw_addr};
+        spdlog::debug("[TAP {}]: MAC ADDRESS {} IS SET", ndev_, mac_addr_);
 }
 
 template <typename Completion>
 void tap::async_read_some(std::span<std::byte> buf, Completion&& completion) {
-        spdlog::debug("[TAP READ SOME]: max {} bytes", buf.size());
+        spdlog::debug("[TAP {}]: READ SOME MAX {} BYTES", ndev_, buf.size());
         pfd_.async_read_some(boost::asio::buffer(buf), std::forward<Completion>(completion));
 }
 
 template <typename Completion>
 void tap::async_write(std::span<std::byte const> buf, Completion&& completion) {
-        spdlog::debug("[TAP WRITE]: exactly {} bytes", buf.size());
+        spdlog::debug("[TAP {}]: WRITE EXACTLY {} BYTES", ndev_, buf.size());
         boost::asio::async_write(pfd_, boost::asio::buffer(buf),
                                  std::forward<Completion>(completion));
 }
@@ -61,7 +53,7 @@ void tap::send_front_pkt_out() {
                     [this](boost::system::error_code const& ec,
                            size_t                           nbytes [[maybe_unused]]) mutable {
                             if (ec) {
-                                    spdlog::error("[WRITE FAIL] {}", ec.what());
+                                    spdlog::error("[TAP {}] WRITE FAIL {}", ndev_, ec.what());
                                     return;
                             }
                             out_queue_.pop();
@@ -77,10 +69,10 @@ void tap::process(raw_packet&& pkt) {
 void tap::async_receive() {
         async_read_some(in_buf_, [this](boost::system::error_code const& ec, size_t nbytes) {
                 if (ec) {
-                        spdlog::error("[RECEIVE FAIL] {}", ec.what());
+                        spdlog::error("[TAP {}] RECEIVE FAIL {}", ndev_, ec.what());
                         return;
                 }
-                spdlog::debug("[RECEIVE] {}", nbytes);
+                spdlog::debug("[TAP {}] RECEIVE {}", ndev_, nbytes);
                 net_.eth().receive(mstack::raw_packet{
                         .buffer = std::make_unique<mstack::base_packet>(
                                 std::span{in_buf_.data(), nbytes}),
@@ -96,13 +88,13 @@ tap::tap(netns& net /* = netns::_default_()*/, std::string_view name /* = ""*/)
         };
 
         if (!fd) {
-                spdlog::critical("[INIT FAIL]");
+                spdlog::critical("[TAP] INIT FAIL");
                 return;
         }
 
         fd_ = std::move(fd.value());
 
-        spdlog::debug("[DEV FD] {}", fd_.get_fd());
+        spdlog::debug("[TAP] DEV FD {}", fd_.get_fd());
 
         ifreq ifr{};
 
@@ -111,20 +103,20 @@ tap::tap(netns& net /* = netns::_default_()*/, std::string_view name /* = ""*/)
         std::ranges::copy(name, std::begin(ifr.ifr_name));
 
         if (int err{fd_.ioctl(TUNSETIFF, ifr)}; err < 0) {
-                spdlog::critical("[INIT FAIL]");
+                spdlog::critical("[TAP] INIT FAIL");
                 return;
         }
 
         std::copy(std::begin(ifr.ifr_name), std::end(ifr.ifr_name), std::back_inserter(ndev_));
 
         if (utils::set_interface_up(ndev_) != 0) {
-                spdlog::critical("[SET UP] {}", ndev_);
+                spdlog::critical("[TAP] SET UP {}", ndev_);
                 return;
         }
 
         set_mac_addr();
 
-        spdlog::debug("[INIT MAC] {}", mac_addr_);
+        spdlog::debug("[TAP] INIT MAC {}", ndev_, mac_addr_);
 
         pfd_.assign(fd_.get_fd());
 
