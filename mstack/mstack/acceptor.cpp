@@ -21,11 +21,14 @@ acceptor::acceptor(endpoint const& ep) : acceptor(netns::_default_(), ep) {}
 
 acceptor::~acceptor() = default;
 
+netns& acceptor::net() { return sk_->net; }
+netns& acceptor::net() const { return sk_->net; }
+
 void acceptor::async_accept(socket& sk, std::function<void(boost::system::error_code const&)> cb) {
         auto f = [&sk, cb = std::move(cb)](std::shared_ptr<tcb_t> tcb) {
                 assert(tcb);
-                sk.local_info  = {tcb->_listener->proto, tcb->local_info};
-                sk.remote_info = {tcb->_listener->proto, tcb->remote_info};
+                sk.local_info  = {tcb->listener_->proto, tcb->local_info_};
+                sk.remote_info = {tcb->listener_->proto, tcb->remote_info_};
                 sk.state       = SOCKET_CONNECTED;
                 sk.tcb         = std::move(tcb);
                 cb({});

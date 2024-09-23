@@ -4,9 +4,7 @@
 
 #include <algorithm>
 #include <array>
-#include <format>
 #include <random>
-#include <stdexcept>
 
 #include <linux/if_tun.h>
 
@@ -47,7 +45,7 @@ void tap::async_write(std::span<std::byte const> buf, Completion&& completion) {
 }
 
 void tap::send_front_pkt_out() {
-        auto          raw{mstack::raw_packet{.buffer = std::move(out_queue_.front().buffer)}};
+        auto          raw{std::move(out_queue_.front())};
         ssize_t const len{raw.buffer->export_data(out_buf_)};
         async_write({out_buf_.data(), static_cast<size_t>(len)},
                     [this](boost::system::error_code const& ec,

@@ -27,6 +27,9 @@ public:
 
         void async_accept(socket& sk, std::function<void(boost::system::error_code const&)> cb);
 
+        netns& net();
+        netns& net() const;
+
 private:
         void bind();
         void listen();

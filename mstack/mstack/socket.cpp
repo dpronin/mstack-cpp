@@ -23,13 +23,13 @@ void socket::async_read_some(std::span<std::byte>                               
                 cb({}, pkt.buffer->export_data(buf));
         };
 
-        if (!this->tcb->receive_queue.empty()) {
-                auto pkt{std::move(this->tcb->receive_queue.pop().value())};
+        if (!this->tcb->receive_queue_.empty()) {
+                auto pkt{std::move(this->tcb->receive_queue_.pop().value())};
                 net.io_context_execution().post(
                         [f = std::move(f), pkt_wrapper = std::make_shared<raw_packet>(std::move(
                                                    pkt))] mutable { f(std::move(*pkt_wrapper)); });
         } else {
-                this->tcb->on_data_receive.push(f);
+                this->tcb->on_data_receive_.push(f);
         }
 }
 
