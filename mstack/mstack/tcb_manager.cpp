@@ -25,7 +25,7 @@ tcb_manager::tcb_manager(boost::asio::io_context& io_ctx)
 void tcb_manager::activate() {
         for (; !active_tcbs_->empty(); active_tcbs_->pop()) {
                 if (auto tcb{std::move(active_tcbs_->front())}) {
-                        while (tcb->is_active) {
+                        while (tcb->is_active()) {
                                 if (auto tcp_pkt{tcb->gather_packet()}) {
                                         enqueue(std::move(*tcp_pkt));
                                 } else {
@@ -69,10 +69,8 @@ void tcb_manager::process(tcp_packet_t&& in_pkt) {
                 tcb_it = tcbs_.emplace_hint(
                         tcb_it, two_end,
                         std::make_shared<tcb_t>(io_ctx_, *this, active_tcbs_, listener->second,
-                                                two_end.remote_info, two_end.local_info));
-
-                tcb_it->second->state_      = TCP_LISTEN;
-                tcb_it->second->next_state_ = TCP_LISTEN;
+                                                two_end.remote_info, two_end.local_info, TCP_LISTEN,
+                                                TCP_LISTEN));
 
                 p_tcb = tcb_it->second.get();
         } else {

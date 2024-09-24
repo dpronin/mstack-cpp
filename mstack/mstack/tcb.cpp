@@ -112,16 +112,41 @@ tcb_t::tcb_t(boost::asio::io_context&                            io_ctx,
              std::shared_ptr<std::queue<std::shared_ptr<tcb_t>>> active_tcbs,
              std::shared_ptr<listener_t>                         listener,
              ipv4_port_t const&                                  remote_info,
-             ipv4_port_t const&                                  local_info)
+             ipv4_port_t const&                                  local_info,
+             int                                                 state,
+             int                                                 next_state)
     : io_ctx_(io_ctx),
       mngr_(mngr),
       active_tcbs_(std::move(active_tcbs)),
       listener_(std::move(listener)),
       local_info_(local_info),
       remote_info_(remote_info),
-      state_(TCP_CLOSED) {
+      state_(state),
+      next_state_(next_state) {
         assert(active_tcbs_);
         assert(listener_);
+}
+
+void tcb_t::async_read_some(std::span<std::byte>                                          buf,
+                            std::function<void(boost::system::error_code const&, size_t)> cb) {
+        if (!this->receive_queue_.empty()) {
+                buf = buf.subspan(0, std::min(this->receive_queue_.size(), buf.size()));
+                std::copy_n(this->receive_queue_.begin(), buf.size(), buf.begin());
+                this->receive_queue_.erase(this->receive_queue_.begin(),
+                                           this->receive_queue_.begin() + buf.size());
+                this->io_ctx_.post([buf, cb = std::move(cb)] { cb({}, buf.size()); });
+        } else {
+                this->on_data_receive_.push({
+                        buf,
+                        [cb = std::move(cb)](size_t nbytes) { cb({}, nbytes); },
+                });
+        }
+}
+
+void tcb_t::async_write(std::span<std::byte const>                                    buf,
+                        std::function<void(boost::system::error_code const&, size_t)> cb) {
+        this->enqueue_send(buf);
+        this->io_ctx_.post([sz = buf.size(), cb = std::move(cb)] { cb({}, sz); });
 }
 
 void tcb_t::enqueue_send(std::span<std::byte const> pkt) {
@@ -140,9 +165,9 @@ void tcb_t::listen_finish() {
 }
 
 bool tcb_t::activate_self() {
-        if (!is_active) {
+        if (!is_active_) {
                 active_tcbs_->push(shared_from_this());
-                is_active = true;
+                is_active_ = true;
                 return true;
         }
         return false;
@@ -202,8 +227,8 @@ std::optional<tcp_packet_t> tcb_t::gather_packet() {
                 out = std::move(ctl_packets_.front());
                 ctl_packets_.pop();
         } else {
-                out       = make_packet();
-                is_active = !send_queue_.empty();
+                out        = make_packet();
+                is_active_ = !send_queue_.empty();
         }
         return out;
 }
@@ -568,7 +593,8 @@ void tcb_t::process(tcp_packet_t&& in_packet) {
         auto const optlen{hlen - tcp_header_t::fixed_size()};
         auto const seglen{in_packet.buffer->get_remaining_len() - hlen};
 
-        spdlog::debug("[TCP] RECEIVE h={}, hlen={}, optlen={}, seglen={}", tcph, hlen, optlen, seglen);
+        spdlog::debug("[TCP] RECEIVE h={}, hlen={}, optlen={}, seglen={}", tcph, hlen, optlen,
+                      seglen);
 
         spdlog::debug("[TCP] [CHECK TCP_CLOSED] {}", *this);
         if (this->state_ == TCP_CLOSED && tcp_handle_close_state(tcph)) return;

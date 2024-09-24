@@ -47,7 +47,8 @@ struct receive_state_t {
 
 class tcb_manager;
 
-struct tcb_t : public std::enable_shared_from_this<tcb_t> {
+class tcb_t : public std::enable_shared_from_this<tcb_t> {
+private:
         boost::asio::io_context&                            io_ctx_;
         tcb_manager&                                        mngr_;
         std::shared_ptr<std::queue<std::shared_ptr<tcb_t>>> active_tcbs_;
@@ -68,8 +69,9 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
         send_state_t    send_{};
         receive_state_t receive_{};
 
-        bool is_active{false};
+        bool is_active_{false};
 
+public:
         static uint32_t generate_isn();
 
         explicit tcb_t(boost::asio::io_context&                            io_ctx,
@@ -77,19 +79,43 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
                        std::shared_ptr<std::queue<std::shared_ptr<tcb_t>>> active_tcbs,
                        std::shared_ptr<listener_t>                         listener,
                        ipv4_port_t const&                                  remote_info,
-                       ipv4_port_t const&                                  local_info);
+                       ipv4_port_t const&                                  local_info,
+                       int                                                 state,
+                       int                                                 next_state);
+        ~tcb_t() = default;
 
-        void enqueue_send(std::span<std::byte const> packet);
+        tcb_t(tcb_t const&)            = delete;
+        tcb_t& operator=(tcb_t const&) = delete;
+
+        tcb_t(tcb_t&&)            = delete;
+        tcb_t& operator=(tcb_t&&) = delete;
+
+        void async_read_some(std::span<std::byte>                                          buf,
+                             std::function<void(boost::system::error_code const&, size_t)> cb);
+        void async_write(std::span<std::byte const>                                    buf,
+                         std::function<void(boost::system::error_code const&, size_t)> cb);
 
         void listen_finish();
 
         bool activate_self();
 
+        bool is_active() const { return is_active_; }
+
+        std::optional<tcp_packet_t> gather_packet();
+
+        void process(tcp_packet_t&& in_packet);
+
+        std::shared_ptr<listener_t> listener() const { return listener_; }
+
+        ipv4_port_t const& local_info() const { return local_info_; }
+        ipv4_port_t const& remote_info() const { return remote_info_; }
+
+private:
+        void enqueue_send(std::span<std::byte const> packet);
+
         std::unique_ptr<base_packet> prepare_data_optional(int& option_len);
 
         std::optional<tcp_packet_t> make_packet();
-
-        std::optional<tcp_packet_t> gather_packet();
 
         void tcp_send_ack();
 
@@ -107,17 +133,17 @@ struct tcb_t : public std::enable_shared_from_this<tcb_t> {
 
         bool tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen);
 
-        void process(tcp_packet_t&& in_packet);
-
-        friend std::ostream& operator<<(std::ostream& out, tcb_t const& m) {
-                out << m.remote_info_;
-                out << " -> ";
-                out << m.local_info_;
-                out << " ";
-                out << state_to_string(m.state_);
-                return out;
-        }
+        friend std::ostream& operator<<(std::ostream& out, tcb_t const& m);
 };
+
+inline std::ostream& operator<<(std::ostream& out, tcb_t const& m) {
+        out << m.remote_info_;
+        out << " -> ";
+        out << m.local_info_;
+        out << " ";
+        out << state_to_string(m.state_);
+        return out;
+}
 
 }  // namespace mstack
 

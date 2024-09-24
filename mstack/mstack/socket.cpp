@@ -18,18 +18,7 @@ void socket::async_connect(endpoint const&                                      
 
 void socket::async_read_some(std::span<std::byte>                                          buf,
                              std::function<void(boost::system::error_code const&, size_t)> cb) {
-        if (!this->tcb->receive_queue_.empty()) {
-                buf = buf.subspan(0, std::min(tcb->receive_queue_.size(), buf.size()));
-                std::copy_n(tcb->receive_queue_.begin(), buf.size(), buf.begin());
-                tcb->receive_queue_.erase(tcb->receive_queue_.begin(),
-                                          tcb->receive_queue_.begin() + buf.size());
-                net.io_context_execution().post([buf, cb = std::move(cb)] { cb({}, buf.size()); });
-        } else {
-                this->tcb->on_data_receive_.push({
-                        buf,
-                        [cb = std::move(cb)](size_t nbytes) { cb({}, nbytes); },
-                });
-        }
+        this->tcb->async_read_some(buf, std::move(cb));
 }
 
 void socket::async_read(std::span<std::byte>                                          buf,
@@ -65,8 +54,7 @@ void socket::async_write_some(std::span<std::byte const>                        
 void socket::async_write(std::span<std::byte const>                                    buf,
                          std::function<void(boost::system::error_code const&, size_t)> cb) {
         assert(this->tcb);
-        this->tcb->enqueue_send(buf);
-        net.io_context_execution().post([sz = buf.size(), cb = std::move(cb)] { cb({}, sz); });
+        tcb->async_write(buf, std::move(cb));
 }
 
 }  // namespace mstack
