@@ -5,6 +5,7 @@
 #include <concepts>
 #include <functional>
 #include <optional>
+#include <queue>
 #include <unordered_map>
 #include <utility>
 
@@ -12,7 +13,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include "circle_buffer.hpp"
 #include "raw_packet.hpp"
 
 namespace mstack {
@@ -23,7 +23,7 @@ private:
         boost::asio::io_context&                                      io_ctx_;
         std::unordered_map<int, std::function<void(UpperPacketType)>> upper_protos_;
         std::function<void(UnderPacketType)>                          under_proto_;
-        circle_buffer<UnderPacketType>                                packet_queue_;
+        std::queue<UnderPacketType>                                   packet_queue_;
 
 public:
         template <std::convertible_to<int> Index, typename UpperProto>
@@ -57,7 +57,10 @@ protected:
         void enqueue(UnderPacketType&& pkt) {
                 packet_queue_.push(std::move(pkt));
                 io_ctx_.post([this] {
-                        if (under_proto_) under_proto_(packet_queue_.pop().value());
+                        if (under_proto_) {
+                                under_proto_(std::move(packet_queue_.front()));
+                                packet_queue_.pop();
+                        }
                 });
         }
 
@@ -90,7 +93,7 @@ private:
         boost::asio::io_context&                                      io_ctx_;
         std::unordered_map<int, std::function<void(UpperPacketType)>> upper_protos_;
         std::function<void(raw_packet&&)>                             under_proto_;
-        circle_buffer<raw_packet>                                     packet_queue_;
+        std::queue<raw_packet>                                        packet_queue_;
 
 public:
         template <std::convertible_to<int> Index, typename UpperProto>
@@ -123,7 +126,10 @@ protected:
         void enqueue(raw_packet&& pkt) {
                 packet_queue_.push(std::move(pkt));
                 io_ctx_.post([this] {
-                        if (under_proto_) under_proto_(packet_queue_.pop().value());
+                        if (under_proto_) {
+                                under_proto_(std::move(packet_queue_.front()));
+                                packet_queue_.pop();
+                        }
                 });
         }
 
@@ -152,7 +158,7 @@ protected:
 
 private:
         std::function<void(UnderPacketType&&)> under_proto_;
-        circle_buffer<UnderPacketType>         packet_queue_;
+        std::queue<UnderPacketType>            packet_queue_;
 
 public:
         template <typename UnderProtocol>
@@ -175,7 +181,10 @@ protected:
         void enqueue(UnderPacketType&& pkt) {
                 packet_queue_.push(std::move(pkt));
                 io_ctx_.post([this] {
-                        if (under_proto_) under_proto_(packet_queue_.pop().value());
+                        if (under_proto_) {
+                                under_proto_(std::move(packet_queue_.front()));
+                                packet_queue_.pop();
+                        }
                 });
         }
 

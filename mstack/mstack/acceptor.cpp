@@ -37,9 +37,10 @@ void acceptor::async_accept(socket& sk, std::function<void(boost::system::error_
         if (auto listener{sk_->net.tcb_m().listener_get(sk_->local_info.ep())};
             !listener->acceptors.empty()) {
                 sk_->net.io_context_execution().post(
-                        [f = std::move(f), tcb = listener->acceptors.pop().value()] mutable {
+                        [f = std::move(f), tcb = std::move(listener->acceptors.front())] mutable {
                                 f(std::move(tcb));
                         });
+                listener->acceptors.pop();
         } else {
                 listener->on_acceptor_has_tcb.push(f);
         }

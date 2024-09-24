@@ -5,7 +5,6 @@
 #include <utility>
 
 #include "netns.hpp"
-#include "raw_packet.hpp"
 #include "socket.hpp"
 
 namespace mstack {
@@ -19,17 +18,17 @@ void socket::async_connect(endpoint const&                                      
 
 void socket::async_read_some(std::span<std::byte>                                          buf,
                              std::function<void(boost::system::error_code const&, size_t)> cb) {
-        auto f = [buf, cb = std::move(cb)](raw_packet pkt) {
-                cb({}, pkt.buffer->export_data(buf));
-        };
-
         if (!this->tcb->receive_queue_.empty()) {
-                auto pkt{std::move(this->tcb->receive_queue_.pop().value())};
-                net.io_context_execution().post(
-                        [f = std::move(f), pkt_wrapper = std::make_shared<raw_packet>(std::move(
-                                                   pkt))] mutable { f(std::move(*pkt_wrapper)); });
+                buf = buf.subspan(0, std::min(tcb->receive_queue_.size(), buf.size()));
+                std::copy_n(tcb->receive_queue_.begin(), buf.size(), buf.begin());
+                tcb->receive_queue_.erase(tcb->receive_queue_.begin(),
+                                          tcb->receive_queue_.begin() + buf.size());
+                net.io_context_execution().post([buf, cb = std::move(cb)] { cb({}, buf.size()); });
         } else {
-                this->tcb->on_data_receive_.push(f);
+                this->tcb->on_data_receive_.push({
+                        buf,
+                        [cb = std::move(cb)](size_t nbytes) { cb({}, nbytes); },
+                });
         }
 }
 

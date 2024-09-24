@@ -4,6 +4,7 @@
 #include <cstddef>
 
 #include <algorithm>
+#include <iterator>
 #include <memory>
 #include <span>
 #include <utility>
@@ -62,11 +63,17 @@ public:
                 _raw_data = std::make_unique<std::byte[]>(len);
         }
 
-        void export_payload(std::byte* buf, int len) {
-                int index = 0;
-                for (int i = _head + len; i < _len; i++) {
-                        buf[index++] = _raw_data[i];
-                }
+        template <std::output_iterator<std::byte> Iterator>
+        Iterator export_payload(Iterator begin, Iterator end, int skip_bytes) {
+                for (int i = _head + skip_bytes; begin != end && i < _len; i++)
+                        *begin++ = _raw_data[i];
+                return begin;
+        }
+
+        std::byte* export_payload(std::byte* buf, int skip_bytes) {
+                for (int i = _head + skip_bytes; i < _len; i++)
+                        *buf++ = _raw_data[i];
+                return buf;
         }
 
         ssize_t export_data(std::span<std::byte> buf) {

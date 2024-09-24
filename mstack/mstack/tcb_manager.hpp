@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include <memory>
+#include <queue>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -11,7 +12,6 @@
 #include <spdlog/spdlog.h>
 
 #include "base_protocol.hpp"
-#include "circle_buffer.hpp"
 #include "packets.hpp"
 #include "socket.hpp"
 #include "tcb.hpp"
@@ -20,7 +20,7 @@ namespace mstack {
 
 class tcb_manager : public base_protocol<tcp_packet_t, void> {
 private:
-        std::shared_ptr<circle_buffer<std::shared_ptr<tcb_t>>>       active_tcbs_;
+        std::shared_ptr<std::queue<std::shared_ptr<tcb_t>>>          active_tcbs_;
         std::unordered_map<two_ends_t, std::shared_ptr<tcb_t>>       tcbs_;
         std::unordered_set<ipv4_port_t>                              bound_;
         std::unordered_map<ipv4_port_t, std::shared_ptr<listener_t>> listeners_;

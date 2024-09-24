@@ -165,6 +165,11 @@ constexpr auto ntoh(T value) {
         return std::bit_cast<T>(x);
 }
 
+template <std::integral T>
+constexpr void ntoh_inplace(T& value) {
+        value = ntoh(value);
+}
+
 template <typename T>
 constexpr T consume(std::byte*& ptr) {
         T ret = *(reinterpret_cast<T*>(ptr));

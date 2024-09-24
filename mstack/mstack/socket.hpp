@@ -13,7 +13,6 @@
 
 #include <sys/types.h>
 
-#include "circle_buffer.hpp"
 #include "defination.hpp"
 #include "endpoint.hpp"
 
@@ -71,7 +70,7 @@ struct listener_t {
         int                                                     proto;
         ipv4_port_t                                             local_info;
         int                                                     state{SOCKET_UNCONNECTED};
-        circle_buffer<std::shared_ptr<tcb_t>>                   acceptors;
+        std::queue<std::shared_ptr<tcb_t>>                      acceptors;
         std::queue<std::function<void(std::shared_ptr<tcb_t>)>> on_acceptor_has_tcb;
 };
 
