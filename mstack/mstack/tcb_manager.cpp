@@ -19,22 +19,7 @@
 
 namespace mstack {
 
-tcb_manager::tcb_manager(boost::asio::io_context& io_ctx)
-    : base_protocol(io_ctx), active_tcbs_(std::make_shared<std::queue<std::shared_ptr<tcb_t>>>()) {}
-
-void tcb_manager::activate() {
-        for (; !active_tcbs_->empty(); active_tcbs_->pop()) {
-                if (auto tcb{std::move(active_tcbs_->front())}) {
-                        while (tcb->is_active()) {
-                                if (auto tcp_pkt{tcb->gather_packet()}) {
-                                        enqueue(std::move(*tcp_pkt));
-                                } else {
-                                        break;
-                                }
-                        }
-                }
-        }
-}
+tcb_manager::tcb_manager(boost::asio::io_context& io_ctx) : base_protocol(io_ctx) {}
 
 std::shared_ptr<listener_t> tcb_manager::listener_get(ipv4_port_t const& ipv4_port) {
         return listeners_[ipv4_port];
@@ -68,19 +53,16 @@ void tcb_manager::process(tcp_packet_t&& in_pkt) {
 
                 tcb_it = tcbs_.emplace_hint(
                         tcb_it, two_end,
-                        std::make_shared<tcb_t>(io_ctx_, *this, active_tcbs_, listener->second,
-                                                two_end.remote_info, two_end.local_info, TCP_LISTEN,
-                                                TCP_LISTEN));
+                        tcb_t::create_shared(io_ctx_, *this, listener->second, two_end.remote_info,
+                                             two_end.local_info, listener->second->proto,
+                                             TCP_LISTEN, TCP_LISTEN));
 
                 p_tcb = tcb_it->second.get();
         } else {
                 spdlog::warn("[TCB MNGR] receive unknown TCP packet");
         }
 
-        if (p_tcb) {
-                p_tcb->process(std::move(in_pkt));
-                activate();
-        }
+        if (p_tcb) p_tcb->process(std::move(in_pkt));
 }
 
 }  // namespace mstack

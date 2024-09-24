@@ -107,23 +107,22 @@ tcp_options parse_options(std::span<std::byte const> buf) {
 
 namespace mstack {
 
-tcb_t::tcb_t(boost::asio::io_context&                            io_ctx,
-             tcb_manager&                                        mngr,
-             std::shared_ptr<std::queue<std::shared_ptr<tcb_t>>> active_tcbs,
-             std::shared_ptr<listener_t>                         listener,
-             ipv4_port_t const&                                  remote_info,
-             ipv4_port_t const&                                  local_info,
-             int                                                 state,
-             int                                                 next_state)
+tcb_t::tcb_t(boost::asio::io_context&    io_ctx,
+             tcb_manager&                mngr,
+             std::shared_ptr<listener_t> listener,
+             ipv4_port_t const&          remote_info,
+             ipv4_port_t const&          local_info,
+             int                         proto,
+             int                         state,
+             int                         next_state)
     : io_ctx_(io_ctx),
       mngr_(mngr),
-      active_tcbs_(std::move(active_tcbs)),
       listener_(std::move(listener)),
       local_info_(local_info),
       remote_info_(remote_info),
+      proto_(proto),
       state_(state),
       next_state_(next_state) {
-        assert(active_tcbs_);
         assert(listener_);
 }
 
@@ -149,28 +148,28 @@ void tcb_t::async_write(std::span<std::byte const>                              
         this->io_ctx_.post([sz = buf.size(), cb = std::move(cb)] { cb({}, sz); });
 }
 
+bool tcb_t::make_pkt_and_send() {
+        if (auto pkt{gather_packet()}) {
+                mngr_.enqueue(std::move(*pkt));
+                return true;
+        }
+        return false;
+}
+
 void tcb_t::enqueue_send(std::span<std::byte const> pkt) {
         send_queue_.insert(send_queue_.end(), pkt.begin(), pkt.end());
-        if (activate_self()) mngr_.activate();
+        while (!send_queue_.empty() && make_pkt_and_send())
+                ;
 }
 
 void tcb_t::listen_finish() {
         if (!listener_->on_acceptor_has_tcb.empty()) {
                 auto cb{std::move(listener_->on_acceptor_has_tcb.front())};
                 listener_->on_acceptor_has_tcb.pop();
-                io_ctx_.post([this, cb = std::move(cb)] { cb(shared_from_this()); });
+                io_ctx_.post([this, cb = std::move(cb)] { cb(weak_from_this()); });
         } else {
-                listener_->acceptors.push(shared_from_this());
+                listener_->acceptors.push(weak_from_this());
         }
-}
-
-bool tcb_t::activate_self() {
-        if (!is_active_) {
-                active_tcbs_->push(shared_from_this());
-                is_active_ = true;
-                return true;
-        }
-        return false;
 }
 
 std::unique_ptr<base_packet> tcb_t::prepare_data_optional(int& option_len) { return {}; }
@@ -227,8 +226,7 @@ std::optional<tcp_packet_t> tcb_t::gather_packet() {
                 out = std::move(ctl_packets_.front());
                 ctl_packets_.pop();
         } else {
-                out        = make_packet();
-                is_active_ = !send_queue_.empty();
+                out = make_packet();
         }
         return out;
 }
@@ -364,8 +362,10 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet_t const
                 this->send_.next           = isn + 1;
                 this->send_.unacknowledged = isn;
                 this->next_state_          = TCP_SYN_RECEIVED;
-                this->activate_self();
+                this->make_pkt_and_send();
+
                 spdlog::debug("[SEND SYN ACK]");
+
                 return false;
         }
 
@@ -801,7 +801,7 @@ void tcb_t::process(tcp_packet_t&& in_packet) {
                                 }
 
                                 if (tcph.ack_no > this->send_.next) {
-                                        this->activate_self();
+                                        this->make_pkt_and_send();
                                         return;
                                 }
 
@@ -858,7 +858,7 @@ void tcb_t::process(tcp_packet_t&& in_packet) {
                          *      restart the 2 MSL timeout.
                          */
                         case TCP_TIME_WAIT:
-                                this->activate_self();
+                                this->make_pkt_and_send();
                                 break;
                 }
         }
@@ -974,7 +974,7 @@ void tcb_t::process(tcp_packet_t&& in_packet) {
                                                 this->receive_queue_.end(), hlen);
                                 }
 
-                                this->activate_self();
+                                this->make_pkt_and_send();
 
                                 break;
                         }
@@ -1020,7 +1020,7 @@ void tcb_t::process(tcp_packet_t&& in_packet) {
                         case TCP_ESTABLISHED:
                                 this->receive_.next += 1;
                                 this->next_state_ = TCP_CLOSE_WAIT;
-                                this->activate_self();
+                                this->make_pkt_and_send();
                                 /**
                                  *  FIN-WAIT-1 STATE
                                  *      If our FIN has been ACKed (perhaps in this segment),

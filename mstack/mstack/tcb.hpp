@@ -49,11 +49,11 @@ class tcb_manager;
 
 class tcb_t : public std::enable_shared_from_this<tcb_t> {
 private:
-        boost::asio::io_context&                            io_ctx_;
-        tcb_manager&                                        mngr_;
-        std::shared_ptr<std::queue<std::shared_ptr<tcb_t>>> active_tcbs_;
-        std::shared_ptr<listener_t>                         listener_;
+        boost::asio::io_context&    io_ctx_;
+        tcb_manager&                mngr_;
+        std::shared_ptr<listener_t> listener_;
 
+        int proto_;
         int state_;
         int next_state_;
 
@@ -69,19 +69,23 @@ private:
         send_state_t    send_{};
         receive_state_t receive_{};
 
-        bool is_active_{false};
+        explicit tcb_t(boost::asio::io_context&    io_ctx,
+                       tcb_manager&                mngr,
+                       std::shared_ptr<listener_t> listener,
+                       ipv4_port_t const&          remote_info,
+                       ipv4_port_t const&          local_info,
+                       int                         proto,
+                       int                         state,
+                       int                         next_state);
 
 public:
+        template <typename... Args>
+        static std::shared_ptr<tcb_t> create_shared(Args&&... args) {
+                return std::shared_ptr<tcb_t>{new tcb_t{std::forward<Args>(args)...}};
+        }
+
         static uint32_t generate_isn();
 
-        explicit tcb_t(boost::asio::io_context&                            io_ctx,
-                       tcb_manager&                                        mngr,
-                       std::shared_ptr<std::queue<std::shared_ptr<tcb_t>>> active_tcbs,
-                       std::shared_ptr<listener_t>                         listener,
-                       ipv4_port_t const&                                  remote_info,
-                       ipv4_port_t const&                                  local_info,
-                       int                                                 state,
-                       int                                                 next_state);
         ~tcb_t() = default;
 
         tcb_t(tcb_t const&)            = delete;
@@ -97,20 +101,19 @@ public:
 
         void listen_finish();
 
-        bool activate_self();
-
-        bool is_active() const { return is_active_; }
-
-        std::optional<tcp_packet_t> gather_packet();
-
         void process(tcp_packet_t&& in_packet);
 
         std::shared_ptr<listener_t> listener() const { return listener_; }
 
         ipv4_port_t const& local_info() const { return local_info_; }
         ipv4_port_t const& remote_info() const { return remote_info_; }
+        int                proto() const { return proto_; }
 
 private:
+        bool make_pkt_and_send();
+
+        std::optional<tcp_packet_t> gather_packet();
+
         void enqueue_send(std::span<std::byte const> packet);
 
         std::unique_ptr<base_packet> prepare_data_optional(int& option_len);

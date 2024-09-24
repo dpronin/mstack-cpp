@@ -18,7 +18,11 @@ void socket::async_connect(endpoint const&                                      
 
 void socket::async_read_some(std::span<std::byte>                                          buf,
                              std::function<void(boost::system::error_code const&, size_t)> cb) {
-        this->tcb->async_read_some(buf, std::move(cb));
+        if (auto sp = this->tcb.lock()) {
+                sp->async_read_some(buf, std::move(cb));
+        } else {
+                throw std::runtime_error("endpoint is not connected");
+        }
 }
 
 void socket::async_read(std::span<std::byte>                                          buf,
@@ -53,8 +57,16 @@ void socket::async_write_some(std::span<std::byte const>                        
 
 void socket::async_write(std::span<std::byte const>                                    buf,
                          std::function<void(boost::system::error_code const&, size_t)> cb) {
-        assert(this->tcb);
-        tcb->async_write(buf, std::move(cb));
+        if (auto sp{this->tcb.lock()}) {
+                sp->async_write(buf, std::move(cb));
+        } else {
+                throw std::runtime_error("endpoint is not connected");
+        }
+}
+
+endpoint socket::remote_endpoint() const {
+        if (auto sp{tcb.lock()}) return {sp->proto(), sp->remote_info()};
+        throw std::runtime_error("endpoint is not connected");
 }
 
 }  // namespace mstack
