@@ -20,14 +20,14 @@ struct ethernetv2_header_t {
                 ethernetv2_header_t ethernet_header;
                 ethernet_header.dst_mac_addr.consume(ptr);
                 ethernet_header.src_mac_addr.consume(ptr);
-                ethernet_header.proto = utils::consume<uint16_t>(ptr);
+                ethernet_header.proto = utils::consume_from_net<uint16_t>(ptr);
                 return ethernet_header;
         }
 
         void produce(std::byte* ptr) {
                 dst_mac_addr.produce(ptr);
                 src_mac_addr.produce(ptr);
-                utils::produce(ptr, proto);
+                utils::produce_to_net(ptr, proto);
         }
 };
 

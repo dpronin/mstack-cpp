@@ -54,7 +54,7 @@ private:
 
                 std::byte* pointer{out_buffer->get_pointer()};
                 auto const checksum{
-                        utils::checksum(
+                        utils::checksum_net(
                                 {pointer, static_cast<size_t>(out_buffer->get_remaining_len())}, 0),
                 };
 

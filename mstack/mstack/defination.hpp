@@ -4,47 +4,49 @@
 
 namespace mstack {
 
-constexpr inline int TUNTAP_DEV = 0x01;
-
-constexpr inline int TCP_CLOSED       = 0x10;
-constexpr inline int TCP_LISTEN       = 0x11;
-constexpr inline int TCP_SYN_SENT     = 0x12;
-constexpr inline int TCP_SYN_RECEIVED = 0x13;
-constexpr inline int TCP_ESTABLISHED  = 0x14;
-constexpr inline int TCP_FIN_WAIT_1   = 0x15;
-constexpr inline int TCP_FIN_WAIT_2   = 0x16;
-constexpr inline int TCP_CLOSE_WAIT   = 0x17;
-constexpr inline int TCP_CLOSING      = 0x18;
-constexpr inline int TCP_LAST_ACK     = 0x19;
-constexpr inline int TCP_TIME_WAIT    = 0x20;
-
-constexpr inline int SOCKET_UNCONNECTED = 0x21;
-constexpr inline int SOCKET_CONNECTING  = 0x22;
-constexpr inline int SOCKET_CONNECTED   = 0x23;
+enum {
+        kTCPClosed,
+        kTCPConnecting,
+        kTCPListen,
+        kTCPSynSent,
+        kTCPSynReceived,
+        kTCPEstablished,
+        kTCPFinWait_1,
+        kTCPFinWait_2,
+        kTCPCloseWait,
+        kTCPClosing,
+        kTCPLastAck,
+        kTCPTimeWait,
+        kSocketDisconnected,
+        kSocketConnecting,
+        kSocketConnected,
+};
 
 inline std::string state_to_string(int state) {
         switch (state) {
-                case TCP_CLOSED:
+                case kTCPClosed:
                         return "TCP_CLOSED";
-                case TCP_LISTEN:
+                case kTCPConnecting:
+                        return "TCP_CONNECTING";
+                case kTCPListen:
                         return "TCP_LISTEN";
-                case TCP_SYN_SENT:
+                case kTCPSynSent:
                         return "TCP_SYN_SENT";
-                case TCP_SYN_RECEIVED:
+                case kTCPSynReceived:
                         return "TCP_SYN_RECEIVED";
-                case TCP_ESTABLISHED:
+                case kTCPEstablished:
                         return "TCP_ESTABLISHED";
-                case TCP_FIN_WAIT_1:
+                case kTCPFinWait_1:
                         return "TCP_FIN_WAIT_1";
-                case TCP_FIN_WAIT_2:
+                case kTCPFinWait_2:
                         return "TCP_FIN_WAIT_2";
-                case TCP_CLOSE_WAIT:
+                case kTCPCloseWait:
                         return "TCP_CLOSE_WAIT";
-                case TCP_CLOSING:
+                case kTCPClosing:
                         return "TCP_CLOSING";
-                case TCP_LAST_ACK:
+                case kTCPLastAck:
                         return "TCP_LAST_ACK";
-                case TCP_TIME_WAIT:
+                case kTCPTimeWait:
                         return "TCP_TIME_WAIT";
         }
         return "UNKNOWN";

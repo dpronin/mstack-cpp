@@ -67,12 +67,12 @@ public:
 
         void consume(std::byte*& ptr) {
                 for (auto& d : mac_)
-                        d = utils::consume<std::byte>(ptr);
+                        d = utils::consume_from_net<std::byte>(ptr);
         }
 
         void produce(std::byte*& ptr) const {
                 for (auto d : mac_)
-                        utils::produce<std::byte>(ptr, d);
+                        utils::produce_to_net<std::byte>(ptr, d);
         }
 
         static constexpr size_t size() { return 6; }

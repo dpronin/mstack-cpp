@@ -33,11 +33,11 @@ struct arpv4_header_t {
 
         static arpv4_header_t consume(std::byte* ptr) {
                 arpv4_header_t arpv4_header;
-                arpv4_header.htype = utils::consume<uint16_t>(ptr);
-                arpv4_header.ptype = utils::consume<uint16_t>(ptr);
-                arpv4_header.hlen  = utils::consume<uint8_t>(ptr);
-                arpv4_header.plen  = utils::consume<uint8_t>(ptr);
-                arpv4_header.oper  = utils::consume<uint16_t>(ptr);
+                arpv4_header.htype = utils::consume_from_net<uint16_t>(ptr);
+                arpv4_header.ptype = utils::consume_from_net<uint16_t>(ptr);
+                arpv4_header.hlen  = utils::consume_from_net<uint8_t>(ptr);
+                arpv4_header.plen  = utils::consume_from_net<uint8_t>(ptr);
+                arpv4_header.oper  = utils::consume_from_net<uint16_t>(ptr);
                 arpv4_header.sha.consume(ptr);
                 arpv4_header.spa.consume(ptr);
                 arpv4_header.tha.consume(ptr);
@@ -46,11 +46,11 @@ struct arpv4_header_t {
         }
 
         void produce(std::byte* ptr) const {
-                utils::produce(ptr, htype);
-                utils::produce(ptr, ptype);
-                utils::produce(ptr, hlen);
-                utils::produce(ptr, plen);
-                utils::produce(ptr, oper);
+                utils::produce_to_net(ptr, htype);
+                utils::produce_to_net(ptr, ptype);
+                utils::produce_to_net(ptr, hlen);
+                utils::produce_to_net(ptr, plen);
+                utils::produce_to_net(ptr, oper);
                 this->sha.produce(ptr);
                 this->spa.produce(ptr);
                 this->tha.produce(ptr);

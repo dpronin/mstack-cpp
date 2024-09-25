@@ -2,14 +2,15 @@
 
 #include <cstdint>
 
+#include <spdlog/spdlog.h>
+
 #include "base_protocol.hpp"
-#include "ipv4_packet.hpp"
-#include "packets.hpp"
 #include "tcp_header.hpp"
+#include "tcp_packet.hpp"
 
 namespace mstack {
 
-class tcp : public base_protocol<ipv4_packet, tcp_packet_t> {
+class tcp : public base_protocol<ipv4_packet, tcp_packet> {
 public:
         constexpr static int PROTO{0x06};
 
@@ -22,7 +23,9 @@ public:
         tcp(tcp&&)            = delete;
         tcp& operator=(tcp&&) = delete;
 
-        void process(tcp_packet_t&& in_packet) override {
+        void process(tcp_packet&& in_packet) override {
+                spdlog::debug("[TCP] HDL FROM U-LAYER {}", in_packet);
+
                 uint32_t sum{0};
 
                 sum += utils::ntoh(in_packet.local_info.ipv4_addr.raw());
@@ -30,18 +33,14 @@ public:
                 sum += utils::ntoh(in_packet.proto);
                 sum += utils::ntoh(static_cast<uint16_t>(in_packet.buffer->get_remaining_len()));
 
-                tcp_header_t tcp_header{tcp_header_t::consume(in_packet.buffer->get_pointer())};
+                auto tcp_header{tcp_header_t::consume(in_packet.buffer->get_pointer())};
 
-                auto const checksum{
-                        utils::checksum(
-                                {
-                                        in_packet.buffer->get_pointer(),
-                                        static_cast<size_t>(in_packet.buffer->get_remaining_len()),
-                                },
-                                sum),
-                };
-
-                tcp_header.checksum = checksum;
+                tcp_header.checksum = utils::checksum_net(
+                        {
+                                in_packet.buffer->get_pointer(),
+                                static_cast<size_t>(in_packet.buffer->get_remaining_len()),
+                        },
+                        sum);
                 tcp_header.produce(in_packet.buffer->get_pointer());
 
                 ipv4_packet out_ipv4{
@@ -55,12 +54,12 @@ public:
         }
 
 private:
-        std::optional<tcp_packet_t> make_packet(ipv4_packet&& in_packet) override {
+        std::optional<tcp_packet> make_packet(ipv4_packet&& in_packet) override {
                 auto const tcp_header{tcp_header_t::consume(in_packet.buffer->get_pointer())};
 
                 spdlog::debug("[RECEIVE] {}", tcp_header);
 
-                tcp_packet_t out_tcp_packet{
+                tcp_packet out_tcp_packet{
                         .proto = PROTO,
                         .remote_info =
                                 {

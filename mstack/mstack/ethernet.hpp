@@ -21,7 +21,7 @@ public:
         ethernetv2& operator=(ethernetv2&&) = delete;
 
         void process(ethernetv2_frame&& in_packet) override {
-                spdlog::debug("[OUT] {}", in_packet);
+                spdlog::debug("[ETH] HDL FROM U-LAYER {}", in_packet);
 
                 ethernetv2_header_t e_packet = {
                         .dst_mac_addr = in_packet.dst_mac_addr,

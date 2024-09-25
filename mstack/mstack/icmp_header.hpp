@@ -23,20 +23,20 @@ struct icmp_header_t {
 
         static icmp_header_t consume(std::byte* ptr) {
                 return {
-                        .proto_type = utils::consume<uint8_t>(ptr),
-                        .code       = utils::consume<uint8_t>(ptr),
-                        .checksum   = utils::consume<uint16_t>(ptr),
-                        .id         = utils::consume<uint16_t>(ptr),
-                        .seq        = utils::consume<uint16_t>(ptr),
+                        .proto_type = utils::consume_from_net<uint8_t>(ptr),
+                        .code       = utils::consume_from_net<uint8_t>(ptr),
+                        .checksum   = utils::consume_from_net<uint16_t>(ptr),
+                        .id         = utils::consume_from_net<uint16_t>(ptr),
+                        .seq        = utils::consume_from_net<uint16_t>(ptr),
                 };
         }
 
         std::byte* produce(std::byte* ptr) const {
-                utils::produce(ptr, proto_type);
-                utils::produce(ptr, code);
-                utils::produce(ptr, checksum);
-                utils::produce(ptr, id);
-                utils::produce(ptr, seq);
+                utils::produce_to_net(ptr, proto_type);
+                utils::produce_to_net(ptr, code);
+                utils::produce_to_net(ptr, checksum);
+                utils::produce_to_net(ptr, id);
+                utils::produce_to_net(ptr, seq);
                 return ptr;
         }
 

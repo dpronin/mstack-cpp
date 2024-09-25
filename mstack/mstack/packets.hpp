@@ -1,8 +1,7 @@
 #pragma once
 
-#include <cstdint>
+#include <cstddef>
 
-#include <memory>
 #include <string>
 
 #include <fmt/format.h>
@@ -11,7 +10,6 @@
 
 #include <boost/container_hash/hash.hpp>
 
-#include "base_packet.hpp"
 #include "ipv4_port.hpp"
 
 namespace mstack {
@@ -30,14 +28,7 @@ struct two_ends_t {
         }
 };
 
-struct tcp_packet_t {
-        uint16_t                     proto;
-        ipv4_port_t                  remote_info;
-        ipv4_port_t                  local_info;
-        std::unique_ptr<base_packet> buffer;
-};
-
-};  // namespace mstack
+}  // namespace mstack
 
 namespace std {
 

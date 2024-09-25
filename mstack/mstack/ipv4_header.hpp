@@ -27,34 +27,34 @@ struct ipv4_header_t {
 
         static ipv4_header_t consume(std::byte* ptr) {
                 ipv4_header_t ipv4_header;
-                uint8_t       version_header_length = utils::consume<uint8_t>(ptr);
+                uint8_t       version_header_length = utils::consume_from_net<uint8_t>(ptr);
                 ipv4_header.version                 = version_header_length >> 4;
                 ipv4_header.header_length           = version_header_length & 0xF;
-                ipv4_header.tos                     = utils::consume<uint8_t>(ptr);
-                ipv4_header.total_length            = utils::consume<uint16_t>(ptr);
-                ipv4_header.id                      = utils::consume<uint16_t>(ptr);
-                uint16_t flags_farg_offset          = utils::consume<uint16_t>(ptr);
+                ipv4_header.tos                     = utils::consume_from_net<uint8_t>(ptr);
+                ipv4_header.total_length            = utils::consume_from_net<uint16_t>(ptr);
+                ipv4_header.id                      = utils::consume_from_net<uint16_t>(ptr);
+                uint16_t flags_farg_offset          = utils::consume_from_net<uint16_t>(ptr);
                 ipv4_header.NOP                     = flags_farg_offset >> 15;
                 ipv4_header.DF                      = (flags_farg_offset >> 14) & 0x1;
                 ipv4_header.MF                      = (flags_farg_offset >> 13) & 0x1;
                 ipv4_header.frag_offset             = flags_farg_offset & ((1 << 13) - 1);
-                ipv4_header.ttl                     = utils::consume<uint8_t>(ptr);
-                ipv4_header.proto_type              = utils::consume<uint8_t>(ptr);
-                ipv4_header.header_checksum         = utils::consume<uint16_t>(ptr);
+                ipv4_header.ttl                     = utils::consume_from_net<uint8_t>(ptr);
+                ipv4_header.proto_type              = utils::consume_from_net<uint8_t>(ptr);
+                ipv4_header.header_checksum         = utils::consume_from_net<uint16_t>(ptr);
                 ipv4_header.src_ip_addr.consume(ptr);
                 ipv4_header.dst_ip_addr.consume(ptr);
                 return ipv4_header;
         }
 
         void produce(std::byte* ptr) const {
-                utils::produce<uint8_t>(ptr, version << 4 | header_length);
-                utils::produce(ptr, tos);
-                utils::produce(ptr, total_length);
-                utils::produce(ptr, id);
-                utils::produce<uint16_t>(ptr, NOP << 15 | DF << 14 | MF << 13 | frag_offset);
-                utils::produce(ptr, ttl);
-                utils::produce(ptr, proto_type);
-                utils::produce(ptr, header_checksum);
+                utils::produce_to_net<uint8_t>(ptr, version << 4 | header_length);
+                utils::produce_to_net(ptr, tos);
+                utils::produce_to_net(ptr, total_length);
+                utils::produce_to_net(ptr, id);
+                utils::produce_to_net<uint16_t>(ptr, NOP << 15 | DF << 14 | MF << 13 | frag_offset);
+                utils::produce_to_net(ptr, ttl);
+                utils::produce_to_net(ptr, proto_type);
+                utils::produce_to_net(ptr, header_checksum);
                 src_ip_addr.produce(ptr);
                 dst_ip_addr.produce(ptr);
         }

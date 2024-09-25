@@ -50,6 +50,50 @@ inline sock_ptr sock_open() noexcept {
         };
 }
 
+template <std::integral T>
+constexpr T byteswap(T value) noexcept {
+        static_assert(std::has_unique_object_representations_v<T>, "T may not have padding bits");
+        auto array{std::bit_cast<std::array<std::byte, sizeof(T)>>(value)};
+        std::ranges::reverse(array);
+        return std::bit_cast<T>(array);
+}
+
+template <std::integral T>
+constexpr T big_to_native(T v) noexcept {
+        if constexpr (std::endian::little == std::endian::native)
+                return byteswap(v);
+        else
+                return v;
+}
+
+template <std::integral T>
+constexpr T native_to_big(T v) noexcept {
+        return big_to_native(v);
+}
+
+template <std::integral T>
+constexpr T little_to_native(T v) noexcept {
+        if constexpr (std::endian::big == std::endian::native)
+                return byteswap(v);
+        else
+                return v;
+}
+
+template <std::integral T>
+constexpr T native_to_little(T v) noexcept {
+        return little_to_native(v);
+}
+
+template <std::integral T>
+constexpr T little_to_big(T v) noexcept {
+        return byteswap(v);
+}
+
+template <std::integral T>
+constexpr T big_to_little(T v) noexcept {
+        return byteswap(v);
+}
+
 }  // namespace detail
 
 template <typename... A>
@@ -159,10 +203,18 @@ inline int set_interface_up(std::string_view dev) {
 }
 
 template <std::integral T>
+constexpr auto hton(T value) {
+        return detail::native_to_big(value);
+}
+
+template <std::integral T>
+constexpr void hton_inplace(T& value) {
+        value = hton(value);
+}
+
+template <std::integral T>
 constexpr auto ntoh(T value) {
-        auto x{std::bit_cast<std::array<std::byte, sizeof(T)>>(value)};
-        std::ranges::reverse(x);
-        return std::bit_cast<T>(x);
+        return detail::big_to_native(value);
 }
 
 template <std::integral T>
@@ -171,7 +223,7 @@ constexpr void ntoh_inplace(T& value) {
 }
 
 template <typename T>
-constexpr T consume(std::byte*& ptr) {
+constexpr T consume_from_net(std::byte*& ptr) {
         T ret = *(reinterpret_cast<T*>(ptr));
         ptr += sizeof(T);
         if constexpr (sizeof(ret) > 1)
@@ -181,7 +233,7 @@ constexpr T consume(std::byte*& ptr) {
 }
 
 template <typename T>
-constexpr void produce(std::byte*& p, T t) {
+constexpr void produce_to_net(std::byte*& p, T t) {
         T* ptr_ = reinterpret_cast<T*>(p);
         if constexpr (sizeof(T) > 1)
                 *ptr_ = ntoh(t);
@@ -190,14 +242,14 @@ constexpr void produce(std::byte*& p, T t) {
         p += sizeof(T);
 }
 
-inline uint32_t sum_every_16bits(std::span<std::byte const> addr) {
+inline uint32_t sum_every_16bits(std::span<std::byte const> buf) {
         uint32_t sum = 0;
 
-        assert(!(reinterpret_cast<uintptr_t>(addr.data()) & 0x1));
+        assert(!(reinterpret_cast<uintptr_t>(buf.data()) & 0x1));
 
-        auto const* ptr = reinterpret_cast<uint16_t const*>(addr.data());
+        auto const* ptr = reinterpret_cast<uint16_t const*>(buf.data());
 
-        auto count{addr.size()};
+        auto count{buf.size()};
         while (count > 1) {
                 /*  This is the inner loop */
                 sum += *ptr++;
@@ -210,14 +262,14 @@ inline uint32_t sum_every_16bits(std::span<std::byte const> addr) {
         return sum;
 }
 
-inline uint16_t checksum(std::span<std::byte const> addr, uint32_t start_sum) {
-        uint32_t sum = start_sum + sum_every_16bits(addr);
+inline uint16_t checksum_net(std::span<std::byte const> buf, uint32_t start_sum) {
+        uint32_t sum = start_sum + sum_every_16bits(buf);
 
         /*  Fold 32-bit sum to 16 bits */
         while (sum >> 16)
                 sum = (sum & 0xffff) + (sum >> 16);
 
-        return ntoh(static_cast<uint16_t>(~sum));
+        return hton(static_cast<uint16_t>(~sum));
 }
 
 }  // namespace utils

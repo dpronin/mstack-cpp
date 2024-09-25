@@ -14,9 +14,9 @@
 
 #include "base_packet.hpp"
 #include "defination.hpp"
-#include "packets.hpp"
 #include "socket.hpp"
 #include "tcp_header.hpp"
+#include "tcp_packet.hpp"
 
 namespace mstack {
 
@@ -64,7 +64,6 @@ private:
         std::deque<std::byte> receive_queue_;
 
         std::queue<std::pair<std::span<std::byte>, std::function<void(size_t)>>> on_data_receive_;
-        std::queue<tcp_packet_t>                                                 ctl_packets_;
 
         send_state_t    send_{};
         receive_state_t receive_{};
@@ -99,9 +98,9 @@ public:
         void async_write(std::span<std::byte const>                                    buf,
                          std::function<void(boost::system::error_code const&, size_t)> cb);
 
-        void listen_finish();
+        void start_connecting();
 
-        void process(tcp_packet_t&& in_packet);
+        void process(tcp_packet&& in_packet);
 
         std::shared_ptr<listener_t> listener() const { return listener_; }
 
@@ -110,27 +109,19 @@ public:
         int                proto() const { return proto_; }
 
 private:
-        bool make_pkt_and_send();
+        void listen_finish();
 
-        std::optional<tcp_packet_t> gather_packet();
+        void make_and_send_pkt();
 
         void enqueue_send(std::span<std::byte const> packet);
 
         std::unique_ptr<base_packet> prepare_data_optional(int& option_len);
 
-        std::optional<tcp_packet_t> make_packet();
-
-        void tcp_send_ack();
-
-        void tcp_send_syn_ack();
-
-        void tcp_send_rst();
-
-        void tcp_send_ctl();
+        tcp_packet make_packet();
 
         bool tcp_handle_close_state(tcp_header_t const& tcph);
 
-        bool tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet_t const& in_packet);
+        bool tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& in_packet);
 
         bool tcp_handle_syn_sent(tcp_header_t const& tcph);
 

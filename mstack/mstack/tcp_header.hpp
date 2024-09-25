@@ -36,12 +36,12 @@ struct tcp_header_t {
         static tcp_header_t consume(std::byte* ptr) {
                 tcp_header_t tcp_header{};
 
-                tcp_header.src_port = utils::consume<port_addr_t>(ptr);
-                tcp_header.dst_port = utils::consume<port_addr_t>(ptr);
-                tcp_header.seq_no   = utils::consume<uint32_t>(ptr);
-                tcp_header.ack_no   = utils::consume<uint32_t>(ptr);
+                tcp_header.src_port = utils::consume_from_net<port_addr_t>(ptr);
+                tcp_header.dst_port = utils::consume_from_net<port_addr_t>(ptr);
+                tcp_header.seq_no   = utils::consume_from_net<uint32_t>(ptr);
+                tcp_header.ack_no   = utils::consume_from_net<uint32_t>(ptr);
 
-                auto const header_length_flags = utils::consume<uint16_t>(ptr);
+                auto const header_length_flags = utils::consume_from_net<uint16_t>(ptr);
 
                 tcp_header.data_offset    = (header_length_flags >> 12) & 0xf;
                 tcp_header.reserved       = (header_length_flags >> 8) & 0xf;
@@ -53,26 +53,25 @@ struct tcp_header_t {
                 tcp_header.RST            = (header_length_flags >> 2) & 0x1;
                 tcp_header.SYN            = (header_length_flags >> 1) & 0x1;
                 tcp_header.FIN            = (header_length_flags >> 0) & 0x1;
-                tcp_header.window         = utils::consume<uint16_t>(ptr);
-                tcp_header.checksum       = utils::consume<uint16_t>(ptr);
-                tcp_header.urgent_pointer = utils::consume<uint16_t>(ptr);
+                tcp_header.window         = utils::consume_from_net<uint16_t>(ptr);
+                tcp_header.checksum       = utils::consume_from_net<uint16_t>(ptr);
+                tcp_header.urgent_pointer = utils::consume_from_net<uint16_t>(ptr);
 
                 return tcp_header;
         }
 
-        ptrdiff_t produce(std::byte* ptr) {
-                std::byte const* f{ptr};
-                utils::produce(ptr, src_port);
-                utils::produce(ptr, dst_port);
-                utils::produce(ptr, seq_no);
-                utils::produce(ptr, ack_no);
-                utils::produce<uint16_t>(ptr, data_offset << 12 | CWR << 7 | ECE << 6 | URG << 5 |
-                                                      ACK << 4 | PSH << 3 | RST << 2 | SYN << 1 |
-                                                      FIN);
-                utils::produce(ptr, window);
-                utils::produce(ptr, checksum);
-                utils::produce(ptr, urgent_pointer);
-                return ptr - f;
+        std::byte* produce(std::byte* ptr) {
+                utils::produce_to_net(ptr, src_port);
+                utils::produce_to_net(ptr, dst_port);
+                utils::produce_to_net(ptr, seq_no);
+                utils::produce_to_net(ptr, ack_no);
+                utils::produce_to_net<uint16_t>(ptr, data_offset << 12 | CWR << 7 | ECE << 6 |
+                                                             URG << 5 | ACK << 4 | PSH << 3 |
+                                                             RST << 2 | SYN << 1 | FIN);
+                utils::produce_to_net(ptr, window);
+                utils::produce_to_net(ptr, checksum);
+                utils::produce_to_net(ptr, urgent_pointer);
+                return ptr;
         }
 
         friend std::ostream& operator<<(std::ostream& out, tcp_header_t const& m) {
