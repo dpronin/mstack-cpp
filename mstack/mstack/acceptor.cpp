@@ -25,9 +25,10 @@ netns& acceptor::net() { return sk_->net; }
 netns& acceptor::net() const { return sk_->net; }
 
 void acceptor::async_accept(socket& sk, std::function<void(boost::system::error_code const&)> cb) {
-        auto f = [&sk, cb = std::move(cb)](std::weak_ptr<tcb_t> tcb) {
-                sk.state = kSocketConnected;
-                sk.tcb   = std::move(tcb);
+        auto f = [this, &sk, cb = std::move(cb)](std::weak_ptr<tcb_t> tcb) {
+                sk.local_info = sk_->local_info;
+                sk.state      = kSocketConnected;
+                sk.tcb        = std::move(tcb);
                 cb({});
         };
 
