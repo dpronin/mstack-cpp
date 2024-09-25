@@ -1,10 +1,15 @@
 #include "arp.hpp"
 
 #include <cassert>
+#include <cstddef>
 
 #include <utility>
 
 #include <spdlog/spdlog.h>
+
+namespace {
+std::byte operator""_b(unsigned long long x) { return static_cast<std::byte>(x); }
+}  // namespace
 
 namespace mstack {
 
@@ -86,9 +91,10 @@ void arp::async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from, ipv4_add
 
         ethernetv2_frame out_packet = {
                 .src_mac_addr = out_arp.sha,
-                .dst_mac_addr = out_arp.tha,
-                .proto        = PROTO,
-                .buffer       = std::move(out_buffer),
+                .dst_mac_addr =
+                        std::array<std::byte, 6>{0xff_b, 0xff_b, 0xff_b, 0xff_b, 0xff_b, 0xff_b},
+                .proto  = PROTO,
+                .buffer = std::move(out_buffer),
         };
 
         spdlog::debug("[ARP] ENQUEUE ARP REQUEST {}", out_arp);

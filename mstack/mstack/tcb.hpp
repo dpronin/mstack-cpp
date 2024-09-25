@@ -23,10 +23,10 @@ namespace mstack {
 using port_addr_t = uint16_t;
 
 struct send_state_t {
-        uint32_t                  unacknowledged;
-        uint32_t                  next;
-        uint32_t                  window;
-        int8_t                    window_sale;
+        uint32_t                  seq_no_unack;
+        uint32_t                  seq_no_next;
+        uint16_t                  window;
+        uint8_t                   window_scale;
         uint16_t                  mss;
         uint32_t                  cwnd;
         uint32_t                  ssthresh;
@@ -49,16 +49,20 @@ class tcb_manager;
 
 class tcb_t : public std::enable_shared_from_this<tcb_t> {
 private:
-        boost::asio::io_context&    io_ctx_;
-        tcb_manager&                mngr_;
-        std::shared_ptr<listener_t> listener_;
+        boost::asio::io_context& io_ctx_;
+        tcb_manager&             mngr_;
 
-        int proto_;
-        int state_;
-        int next_state_;
-
-        ipv4_port_t local_info_;
         ipv4_port_t remote_info_;
+        ipv4_port_t local_info_;
+        int         proto_;
+        int         state_;
+        int         next_state_;
+
+        std::function<void(boost::system::error_code const& ec,
+                           ipv4_port_t const&               remote_info,
+                           ipv4_port_t const&               local_info,
+                           std::weak_ptr<tcb_t>)>
+                on_connection_established_;
 
         std::deque<std::byte> send_queue_;
         std::deque<std::byte> receive_queue_;
@@ -68,14 +72,17 @@ private:
         send_state_t    send_{};
         receive_state_t receive_{};
 
-        explicit tcb_t(boost::asio::io_context&    io_ctx,
-                       tcb_manager&                mngr,
-                       std::shared_ptr<listener_t> listener,
-                       ipv4_port_t const&          remote_info,
-                       ipv4_port_t const&          local_info,
-                       int                         proto,
-                       int                         state,
-                       int                         next_state);
+        explicit tcb_t(boost::asio::io_context&                  io_ctx,
+                       tcb_manager&                              mngr,
+                       ipv4_port_t const&                        remote_info,
+                       ipv4_port_t const&                        local_info,
+                       int                                       proto,
+                       int                                       state,
+                       int                                       next_state,
+                       std::function<void(boost::system::error_code const& ec,
+                                          ipv4_port_t const&               remote_info,
+                                          ipv4_port_t const&               local_info,
+                                          std::weak_ptr<tcb_t>)> on_connection_established);
 
 public:
         template <typename... Args>
@@ -102,8 +109,6 @@ public:
 
         void process(tcp_packet&& in_packet);
 
-        std::shared_ptr<listener_t> listener() const { return listener_; }
-
         ipv4_port_t const& local_info() const { return local_info_; }
         ipv4_port_t const& remote_info() const { return remote_info_; }
         int                proto() const { return proto_; }
@@ -121,9 +126,9 @@ private:
 
         bool tcp_handle_close_state(tcp_header_t const& tcph);
 
-        bool tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& in_packet);
+        bool tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& in_pkt);
 
-        bool tcp_handle_syn_sent(tcp_header_t const& tcph);
+        bool tcp_handle_syn_sent(tcp_header_t const& tcph, tcp_packet const& in_pkt);
 
         bool tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen);
 

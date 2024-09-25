@@ -15,7 +15,22 @@ socket::socket() : net(netns::_default_()) {}
 
 void socket::async_connect(endpoint const&                                       ep,
                            std::function<void(boost::system::error_code const&)> cb) {
-        throw std::runtime_error("function is not implemented");
+        net.tcb_m().async_connect(
+                ep, [this, proto = ep.proto(), cb = std::move(cb)](
+                            boost::system::error_code const& ec,
+                            ipv4_port_t const&               remote_info [[maybe_unused]],
+                            ipv4_port_t const& local_info, std::weak_ptr<tcb_t> tcb) {
+                        if (ec) {
+                                spdlog::critical("failed to accept a new connection, reason: {}",
+                                                 ec.what());
+                                return;
+                        }
+
+                        this->local_info = {proto, local_info};
+                        this->tcb        = std::move(tcb);
+
+                        cb({});
+                });
 }
 
 void socket::async_read_some(std::span<std::byte>                                          buf,

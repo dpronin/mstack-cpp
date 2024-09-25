@@ -21,6 +21,7 @@
 #include "tcb.hpp"
 #include "tcb_manager.hpp"
 #include "tcp_header.hpp"
+#include "tcp_packet.hpp"
 #include "utils.hpp"
 
 namespace {
@@ -134,7 +135,7 @@ void encode_options(std::span<std::byte> buf, tcp_options const& opts) {
                                         buf = buf.subspan(3);
 
                                 } else if constexpr (std::same_as<type, sack>) {
-                                        assert(!(buf.size() < 4));
+                                        assert(!(buf.size() < 2));
 
                                         buf[0] = static_cast<std::byte>(kSACK);
                                         buf[1] = static_cast<std::byte>(2);
@@ -152,23 +153,26 @@ void encode_options(std::span<std::byte> buf, tcp_options const& opts) {
 
 namespace mstack {
 
-tcb_t::tcb_t(boost::asio::io_context&    io_ctx,
-             tcb_manager&                mngr,
-             std::shared_ptr<listener_t> listener,
-             ipv4_port_t const&          remote_info,
-             ipv4_port_t const&          local_info,
-             int                         proto,
-             int                         state,
-             int                         next_state)
+tcb_t::tcb_t(boost::asio::io_context&                  io_ctx,
+             tcb_manager&                              mngr,
+             ipv4_port_t const&                        remote_info,
+             ipv4_port_t const&                        local_info,
+             int                                       proto,
+             int                                       state,
+             int                                       next_state,
+             std::function<void(boost::system::error_code const& ec,
+                                ipv4_port_t const&               remote_info,
+                                ipv4_port_t const&               local_info,
+                                std::weak_ptr<tcb_t>)> on_connection_established)
     : io_ctx_(io_ctx),
       mngr_(mngr),
-      listener_(std::move(listener)),
       local_info_(local_info),
       remote_info_(remote_info),
       proto_(proto),
       state_(state),
-      next_state_(next_state) {
-        assert(listener_);
+      next_state_(next_state),
+      on_connection_established_(std::move(on_connection_established)) {
+        assert(on_connection_established_);
 }
 
 void tcb_t::async_read_some(std::span<std::byte>                                          buf,
@@ -202,18 +206,14 @@ void tcb_t::enqueue_send(std::span<std::byte const> pkt) {
 }
 
 void tcb_t::listen_finish() {
-        if (!listener_->on_acceptor_has_tcb.empty()) {
-                auto cb{std::move(listener_->on_acceptor_has_tcb.front())};
-                listener_->on_acceptor_has_tcb.pop();
-                io_ctx_.post([this, cb = std::move(cb)] { cb({}, weak_from_this()); });
-        } else {
-                listener_->acceptors.push(weak_from_this());
-        }
+        io_ctx_.post([this] {
+                on_connection_established_({}, remote_info_, local_info_, weak_from_this());
+        });
 }
 
 tcp_packet tcb_t::make_packet() {
         tcp_packet out_pkt{
-                .proto       = 0x06,
+                .proto       = tcb_manager::PROTO,
                 .remote_info = this->remote_info_,
                 .local_info  = this->local_info_,
         };
@@ -229,19 +229,19 @@ tcp_packet tcb_t::make_packet() {
         tcp_header_t out_tcp{
                 .src_port    = this->local_info_.port_addr,
                 .dst_port    = this->remote_info_.port_addr,
-                .seq_no      = 0 == seg_len ? this->send_.unacknowledged : this->send_.next,
+                .seq_no      = 0 == seg_len ? this->send_.seq_no_unack : this->send_.seq_no_next,
                 .ack_no      = this->receive_.next,
                 .data_offset = tcp_header_t::fixed_size() >> 2,
                 .ACK         = 1,
-                .PSH         = 0 != seg_len,
+                .PSH         = seg_len > 0,
                 .SYN         = kTCPSynReceived == this->next_state_,
-                .window      = 0xFAF0,
+                .window      = 0xFAF0u,
         };
 
         std::copy_n(this->send_queue_.begin(), seg_len, out_tcp.produce(out_buffer->get_pointer()));
         send_queue_.erase(send_queue_.begin(), send_queue_.begin() + seg_len);
 
-        this->send_.next += seg_len;
+        this->send_.seq_no_next += seg_len;
 
         out_pkt.buffer = std::move(out_buffer);
 
@@ -253,12 +253,14 @@ tcp_packet tcb_t::make_packet() {
 uint32_t tcb_t::generate_isn() { return std::random_device{}(); }
 
 bool tcb_t::tcp_handle_close_state(tcp_header_t const& tcph) {
+        assert(kTCPClosed == this->state_);
+
         /**
          *  If the state is CLOSED (i.e., TCB does not exist) then
          *  all data in the incoming segment is discarded.  An incoming
          *  segment containing a RST is discarded.
          */
-        if (tcph.RST == 1) {
+        if (tcph.RST) {
                 return true;
         }
         /**
@@ -271,7 +273,7 @@ bool tcb_t::tcp_handle_close_state(tcp_header_t const& tcph) {
          *  If the ACK bit is off, sequence number zero is used,
          *      <SEQ=0><ACK=SEG.SEQ+SEG.LEN><CTL=RST,ACK>
          */
-        if (tcph.ACK == 0) {
+        if (!tcph.ACK) {
                 return true;
         }
 
@@ -280,18 +282,16 @@ bool tcb_t::tcp_handle_close_state(tcp_header_t const& tcph) {
          *       <SEQ=SEG.ACK><CTL=RST>. Return.
          */
 
-        if (tcph.ACK == 1) {
+        if (tcph.ACK) {
                 return true;
         }
 
         return false;
 }
 
-bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& in_packet) {
+bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& in_pkt) {
         //  If the state is LISTEN then
-        if (this->state_ != kTCPListen) {
-                return false;
-        }
+        assert(kTCPListen == this->state_);
 
         spdlog::debug("[TCP LISTEN] {}", tcph);
 
@@ -299,7 +299,7 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
          *  first check for an RST
          *  An incoming RST should be ignored.  Return.
          */
-        if (tcph.RST == 1) {
+        if (tcph.RST) {
                 return true;
         }
 
@@ -310,7 +310,7 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
          *  for any arriving ACK-bearing segment.  The RST should be
          *  formatted as follows: <SEQ=SEG.ACK><CTL=RST>
          */
-        if (tcph.ACK == 1) {
+        if (tcph.ACK) {
                 // TOSO: Send RST
                 return true;
         }
@@ -328,7 +328,7 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
          *
          *  If the SEG.PRC is less than the TCB.PRC then continue.
          */
-        if (tcph.SYN == 1) {
+        if (tcph.SYN) {
         }
         /**
          *  Set RCV.NXT to SEG.SEQ+1, IRS is set to SEG.SEQ and any other
@@ -345,14 +345,14 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
          *  unspecified fields should be filled in now.
          */
 
-        if (tcph.SYN == 1) {
-                auto const tcph{tcp_header_t::consume(in_packet.buffer->get_pointer())};
+        if (tcph.SYN) {
+                auto const tcph{tcp_header_t::consume(in_pkt.buffer->get_pointer())};
                 auto const hlen{tcph.data_offset * 4};
                 auto const optlen{hlen - tcp_header_t::fixed_size()};
-                auto const seglen{in_packet.buffer->get_remaining_len() - hlen};
+                auto const seglen{in_pkt.buffer->get_remaining_len() - hlen};
 
                 for (auto const& opt :
-                     decode_options({in_packet.buffer->get_pointer() + hlen - optlen, optlen})) {
+                     decode_options({in_pkt.buffer->get_pointer() + hlen - optlen, optlen})) {
                         std::visit(
                                 [this](auto const& opt) {
                                         using type = std::decay_t<decltype(opt)>;
@@ -367,12 +367,13 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
                                 opt);
                 }
 
-                uint32_t const isn         = generate_isn();
-                this->receive_.next        = tcph.seq_no + 1;
-                this->receive_.window      = 0xFAF0;
-                this->send_.next           = isn + 1;
-                this->send_.unacknowledged = isn;
-                this->next_state_          = kTCPSynReceived;
+                uint32_t const isn{generate_isn()};
+
+                this->receive_.next      = tcph.seq_no + 1;
+                this->receive_.window    = tcph.window;
+                this->send_.seq_no_next  = isn + 1;
+                this->send_.seq_no_unack = isn;
+                this->next_state_        = kTCPSynReceived;
                 this->make_and_send_pkt();
 
                 spdlog::debug("[SEND SYN ACK]");
@@ -391,12 +392,51 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
         return true;
 }
 
-bool tcb_t::tcp_handle_syn_sent(tcp_header_t const& tcph) {
+bool tcb_t::tcp_handle_syn_sent(tcp_header_t const& tcph, tcp_packet const& in_pkt) {
         // If the state is SYN-SENT then
-        if (this->state_ != kTCPSynSent) return false;
+        assert(kTCPSynSent == this->state_);
 
         // first check the ACK bit
-        if (tcph.ACK == 1) {
+        if (tcph.SYN && tcph.ACK) {
+                if (!(tcph.ack_no < this->send_.seq_no_unack) &&
+                    !(tcph.ack_no > this->send_.seq_no_next)) {
+                        this->receive_.next      = tcph.seq_no + 1;
+                        this->receive_.window    = tcph.window;
+                        this->send_.seq_no_unack = tcph.ack_no;
+
+                        auto const tcph{tcp_header_t::consume(in_pkt.buffer->get_pointer())};
+                        auto const hlen{tcph.data_offset * 4};
+                        auto const optlen{hlen - tcp_header_t::fixed_size()};
+                        auto const seglen{in_pkt.buffer->get_remaining_len() - hlen};
+
+                        for (auto const& opt : decode_options(
+                                     {in_pkt.buffer->get_pointer() + hlen - optlen, optlen})) {
+                                std::visit(
+                                        [this](auto const& opt) {
+                                                using type = std::decay_t<decltype(opt)>;
+                                                if constexpr (std::same_as<type, nop>) {
+                                                } else if constexpr (std::same_as<type, mss>) {
+                                                        this->send_.mss = opt.value;
+                                                } else if constexpr (std::same_as<type,
+                                                                                  window_scale>) {
+                                                } else if constexpr (std::same_as<type, sack>) {
+                                                } else if constexpr (std::same_as<type,
+                                                                                  timestamp>) {
+                                                }
+                                        },
+                                        opt);
+                        }
+
+                        this->state_      = kTCPEstablished;
+                        this->next_state_ = kTCPEstablished;
+
+                        this->make_and_send_pkt();
+
+                        this->listen_finish();
+                } else {
+                        // TODO: send RST
+                        return true;
+                }
                 /**
                  *  If SEG.ACK =< ISN, or SEG.ACK > SND.NXT, send a reset (unless
                  *  the RST bit is set, if so drop the segment and return)
@@ -407,7 +447,7 @@ bool tcb_t::tcp_handle_syn_sent(tcp_header_t const& tcph) {
         }
 
         // second check the RST bit
-        if (tcph.RST == 1) {
+        if (tcph.RST) {
                 /**
                  *  If the ACK was acceptable then signal the user "error:
                  *  connection reset", drop the segment, enter CLOSED state,
@@ -598,11 +638,11 @@ bool tcb_t::tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen) {
         return false;
 }
 
-void tcb_t::process(tcp_packet&& in_packet) {
-        auto const tcph{tcp_header_t::consume(in_packet.buffer->get_pointer())};
+void tcb_t::process(tcp_packet&& in_pkt) {
+        auto const tcph{tcp_header_t::consume(in_pkt.buffer->get_pointer())};
         auto const hlen{tcph.data_offset * 4};
         auto const optlen{hlen - tcp_header_t::fixed_size()};
-        auto const seglen{in_packet.buffer->get_remaining_len() - hlen};
+        auto const seglen{in_pkt.buffer->get_remaining_len() - hlen};
 
         spdlog::debug("[TCP] RECEIVE h={}, hlen={}, optlen={}, seglen={}", tcph, hlen, optlen,
                       seglen);
@@ -611,10 +651,10 @@ void tcb_t::process(tcp_packet&& in_packet) {
         if (this->state_ == kTCPClosed && tcp_handle_close_state(tcph)) return;
 
         spdlog::debug("[TCP] [CHECK TCP_LISTEN] {}", *this);
-        if (this->state_ == kTCPListen && tcp_handle_listen_state(tcph, in_packet)) return;
+        if (this->state_ == kTCPListen && tcp_handle_listen_state(tcph, in_pkt)) return;
 
-        spdlog::debug("[TCP] [CHECK TCP_SYN_SENY] {}", *this);
-        if (this->state_ == kTCPSynSent && tcp_handle_syn_sent(tcph)) return;
+        spdlog::debug("[TCP] [CHECK TCP_SYN_SENT] {}", *this);
+        if (this->state_ == kTCPSynSent && tcp_handle_syn_sent(tcph, in_pkt)) return;
 
         spdlog::debug("[TCP] [PROCESS 1] {}", *this);
 
@@ -631,7 +671,7 @@ void tcb_t::process(tcp_packet&& in_packet) {
         spdlog::debug("[TCP] [PROCESS 2] {}", *this);
 
         // TODO: second check the RST bit
-        if (tcph.RST == 1) {
+        if (tcph.RST) {
                 switch (this->state_) {
                         /**
                          *  SYN-RECEIVED STATE
@@ -763,12 +803,11 @@ void tcb_t::process(tcp_packet&& in_packet) {
                          * is not acceptable, form a reset segment, <SEQ=SEG.ACK><CTL=RST>
                          */
                         case kTCPSynReceived:
-                                if (this->send_.unacknowledged <= tcph.ack_no &&
-                                    tcph.ack_no <= this->send_.next) {
+                                if (this->send_.seq_no_unack <= tcph.ack_no &&
+                                    tcph.ack_no <= this->send_.seq_no_next) {
                                         this->state_      = kTCPEstablished;
                                         this->next_state_ = kTCPEstablished;
                                         this->listen_finish();
-                                        // this->receive.next += 1;
                                 } else {
                                         // TODO: send RST
                                         return;
@@ -802,16 +841,16 @@ void tcb_t::process(tcp_packet&& in_packet) {
                         case kTCPFinWait_2:
                         case kTCPCloseWait:
                         case kTCPClosing:
-                                if (this->send_.unacknowledged < tcph.ack_no &&
-                                    tcph.ack_no <= this->send_.next) {
-                                        this->send_.unacknowledged = tcph.ack_no;
+                                if (this->send_.seq_no_unack < tcph.ack_no &&
+                                    tcph.ack_no <= this->send_.seq_no_next) {
+                                        this->send_.seq_no_unack = tcph.ack_no;
                                         // TODO: update windows
                                 }
 
-                                if (tcph.ack_no < this->send_.unacknowledged) { /* ignore */
+                                if (tcph.ack_no < this->send_.seq_no_unack) { /* ignore */
                                 }
 
-                                if (tcph.ack_no > this->send_.next) {
+                                if (tcph.ack_no > this->send_.seq_no_next) {
                                         this->make_and_send_pkt();
                                         return;
                                 }
@@ -877,7 +916,7 @@ void tcb_t::process(tcp_packet&& in_packet) {
         spdlog::debug("[TCP] [PROCESS 6] {}", *this);
 
         // TODO: sixth, check the URG bit
-        if (tcph.URG == 1) {
+        if (tcph.URG) {
                 switch (this->state_) {
                         /**
                          *  ESTABLISHED STATE
@@ -962,15 +1001,14 @@ void tcb_t::process(tcp_packet&& in_packet) {
 
                                         buf = buf.subspan(0, std::min(static_cast<size_t>(seglen),
                                                                       buf.size()));
-                                        in_packet.buffer->export_payload(buf.begin(), buf.end(),
-                                                                         hlen);
+                                        in_pkt.buffer->export_payload(buf.begin(), buf.end(), hlen);
 
                                         auto const rem_len{seglen - buf.size()};
 
                                         this->receive_queue_.resize(this->receive_queue_.size() +
                                                                     rem_len);
 
-                                        in_packet.buffer->export_payload(
+                                        in_pkt.buffer->export_payload(
                                                 this->receive_queue_.end() - rem_len,
                                                 this->receive_queue_.end(), hlen + buf.size());
 
@@ -980,7 +1018,7 @@ void tcb_t::process(tcp_packet&& in_packet) {
                                 } else {
                                         this->receive_queue_.resize(this->receive_queue_.size() +
                                                                     seglen);
-                                        in_packet.buffer->export_payload(
+                                        in_pkt.buffer->export_payload(
                                                 this->receive_queue_.end() - seglen,
                                                 this->receive_queue_.end(), hlen);
                                 }
@@ -1008,7 +1046,7 @@ void tcb_t::process(tcp_packet&& in_packet) {
         spdlog::debug("[TCP] [PROCESS 8] {}", *this);
 
         // eighth, check the FIN bit
-        if (tcph.FIN == 1) {
+        if (tcph.FIN) {
                 switch (this->state_) {
                         /**
                          *      Do not process the FIN if the state is CLOSED, LISTEN or
@@ -1092,26 +1130,33 @@ void tcb_t::start_connecting() {
                 tcp_options{
                         {
                                 mss{.value = 1460},
+                                nop{},
+                                nop{},
                                 sack{},
-                                nop{},
-                                nop{},
                         },
                 },
         };
 
+        this->receive_.mss = 1460;
+
         auto out_buffer{std::make_unique<base_packet>(tcp_header_t::fixed_size() + 8)};
 
         assert(0 == (tcp_header_t::fixed_size() & 0x3));
+
+        this->send_.window = 0xFAF0u;
 
         tcp_header_t out_tcp{
                 .src_port    = this->local_info_.port_addr,
                 .dst_port    = this->remote_info_.port_addr,
                 .seq_no      = generate_isn(),
                 .ack_no      = 0,
-                .data_offset = tcp_header_t::fixed_size() >> 2,
+                .data_offset = (tcp_header_t::fixed_size() + 8) >> 2,
                 .SYN         = 1,
-                .window      = 0xFAF0,
+                .window      = this->send_.window,
         };
+
+        this->send_.seq_no_unack = out_tcp.seq_no;
+        this->send_.seq_no_next  = out_tcp.seq_no + 1;
 
         encode_options({out_tcp.produce(out_buffer->get_pointer()), 8}, opts);
 

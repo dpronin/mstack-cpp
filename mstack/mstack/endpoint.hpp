@@ -19,8 +19,8 @@ public:
 
         auto operator<=>(endpoint const& other) const = default;
 
-        int         proto() const { return proto_; }
-        ipv4_port_t ep() const { return ep_; }
+        int                proto() const { return proto_; }
+        ipv4_port_t const& ep() const { return ep_; }
 
 private:
         int         proto_{-1};
