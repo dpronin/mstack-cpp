@@ -5,6 +5,10 @@
 #include <memory>
 #include <utility>
 
+#include <boost/system/error_code.hpp>
+
+#include <spdlog/spdlog.h>
+
 #include "socket.hpp"
 #include "tcb.hpp"
 #include "tcb_manager.hpp"
@@ -25,7 +29,13 @@ netns& acceptor::net() { return sk_->net; }
 netns& acceptor::net() const { return sk_->net; }
 
 void acceptor::async_accept(socket& sk, std::function<void(boost::system::error_code const&)> cb) {
-        auto f = [this, &sk, cb = std::move(cb)](std::weak_ptr<tcb_t> tcb) {
+        auto f = [this, &sk, cb = std::move(cb)](boost::system::error_code const& ec,
+                                                 std::weak_ptr<tcb_t>             tcb) {
+                if (ec) {
+                        spdlog::critical("failed to accept a new connection, reason: {}",
+                                         ec.what());
+                        return;
+                }
                 sk.local_info = sk_->local_info;
                 sk.state      = kSocketConnected;
                 sk.tcb        = std::move(tcb);
@@ -36,7 +46,7 @@ void acceptor::async_accept(socket& sk, std::function<void(boost::system::error_
             !listener->acceptors.empty()) {
                 sk_->net.io_context_execution().post(
                         [f = std::move(f), tcb = std::move(listener->acceptors.front())] mutable {
-                                f(std::move(tcb));
+                                f({}, std::move(tcb));
                         });
                 listener->acceptors.pop();
         } else {

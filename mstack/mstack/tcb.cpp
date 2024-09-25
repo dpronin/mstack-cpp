@@ -17,7 +17,6 @@
 
 #include "base_packet.hpp"
 #include "defination.hpp"
-#include "packets.hpp"
 #include "socket.hpp"
 #include "tcb.hpp"
 #include "tcb_manager.hpp"
@@ -206,7 +205,7 @@ void tcb_t::listen_finish() {
         if (!listener_->on_acceptor_has_tcb.empty()) {
                 auto cb{std::move(listener_->on_acceptor_has_tcb.front())};
                 listener_->on_acceptor_has_tcb.pop();
-                io_ctx_.post([this, cb = std::move(cb)] { cb(weak_from_this()); });
+                io_ctx_.post([this, cb = std::move(cb)] { cb({}, weak_from_this()); });
         } else {
                 listener_->acceptors.push(weak_from_this());
         }

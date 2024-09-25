@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <utility>
 
+#include <boost/system/error_code.hpp>
+
 #include "netns.hpp"
 #include "socket.hpp"
 

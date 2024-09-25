@@ -60,8 +60,10 @@ void tcb_manager::listen(ipv4_port_t const& ipv4_port, std::shared_ptr<listener_
         listeners_[ipv4_port] = std::move(listener);
 }
 
-void tcb_manager::async_connect(endpoint const&                                       ep,
-                                std::function<void(boost::system::error_code const&)> cb) {
+void tcb_manager::async_connect(endpoint const&                           ep,
+                                std::function<void(boost::system::error_code const& ec,
+                                                   ipv4_port_t const&,
+                                                   std::weak_ptr<tcb_t>)> cb) {
         while (true) {
                 two_ends_t const two_end = {
                         .remote_info = ep.ep(),

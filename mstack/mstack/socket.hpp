@@ -65,11 +65,12 @@ public:
 };
 
 struct listener_t {
-        int                                                   proto;
-        ipv4_port_t                                           local_info;
-        int                                                   state{kSocketDisconnected};
-        std::queue<std::weak_ptr<tcb_t>>                      acceptors;
-        std::queue<std::function<void(std::weak_ptr<tcb_t>)>> on_acceptor_has_tcb;
+        int                              proto;
+        ipv4_port_t                      local_info;
+        int                              state{kSocketDisconnected};
+        std::queue<std::weak_ptr<tcb_t>> acceptors;
+        std::queue<std::function<void(boost::system::error_code const&, std::weak_ptr<tcb_t>)>>
+                on_acceptor_has_tcb;
 };
 
 }  // namespace mstack

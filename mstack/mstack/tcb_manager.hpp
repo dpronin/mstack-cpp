@@ -40,8 +40,10 @@ public:
         tcb_manager(tcb_manager&&)            = delete;
         tcb_manager& operator=(tcb_manager&&) = delete;
 
-        void async_connect(endpoint const&                                       ep,
-                           std::function<void(boost::system::error_code const&)> cb);
+        void async_connect(endpoint const&                           ep,
+                           std::function<void(boost::system::error_code const& ec,
+                                              ipv4_port_t const&,
+                                              std::weak_ptr<tcb_t>)> cb);
 
         std::shared_ptr<listener_t> listener_get(ipv4_port_t const& ipv4_port);
         void                        bind(ipv4_port_t const& ipv4_port);
