@@ -135,12 +135,6 @@ void tap::set_ipv4_addr(ipv4_addr_t const& ipv4_addr) {
         net_.arp_cache().update({ipv4_addr, mac_addr_});
 }
 
-void tap::be_nh_for(ipv4_addr_t const& ipv4_addr) {
-        if (ipv4_addr_ != ipv4_addr) {
-                net_.rt().update(ipv4_addr, {*ipv4_addr_, shared_from_this()});
-        }
-}
-
 void tap::reset_ipv4_addr() {
         if (ipv4_addr_) {
                 net_.arp_cache().reset(*ipv4_addr_);

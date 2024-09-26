@@ -75,8 +75,6 @@ public:
         std::optional<ipv4_addr_t> ipv4_addr() const;
         void                       reset_ipv4_addr();
 
-        void be_nh_for(ipv4_addr_t const& ipv4_addr);
-
         mac_addr_t const& mac_addr() const;
 
         netns&       net();
