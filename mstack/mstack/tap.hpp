@@ -38,8 +38,6 @@ private:
         std::array<std::byte, 1500> in_buf_;
         std::array<std::byte, 1500> out_buf_;
 
-        void set_mac_addr();
-
         template <typename Completion>
         void async_read_some(std::span<std::byte> buf, Completion&& completion);
 

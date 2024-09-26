@@ -22,15 +22,6 @@
 
 namespace mstack {
 
-void tap::set_mac_addr() {
-        std::array<std::byte, 6> hw_addr;
-        std::generate(hw_addr.begin() + 1, hw_addr.end(),
-                      [rd = std::random_device{}] mutable { return static_cast<std::byte>(rd()); });
-        hw_addr[0] = ((hw_addr[0] >> 1) | static_cast<std::byte>(0x1)) << 1;
-        mac_addr_  = mac_addr_t{hw_addr};
-        spdlog::debug("[TAP {}]: MAC ADDRESS {} IS SET", ndev_, mac_addr_);
-}
-
 template <typename Completion>
 void tap::async_read_some(std::span<std::byte> buf, Completion&& completion) {
         spdlog::debug("[TAP {}]: READ SOME MAX {} BYTES", ndev_, buf.size());
@@ -98,6 +89,7 @@ tap::tap(netns& net /* = netns::_default_()*/, std::string_view name /* = ""*/)
 
         ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
 
+        name = name.substr(0, std::min(name.size(), sizeof(ifr.ifr_name) - 1));
         std::ranges::copy(name, std::begin(ifr.ifr_name));
 
         if (int err{fd_.ioctl(TUNSETIFF, ifr)}; err < 0) {
@@ -105,16 +97,23 @@ tap::tap(netns& net /* = netns::_default_()*/, std::string_view name /* = ""*/)
                 return;
         }
 
-        std::copy(std::begin(ifr.ifr_name), std::end(ifr.ifr_name), std::back_inserter(ndev_));
+        ndev_ = std::string_view{ifr.ifr_name};
 
         if (utils::set_interface_up(ndev_) != 0) {
                 spdlog::critical("[TAP] SET UP {}", ndev_);
                 return;
         }
 
-        set_mac_addr();
+        std::array<std::byte, 6> hw_addr;
+        std::generate(hw_addr.begin(), hw_addr.end(),
+                      [gen  = std::mt19937{std::random_device{}()},
+                       dist = std::uniform_int_distribution<uint8_t>{0x00, 0xff}] mutable {
+                              return static_cast<std::byte>(dist(gen));
+                      });
+        hw_addr[0] = ((hw_addr[0] >> 1) | static_cast<std::byte>(0x1)) << 1;
+        mac_addr_  = mac_addr_t{hw_addr};
 
-        spdlog::debug("[TAP] INIT MAC {}", ndev_, mac_addr_);
+        spdlog::debug("[TAP {}]: MAC ADDRESS {} IS SET", ndev_, mac_addr_);
 
         pfd_.assign(fd_.get_fd());
 
