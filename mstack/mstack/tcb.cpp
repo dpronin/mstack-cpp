@@ -197,7 +197,7 @@ void tcb_t::async_write(std::span<std::byte const>                              
         this->io_ctx_.post([sz = buf.size(), cb = std::move(cb)] { cb({}, sz); });
 }
 
-void tcb_t::make_and_send_pkt() { mngr_.enqueue(make_packet()); }
+void tcb_t::make_and_send_pkt() { enqueue(make_packet()); }
 
 void tcb_t::enqueue_send(std::span<std::byte const> pkt) {
         send_queue_.insert(send_queue_.end(), pkt.begin(), pkt.end());
@@ -1121,13 +1121,9 @@ void tcb_t::process(tcp_packet&& in_pkt) {
         }
 }
 
-void tcb_t::start_connecting() {
-        tcp_packet out_pkt{
-                .proto       = 0x06,
-                .remote_info = this->remote_info_,
-                .local_info  = this->local_info_,
-        };
+void tcb_t::enqueue(tcp_packet&& out_pkt) { mngr_.enqueue(std::move(out_pkt)); }
 
+void tcb_t::start_connecting() {
         auto const opts{
                 tcp_options{
                         {
@@ -1162,12 +1158,17 @@ void tcb_t::start_connecting() {
 
         encode_options({out_tcp.produce_to_net(out_buffer->get_pointer()), 8}, opts);
 
-        out_pkt.buffer = std::move(out_buffer);
-
         this->state_      = kTCPSynSent;
         this->next_state_ = kTCPEstablished;
 
-        mngr_.enqueue(std::move(out_pkt));
+        spdlog::debug("[TCP] ");
+
+        enqueue({
+                .proto       = 0x06,
+                .remote_info = this->remote_info_,
+                .local_info  = this->local_info_,
+                .buffer      = std::move(out_buffer),
+        });
 }
 
 }  // namespace mstack

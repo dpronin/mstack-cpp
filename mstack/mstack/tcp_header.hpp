@@ -60,7 +60,7 @@ struct tcp_header_t {
                 return tcp_header;
         }
 
-        std::byte* produce_to_net(std::byte* ptr) {
+        std::byte* produce_to_net(std::byte* ptr) const {
                 utils::produce_to_net(ptr, src_port);
                 utils::produce_to_net(ptr, dst_port);
                 utils::produce_to_net(ptr, seq_no);

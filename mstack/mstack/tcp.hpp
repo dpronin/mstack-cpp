@@ -44,14 +44,12 @@ public:
                         sum);
                 tcp_header.produce_to_net(in_packet.buffer->get_pointer());
 
-                ipv4_packet out_ipv4{
+                enqueue({
                         .src_ipv4_addr = in_packet.local_info.ipv4_addr,
                         .dst_ipv4_addr = in_packet.remote_info.ipv4_addr,
                         .proto         = in_packet.proto,
                         .buffer        = std::move(in_packet.buffer),
-                };
-
-                enqueue(std::move(out_ipv4));
+                });
         }
 
 private:

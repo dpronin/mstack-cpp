@@ -114,6 +114,8 @@ public:
         int                proto() const { return proto_; }
 
 private:
+        void enqueue(tcp_packet&& out_pkt);
+
         void listen_finish();
 
         void make_and_send_pkt();

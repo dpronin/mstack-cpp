@@ -24,7 +24,7 @@ struct ethernetv2_header_t {
                 return ethernet_header;
         }
 
-        void produce_to_net(std::byte* ptr) {
+        void produce_to_net(std::byte* ptr) const {
                 dst_mac_addr.produce_to_net(ptr);
                 src_mac_addr.produce_to_net(ptr);
                 utils::produce_to_net(ptr, proto);

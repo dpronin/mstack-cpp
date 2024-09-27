@@ -32,7 +32,7 @@ void arp::async_resolve(mac_addr_t const&                          from_mac,
 
 void arp::update(std::pair<mac_addr_t, ipv4_addr_t> const& peer) {
         if (!(peer.first.is_broadcast() || peer.first.is_zero())) {
-                spdlog::debug("[ARP] update cache {} -> {}", peer.first, peer.second);
+                spdlog::debug("[ARP] UPDATE CACHE {} -> {}", peer.first, peer.second);
                 arp_cache_->update({peer.second, peer.first});
         }
 }
@@ -54,16 +54,14 @@ void arp::async_reply(std::pair<mac_addr_t, ipv4_addr_t> const& from,
         auto out_buffer{std::make_unique<base_packet>(arpv4_header_t::size())};
         out_arp.produce_to_net(out_buffer->get_pointer());
 
-        ethernetv2_frame out_packet{
+        spdlog::debug("[ARP] ENQUEUE REPLY {}", out_arp);
+
+        enqueue({
                 .src_mac_addr = out_arp.sha,
                 .dst_mac_addr = out_arp.tha,
                 .proto        = PROTO,
                 .buffer       = std::move(out_buffer),
-        };
-
-        spdlog::debug("[ARP] ENQUEUE ARP REPLY {}", out_arp);
-
-        enqueue(std::move(out_packet));
+        });
 }
 
 void arp::process_request(arpv4_header_t const& in_arp) {
@@ -89,17 +87,15 @@ void arp::async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from, ipv4_add
         auto out_buffer{std::make_unique<base_packet>(arpv4_header_t::size())};
         out_arp.produce_to_net(out_buffer->get_pointer());
 
-        ethernetv2_frame out_packet = {
+        spdlog::debug("[ARP] ENQUEUE REQUEST {}", out_arp);
+
+        enqueue({
                 .src_mac_addr = out_arp.sha,
                 .dst_mac_addr =
                         std::array<std::byte, 6>{0xff_b, 0xff_b, 0xff_b, 0xff_b, 0xff_b, 0xff_b},
                 .proto  = PROTO,
                 .buffer = std::move(out_buffer),
-        };
-
-        spdlog::debug("[ARP] ENQUEUE ARP REQUEST {}", out_arp);
-
-        enqueue(std::move(out_packet));
+        });
 }
 
 void arp::process_reply(arpv4_header_t const& in_arp) {

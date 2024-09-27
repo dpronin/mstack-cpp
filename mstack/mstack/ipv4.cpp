@@ -40,7 +40,7 @@ void ipv4::process(ipv4_packet&& in_packet) {
         auto* ptr{in_packet.buffer->get_pointer()};
         out_ipv4_header.produce_to_net(ptr);
 
-        out_ipv4_header.header_checksum = utils::checksum_net({ptr, ipv4_header_t::size()}, 0);
+        out_ipv4_header.header_checksum = utils::checksum_net({ptr, ipv4_header_t::size()});
 
         out_ipv4_header.produce_to_net(ptr);
 

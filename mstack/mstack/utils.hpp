@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <concepts>
 #include <cstdint>
 
 #include <algorithm>
@@ -202,27 +203,32 @@ inline int set_interface_up(std::string_view dev) {
         return 0;
 }
 
-template <std::integral T>
+template <typename T>
+        requires(std::integral<T> || std::same_as<std::byte, T>)
 constexpr auto hton(T value) {
         return detail::native_to_big(value);
 }
 
-template <std::integral T>
+template <typename T>
+        requires(std::integral<T> || std::same_as<std::byte, T>)
 constexpr void hton_inplace(T& value) {
         value = hton(value);
 }
 
-template <std::integral T>
+template <typename T>
+        requires(std::integral<T> || std::same_as<std::byte, T>)
 constexpr auto ntoh(T value) {
         return detail::big_to_native(value);
 }
 
-template <std::integral T>
+template <typename T>
+        requires(std::integral<T> || std::same_as<std::byte, T>)
 constexpr void ntoh_inplace(T& value) {
         value = ntoh(value);
 }
 
 template <typename T>
+        requires(std::integral<T> || std::same_as<std::byte, T>)
 constexpr T consume_from_net(std::byte*& ptr) {
         T ret = *(reinterpret_cast<T*>(ptr));
         ptr += sizeof(T);
@@ -233,6 +239,7 @@ constexpr T consume_from_net(std::byte*& ptr) {
 }
 
 template <typename T>
+        requires(std::integral<T> || std::same_as<std::byte, T>)
 constexpr void produce_to_net(std::byte*& p, T t) {
         T* ptr_ = reinterpret_cast<T*>(p);
         if constexpr (sizeof(T) > 1)
@@ -243,11 +250,11 @@ constexpr void produce_to_net(std::byte*& p, T t) {
 }
 
 inline uint32_t sum_every_16bits(std::span<std::byte const> buf) {
-        uint32_t sum = 0;
+        uint32_t sum{0};
 
         assert(!(reinterpret_cast<uintptr_t>(buf.data()) & 0x1));
 
-        auto const* ptr = reinterpret_cast<uint16_t const*>(buf.data());
+        auto const* ptr{reinterpret_cast<uint16_t const*>(buf.data())};
 
         auto count{buf.size()};
         while (count > 1) {
@@ -262,7 +269,7 @@ inline uint32_t sum_every_16bits(std::span<std::byte const> buf) {
         return sum;
 }
 
-inline uint16_t checksum_net(std::span<std::byte const> buf, uint32_t start_sum) {
+inline uint16_t checksum_net(std::span<std::byte const> buf, uint32_t start_sum = 0) {
         uint32_t sum = start_sum + sum_every_16bits(buf);
 
         /*  Fold 32-bit sum to 16 bits */
