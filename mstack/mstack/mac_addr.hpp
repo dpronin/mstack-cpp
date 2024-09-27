@@ -6,6 +6,7 @@
 #include <array>
 #include <concepts>
 #include <format>
+#include <random>
 #include <string>
 
 #include "utils.hpp"
@@ -18,6 +19,17 @@ private:
         mac mac_{};
 
 public:
+        static mac_addr_t generate() {
+                static auto gen{std::mt19937{std::random_device{}()}};
+                static auto dist{std::uniform_int_distribution<uint8_t>{0x00, 0xff}};
+
+                std::array<std::byte, 6> hw_addr;
+                std::ranges::generate(hw_addr, [] { return static_cast<std::byte>(dist(gen)); });
+                hw_addr[0] = ((hw_addr[0] >> 1) | static_cast<std::byte>(0x1)) << 1;
+
+                return mac_addr_t{hw_addr};
+        }
+
         mac_addr_t() = default;
 
         mac_addr_t(const mac_addr_t& other)          = default;

@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <array>
-#include <random>
 
 #include <linux/if_tun.h>
 
@@ -104,14 +103,7 @@ tap::tap(netns& net /* = netns::_default_()*/, std::string_view name /* = ""*/)
                 return;
         }
 
-        std::array<std::byte, 6> hw_addr;
-        std::generate(hw_addr.begin(), hw_addr.end(),
-                      [gen  = std::mt19937{std::random_device{}()},
-                       dist = std::uniform_int_distribution<uint8_t>{0x00, 0xff}] mutable {
-                              return static_cast<std::byte>(dist(gen));
-                      });
-        hw_addr[0] = ((hw_addr[0] >> 1) | static_cast<std::byte>(0x1)) << 1;
-        mac_addr_  = mac_addr_t{hw_addr};
+        mac_addr_ = mac_addr_t::generate();
 
         spdlog::debug("[TAP {}]: MAC ADDRESS {} IS SET", ndev_, mac_addr_);
 
