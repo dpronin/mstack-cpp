@@ -33,7 +33,7 @@ struct tcp_header_t {
 
         static constexpr size_t fixed_size() { return sizeof(tcp_header_t); }
 
-        static tcp_header_t consume(std::byte* ptr) {
+        static tcp_header_t consume_from_net(std::byte* ptr) {
                 tcp_header_t tcp_header{};
 
                 tcp_header.src_port = utils::consume_from_net<port_addr_t>(ptr);
@@ -60,7 +60,7 @@ struct tcp_header_t {
                 return tcp_header;
         }
 
-        std::byte* produce(std::byte* ptr) {
+        std::byte* produce_to_net(std::byte* ptr) {
                 utils::produce_to_net(ptr, src_port);
                 utils::produce_to_net(ptr, dst_port);
                 utils::produce_to_net(ptr, seq_no);

@@ -21,7 +21,7 @@ struct icmp_header_t {
 
         static constexpr size_t size() { return 1 + 1 + 2 + 2 + 2; }
 
-        static icmp_header_t consume(std::byte* ptr) {
+        static icmp_header_t consume_from_net(std::byte* ptr) {
                 return {
                         .proto_type = utils::consume_from_net<uint8_t>(ptr),
                         .code       = utils::consume_from_net<uint8_t>(ptr),
@@ -31,7 +31,7 @@ struct icmp_header_t {
                 };
         }
 
-        std::byte* produce(std::byte* ptr) const {
+        std::byte* produce_to_net(std::byte* ptr) const {
                 utils::produce_to_net(ptr, proto_type);
                 utils::produce_to_net(ptr, code);
                 utils::produce_to_net(ptr, checksum);

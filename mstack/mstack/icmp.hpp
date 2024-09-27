@@ -22,7 +22,8 @@ public:
         icmp& operator=(icmp&&) = delete;
 
         void process(ipv4_packet&& in_packet) override {
-                auto const in_icmp_header{icmp_header_t::consume(in_packet.buffer->get_pointer())};
+                auto const in_icmp_header{
+                        icmp_header_t::consume_from_net(in_packet.buffer->get_pointer())};
 
                 spdlog::debug("[RECEIVED ICMP] {}", in_icmp_header);
 
@@ -32,7 +33,7 @@ public:
 private:
         void make_icmp_reply(ipv4_packet const& in_packet) {
                 auto const in_icmp_header{
-                        icmp_header_t::consume(in_packet.buffer->get_pointer()),
+                        icmp_header_t::consume_from_net(in_packet.buffer->get_pointer()),
                 };
 
                 auto out_icmp_header{
@@ -47,7 +48,7 @@ private:
                 };
 
                 std::byte* payload_pointer{
-                        out_icmp_header.produce(out_buffer->get_pointer()),
+                        out_icmp_header.produce_to_net(out_buffer->get_pointer()),
                 };
 
                 in_packet.buffer->export_payload(payload_pointer, icmp_header_t::size());
@@ -59,7 +60,7 @@ private:
                 };
 
                 out_icmp_header.checksum = checksum;
-                out_icmp_header.produce(pointer);
+                out_icmp_header.produce_to_net(pointer);
 
                 spdlog::debug("{}", out_icmp_header);
 

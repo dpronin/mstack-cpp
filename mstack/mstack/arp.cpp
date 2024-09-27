@@ -52,7 +52,7 @@ void arp::async_reply(std::pair<mac_addr_t, ipv4_addr_t> const& from,
         };
 
         auto out_buffer{std::make_unique<base_packet>(arpv4_header_t::size())};
-        out_arp.produce(out_buffer->get_pointer());
+        out_arp.produce_to_net(out_buffer->get_pointer());
 
         ethernetv2_frame out_packet{
                 .src_mac_addr = out_arp.sha,
@@ -87,7 +87,7 @@ void arp::async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from, ipv4_add
         };
 
         auto out_buffer{std::make_unique<base_packet>(arpv4_header_t::size())};
-        out_arp.produce(out_buffer->get_pointer());
+        out_arp.produce_to_net(out_buffer->get_pointer());
 
         ethernetv2_frame out_packet = {
                 .src_mac_addr = out_arp.sha,
@@ -111,7 +111,7 @@ void arp::process_reply(arpv4_header_t const& in_arp) {
 
 void arp::process(ethernetv2_frame&& in_packet) {
         auto const in_arp{
-                arpv4_header_t::consume(in_packet.buffer->get_pointer()),
+                arpv4_header_t::consume_from_net(in_packet.buffer->get_pointer()),
         };
 
         spdlog::debug("[ARP] RECEIVE PACKET {}", in_arp);

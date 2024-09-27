@@ -5,6 +5,7 @@
 #include <spdlog/spdlog.h>
 
 #include "base_protocol.hpp"
+#include "ipv4_packet.hpp"
 #include "tcp_header.hpp"
 #include "tcp_packet.hpp"
 
@@ -33,7 +34,7 @@ public:
                 sum += utils::ntoh(in_packet.proto);
                 sum += utils::ntoh(static_cast<uint16_t>(in_packet.buffer->get_remaining_len()));
 
-                auto tcp_header{tcp_header_t::consume(in_packet.buffer->get_pointer())};
+                auto tcp_header{tcp_header_t::consume_from_net(in_packet.buffer->get_pointer())};
 
                 tcp_header.checksum = utils::checksum_net(
                         {
@@ -41,7 +42,7 @@ public:
                                 static_cast<size_t>(in_packet.buffer->get_remaining_len()),
                         },
                         sum);
-                tcp_header.produce(in_packet.buffer->get_pointer());
+                tcp_header.produce_to_net(in_packet.buffer->get_pointer());
 
                 ipv4_packet out_ipv4{
                         .src_ipv4_addr = in_packet.local_info.ipv4_addr,
@@ -55,7 +56,9 @@ public:
 
 private:
         std::optional<tcp_packet> make_packet(ipv4_packet&& in_packet) override {
-                auto const tcp_header{tcp_header_t::consume(in_packet.buffer->get_pointer())};
+                auto const tcp_header{
+                        tcp_header_t::consume_from_net(in_packet.buffer->get_pointer()),
+                };
 
                 spdlog::debug("[RECEIVE] {}", tcp_header);
 

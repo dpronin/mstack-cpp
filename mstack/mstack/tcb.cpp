@@ -238,7 +238,8 @@ tcp_packet tcb_t::make_packet() {
                 .window      = 0xFAF0u,
         };
 
-        std::copy_n(this->send_queue_.begin(), seg_len, out_tcp.produce(out_buffer->get_pointer()));
+        std::copy_n(this->send_queue_.begin(), seg_len,
+                    out_tcp.produce_to_net(out_buffer->get_pointer()));
         send_queue_.erase(send_queue_.begin(), send_queue_.begin() + seg_len);
 
         this->send_.seq_no_next += seg_len;
@@ -346,7 +347,7 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
          */
 
         if (tcph.SYN) {
-                auto const tcph{tcp_header_t::consume(in_pkt.buffer->get_pointer())};
+                auto const tcph{tcp_header_t::consume_from_net(in_pkt.buffer->get_pointer())};
                 auto const hlen{tcph.data_offset * 4};
                 auto const optlen{hlen - tcp_header_t::fixed_size()};
                 auto const seglen{in_pkt.buffer->get_remaining_len() - hlen};
@@ -404,7 +405,8 @@ bool tcb_t::tcp_handle_syn_sent(tcp_header_t const& tcph, tcp_packet const& in_p
                         this->receive_.window    = tcph.window;
                         this->send_.seq_no_unack = tcph.ack_no;
 
-                        auto const tcph{tcp_header_t::consume(in_pkt.buffer->get_pointer())};
+                        auto const tcph{
+                                tcp_header_t::consume_from_net(in_pkt.buffer->get_pointer())};
                         auto const hlen{tcph.data_offset * 4};
                         auto const optlen{hlen - tcp_header_t::fixed_size()};
                         auto const seglen{in_pkt.buffer->get_remaining_len() - hlen};
@@ -639,7 +641,7 @@ bool tcb_t::tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen) {
 }
 
 void tcb_t::process(tcp_packet&& in_pkt) {
-        auto const tcph{tcp_header_t::consume(in_pkt.buffer->get_pointer())};
+        auto const tcph{tcp_header_t::consume_from_net(in_pkt.buffer->get_pointer())};
         auto const hlen{tcph.data_offset * 4};
         auto const optlen{hlen - tcp_header_t::fixed_size()};
         auto const seglen{in_pkt.buffer->get_remaining_len() - hlen};
@@ -1158,7 +1160,7 @@ void tcb_t::start_connecting() {
         this->send_.seq_no_unack = out_tcp.seq_no;
         this->send_.seq_no_next  = out_tcp.seq_no + 1;
 
-        encode_options({out_tcp.produce(out_buffer->get_pointer()), 8}, opts);
+        encode_options({out_tcp.produce_to_net(out_buffer->get_pointer()), 8}, opts);
 
         out_pkt.buffer = std::move(out_buffer);
 

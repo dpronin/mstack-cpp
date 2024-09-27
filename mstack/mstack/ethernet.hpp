@@ -30,14 +30,16 @@ public:
                 };
 
                 in_packet.buffer->reflush_packet(ethernetv2_header_t::size());
-                e_packet.produce(in_packet.buffer->get_pointer());
+                e_packet.produce_to_net(in_packet.buffer->get_pointer());
 
                 enqueue(raw_packet{.buffer = std::move(in_packet.buffer)});
         }
 
 private:
         std::optional<ethernetv2_frame> make_packet(raw_packet&& in_packet) override {
-                auto e_header{ethernetv2_header_t::consume(in_packet.buffer->get_pointer())};
+                auto e_header{
+                        ethernetv2_header_t::consume_from_net(in_packet.buffer->get_pointer()),
+                };
 
                 in_packet.buffer->add_offset(ethernetv2_header_t::size());
 

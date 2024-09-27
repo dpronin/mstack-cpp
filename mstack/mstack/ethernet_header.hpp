@@ -16,17 +16,17 @@ struct ethernetv2_header_t {
 
         static constexpr size_t size() { return mac_addr_t::size() + mac_addr_t::size() + 2; }
 
-        static ethernetv2_header_t consume(std::byte* ptr) {
+        static ethernetv2_header_t consume_from_net(std::byte* ptr) {
                 ethernetv2_header_t ethernet_header;
-                ethernet_header.dst_mac_addr.consume(ptr);
-                ethernet_header.src_mac_addr.consume(ptr);
+                ethernet_header.dst_mac_addr.consume_from_net(ptr);
+                ethernet_header.src_mac_addr.consume_from_net(ptr);
                 ethernet_header.proto = utils::consume_from_net<uint16_t>(ptr);
                 return ethernet_header;
         }
 
-        void produce(std::byte* ptr) {
-                dst_mac_addr.produce(ptr);
-                src_mac_addr.produce(ptr);
+        void produce_to_net(std::byte* ptr) {
+                dst_mac_addr.produce_to_net(ptr);
+                src_mac_addr.produce_to_net(ptr);
                 utils::produce_to_net(ptr, proto);
         }
 };

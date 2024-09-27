@@ -31,30 +31,30 @@ struct arpv4_header_t {
                 return 2 + 2 + 1 + 1 + 2 + mac_addr_t::size() * 2 + ipv4_addr_t::size() * 2;
         }
 
-        static arpv4_header_t consume(std::byte* ptr) {
+        static arpv4_header_t consume_from_net(std::byte* ptr) {
                 arpv4_header_t arpv4_header;
                 arpv4_header.htype = utils::consume_from_net<uint16_t>(ptr);
                 arpv4_header.ptype = utils::consume_from_net<uint16_t>(ptr);
                 arpv4_header.hlen  = utils::consume_from_net<uint8_t>(ptr);
                 arpv4_header.plen  = utils::consume_from_net<uint8_t>(ptr);
                 arpv4_header.oper  = utils::consume_from_net<uint16_t>(ptr);
-                arpv4_header.sha.consume(ptr);
-                arpv4_header.spa.consume(ptr);
-                arpv4_header.tha.consume(ptr);
-                arpv4_header.tpa.consume(ptr);
+                arpv4_header.sha.consume_from_net(ptr);
+                arpv4_header.spa.consume_from_net(ptr);
+                arpv4_header.tha.consume_from_net(ptr);
+                arpv4_header.tpa.consume_from_net(ptr);
                 return arpv4_header;
         }
 
-        void produce(std::byte* ptr) const {
+        void produce_to_net(std::byte* ptr) const {
                 utils::produce_to_net(ptr, htype);
                 utils::produce_to_net(ptr, ptype);
                 utils::produce_to_net(ptr, hlen);
                 utils::produce_to_net(ptr, plen);
                 utils::produce_to_net(ptr, oper);
-                this->sha.produce(ptr);
-                this->spa.produce(ptr);
-                this->tha.produce(ptr);
-                this->tpa.produce(ptr);
+                this->sha.produce_to_net(ptr);
+                this->spa.produce_to_net(ptr);
+                this->tha.produce_to_net(ptr);
+                this->tpa.produce_to_net(ptr);
         }
 
         friend std::ostream& operator<<(std::ostream& out, arpv4_header_t const& m) {

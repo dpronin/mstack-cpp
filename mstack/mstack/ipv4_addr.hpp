@@ -32,9 +32,9 @@ public:
 
         static constexpr size_t size() { return 4; }
 
-        void consume(std::byte*& ptr) { v_ = utils::consume_from_net<uint32_t>(ptr); }
+        void consume_from_net(std::byte*& ptr) { v_ = utils::consume_from_net<uint32_t>(ptr); }
 
-        void produce(std::byte*& ptr) const { utils::produce_to_net(ptr, v_); }
+        void produce_to_net(std::byte*& ptr) const { utils::produce_to_net(ptr, v_); }
 
         friend std::ostream& operator<<(std::ostream& out, ipv4_addr_t ipv4) {
                 out << std::format("{}.{}.{}.{}", (ipv4.v_ >> 24) & 0xFF, (ipv4.v_ >> 16) & 0xFF,

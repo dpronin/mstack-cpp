@@ -7,7 +7,6 @@
 #include <concepts>
 #include <format>
 #include <string>
-#include <string_view>
 
 #include "utils.hpp"
 
@@ -15,7 +14,8 @@ namespace mstack {
 
 struct mac_addr_t {
 private:
-        std::array<std::byte, 6> mac_{};
+        using mac = std::array<std::byte, 6>;
+        mac mac_{};
 
 public:
         mac_addr_t() = default;
@@ -27,9 +27,9 @@ public:
         mac_addr_t& operator=(mac_addr_t&& rhs) = default;
 
         template <typename T>
-                requires(1 == sizeof(T))
+                requires(std::same_as<T, std::byte> || (std::integral<T> && 1 == sizeof(T)))
         mac_addr_t(std::array<T, 6> const& mac_from) {
-                if constexpr (std::same_as<std::byte, std::decay_t<decltype(mac_from[0])>>)
+                if constexpr (std::same_as<std::byte, T>)
                         std::ranges::copy(mac_from, mac_.begin());
                 else
                         std::ranges::transform(mac_from, mac_.begin(),
@@ -37,20 +37,13 @@ public:
         }
 
         template <typename T>
-                requires(1 == sizeof(T))
-        mac_addr_t(std::byte const (&mac_from)[6]) {
-                if constexpr (std::same_as<std::byte, std::decay_t<decltype(mac_from[0])>>)
+                requires(std::same_as<T, std::byte> || (std::integral<T> && 1 == sizeof(T)))
+        mac_addr_t(T const (&mac_from)[6]) {
+                if constexpr (std::same_as<std::byte, T>)
                         std::ranges::copy(mac_from, mac_.begin());
                 else
                         std::ranges::transform(mac_from, mac_.begin(),
                                                [](auto x) { return static_cast<std::byte>(x); });
-        }
-
-        explicit mac_addr_t(std::string_view mac_from) {
-                for (int i = 0; i < 17; i += 3) {
-                        mac_[i / 3] = static_cast<std::byte>(
-                                std::stoi(std::string{mac_from.substr(i, 2)}, 0, 16));
-                }
         }
 
         auto operator<=>(mac_addr_t const& other) const = default;
@@ -65,12 +58,12 @@ public:
                         mac_, [](std::byte byte) { return static_cast<std::byte>(0x0) == byte; });
         }
 
-        void consume(std::byte*& ptr) {
+        void consume_from_net(std::byte*& ptr) {
                 for (auto& d : mac_)
                         d = utils::consume_from_net<std::byte>(ptr);
         }
 
-        void produce(std::byte*& ptr) const {
+        void produce_to_net(std::byte*& ptr) const {
                 for (auto d : mac_)
                         utils::produce_to_net<std::byte>(ptr, d);
         }

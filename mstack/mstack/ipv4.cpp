@@ -38,11 +38,11 @@ void ipv4::process(ipv4_packet&& in_packet) {
         };
 
         auto* ptr{in_packet.buffer->get_pointer()};
-        out_ipv4_header.produce(ptr);
+        out_ipv4_header.produce_to_net(ptr);
 
         out_ipv4_header.header_checksum = utils::checksum_net({ptr, ipv4_header_t::size()}, 0);
 
-        out_ipv4_header.produce(ptr);
+        out_ipv4_header.produce_to_net(ptr);
 
         ethernetv2_frame out_packet{
                 .proto  = PROTO,
@@ -75,7 +75,7 @@ std::optional<ipv4_packet> ipv4::make_packet(ethernetv2_frame&& in_packet) {
         auto* ptr{in_packet.buffer->get_pointer()};
         if (static_cast<std::byte>(0x4) != ((ptr[0] >> 4) & static_cast<std::byte>(0x0f))) return r;
 
-        auto ipv4_header{ipv4_header_t::consume(ptr)};
+        auto ipv4_header{ipv4_header_t::consume_from_net(ptr)};
         in_packet.buffer->add_offset(ipv4_header_t::size());
 
         spdlog::debug("[RECEIVE] {}", ipv4_header);
