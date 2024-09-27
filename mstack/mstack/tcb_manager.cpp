@@ -44,19 +44,24 @@ tcb_manager::tcb_manager(boost::asio::io_context& io_ctx)
 
 tcb_manager::~tcb_manager() noexcept = default;
 
-void tcb_manager::bind(ipv4_port_t const& ipv4_port) {
-        if (!bound_.insert(ipv4_port).second)
-                throw std::system_error(std::make_error_code(std::errc::address_in_use));
+void tcb_manager::rule_insert_front(
+        std::function<bool(ipv4_port_t const& remote_info, ipv4_port_t const& local_info)> matcher,
+        int                                                                                proto,
+        std::function<void(boost::system::error_code const& ec,
+                           ipv4_port_t const&               remote_info,
+                           ipv4_port_t const&               local_info,
+                           std::weak_ptr<tcb_t>)>                                          cb) {
+        rules_.emplace_front(std::move(matcher), proto, std::move(cb));
 }
 
-void tcb_manager::async_accept(endpoint const&                           ep,
-                               std::function<void(boost::system::error_code const& ec,
-                                                  ipv4_port_t const&               remote_info,
-                                                  ipv4_port_t const&               local_info,
-                                                  std::weak_ptr<tcb_t>)> cb) {
-        if (!bound_.contains(ep.ep()))
-                throw std::system_error(std::make_error_code(std::errc::address_not_available));
-        listeners_[ep.ep()] = {ep.proto(), std::move(cb)};
+void tcb_manager::rule_insert_back(
+        std::function<bool(ipv4_port_t const& remote_info, ipv4_port_t const& local_info)> matcher,
+        int                                                                                proto,
+        std::function<void(boost::system::error_code const& ec,
+                           ipv4_port_t const&               remote_info,
+                           ipv4_port_t const&               local_info,
+                           std::weak_ptr<tcb_t>)>                                          cb) {
+        rules_.emplace_back(std::move(matcher), proto, std::move(cb));
 }
 
 void tcb_manager::async_connect(endpoint const&                           ep,
@@ -91,26 +96,36 @@ void tcb_manager::process(tcp_packet&& in_pkt) {
                 .local_info  = in_pkt.local_info,
         };
 
+        spdlog::debug("[TCB MNGR] RECEIVE {}", two_end);
+
         tcb_t* p_tcb{nullptr};
 
         if (auto tcb_it{tcbs_.find(two_end)}; tcbs_.end() != tcb_it) {
                 p_tcb = tcb_it->second.get();
-        } else if (auto listener{listeners_.find(in_pkt.local_info)};
-                   listeners_.end() != listener) {
-                spdlog::debug("[TCB MNGR] reg {}", two_end);
-
-                tcb_it = tcbs_.emplace_hint(
-                        tcb_it, two_end,
-                        tcb_t::create_shared(io_ctx_, *this, two_end.remote_info,
-                                             two_end.local_info, listener->second.first, kTCPListen,
-                                             kTCPListen, listener->second.second));
-
-                p_tcb = tcb_it->second.get();
         } else {
-                spdlog::warn("[TCB MNGR] receive unknown TCP packet");
+                for (auto const& [matcher, proto, cb] : rules_) {
+                        if (matcher(two_end.remote_info, two_end.local_info)) {
+                                spdlog::debug("[TCB MNGR] reg {}", two_end);
+
+                                tcb_it = tcbs_.emplace_hint(
+                                        tcb_it, two_end,
+                                        tcb_t::create_shared(io_ctx_, *this, two_end.remote_info,
+                                                             two_end.local_info, proto, kTCPListen,
+                                                             kTCPListen, cb));
+
+                                p_tcb = tcb_it->second.get();
+
+                                break;
+                        }
+                }
         }
 
-        if (p_tcb) p_tcb->process(std::move(in_pkt));
+        if (p_tcb) {
+                spdlog::debug("[TCB MNGR] HANDLE {}", two_end);
+                p_tcb->process(std::move(in_pkt));
+        } else {
+                spdlog::warn("[TCB MNGR] UNKNOWN INPUT {}", two_end);
+        }
 }
 
 }  // namespace mstack

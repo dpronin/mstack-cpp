@@ -2,12 +2,13 @@
 
 #include <cassert>
 
+#include <deque>
 #include <functional>
 #include <memory>
 #include <unordered_map>
-#include <unordered_set>
 
 #include <boost/asio/io_context.hpp>
+#include <boost/system/error_code.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -23,15 +24,19 @@ private:
         struct port_generator_ctx;
         std::unique_ptr<port_generator_ctx> port_gen_ctx_;
 
+        struct rule {
+                std::function<bool(ipv4_port_t const& remote_info, ipv4_port_t const& local_info)>
+                        matcher;
+                int     proto;
+                std::function<void(boost::system::error_code const& ec,
+                                   ipv4_port_t const&               remote_info,
+                                   ipv4_port_t const&               local_info,
+                                   std::weak_ptr<tcb_t>             tcb)>
+                        cb;
+        };
+        std::deque<rule> rules_;
+
         std::unordered_map<two_ends_t, std::shared_ptr<tcb_t>> tcbs_;
-        std::unordered_set<ipv4_port_t>                        bound_;
-        std::unordered_map<ipv4_port_t,
-                           std::pair<int,
-                                     std::function<void(boost::system::error_code const& ec,
-                                                        ipv4_port_t const&   remote_info,
-                                                        ipv4_port_t const&   local_info,
-                                                        std::weak_ptr<tcb_t> tcb)>>>
-                listeners_;
 
 public:
         constexpr static int PROTO{0x06};
@@ -58,7 +63,21 @@ public:
                                              ipv4_port_t const&               local_info,
                                              std::weak_ptr<tcb_t>             tcb)> cb);
 
-        void bind(ipv4_port_t const& ipv4_port);
+        void rule_insert_front(std::function<bool(ipv4_port_t const& remote_info,
+                                                  ipv4_port_t const& local_info)> matcher,
+                               int                                                proto,
+                               std::function<void(boost::system::error_code const& ec,
+                                                  ipv4_port_t const&               remote_info,
+                                                  ipv4_port_t const&               local_info,
+                                                  std::weak_ptr<tcb_t>)>          cb);
+
+        void rule_insert_back(std::function<bool(ipv4_port_t const& remote_info,
+                                                 ipv4_port_t const& local_info)> matcher,
+                              int                                                proto,
+                              std::function<void(boost::system::error_code const& ec,
+                                                 ipv4_port_t const&               remote_info,
+                                                 ipv4_port_t const&               local_info,
+                                                 std::weak_ptr<tcb_t>)>          cb);
 
         void process(tcp_packet&& in_pkt) override;
 };

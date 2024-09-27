@@ -3,8 +3,10 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/system/error_code.hpp>
 
-#include <memory>
+#include <functional>
+#include <queue>
 
+#include "ipv4_port.hpp"
 #include "netns.hpp"
 
 namespace mstack {
@@ -31,10 +33,10 @@ public:
         netns& net() const;
 
 private:
-        void bind();
-        void listen();
-
-        std::unique_ptr<socket> sk_;
+        netns& net_;
+        std::queue<
+                std::function<void(ipv4_port_t const&, ipv4_port_t const&, std::weak_ptr<tcb_t>)>>
+                cbs_;
 };
 
 }  // namespace mstack
