@@ -15,6 +15,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include <boost/circular_buffer.hpp>
+
 #include "base_packet.hpp"
 #include "defination.hpp"
 #include "socket.hpp"
@@ -173,15 +175,18 @@ tcb_t::tcb_t(boost::asio::io_context&                  io_ctx,
       next_state_(next_state),
       on_connection_established_(std::move(on_connection_established)) {
         assert(on_connection_established_);
+
+        send_.state.window = 0xFAF0u;
+        receive_.pq = std::make_unique<boost::circular_buffer<std::byte>>(send_.state.window);
 }
 
 void tcb_t::async_read_some(std::span<std::byte>                                          buf,
                             std::function<void(boost::system::error_code const&, size_t)> cb) {
-        if (!this->receive_queue_.empty()) {
-                buf = buf.subspan(0, std::min(this->receive_queue_.size(), buf.size()));
-                std::copy_n(this->receive_queue_.begin(), buf.size(), buf.begin());
-                this->receive_queue_.erase(this->receive_queue_.begin(),
-                                           this->receive_queue_.begin() + buf.size());
+        if (!this->receive_.pq->empty()) {
+                buf = buf.subspan(0, std::min(this->receive_.pq->size(), buf.size()));
+                std::copy_n(this->receive_.pq->begin(), buf.size(), buf.begin());
+                this->receive_.pq->erase(this->receive_.pq->begin(),
+                                         this->receive_.pq->begin() + buf.size());
                 this->io_ctx_.post([buf, cb = std::move(cb)] { cb({}, buf.size()); });
         } else {
                 this->on_data_receive_.push({
@@ -200,8 +205,8 @@ void tcb_t::async_write(std::span<std::byte const>                              
 void tcb_t::make_and_send_pkt() { enqueue(make_packet()); }
 
 void tcb_t::enqueue_send(std::span<std::byte const> pkt) {
-        send_queue_.insert(send_queue_.end(), pkt.begin(), pkt.end());
-        while (!send_queue_.empty())
+        this->send_.pq->insert(this->send_.pq->end(), pkt.begin(), pkt.end());
+        while (!this->send_.pq->empty())
                 make_and_send_pkt();
 }
 
@@ -219,7 +224,7 @@ tcp_packet tcb_t::make_packet() {
         };
 
         auto const seg_len{
-                std::min(static_cast<size_t>(this->send_.mss), this->send_queue_.size()),
+                std::min(static_cast<size_t>(this->send_.state.mss), this->send_.pq->size()),
         };
 
         auto out_buffer = std::make_unique<base_packet>(tcp_header_t::fixed_size() + seg_len);
@@ -229,20 +234,21 @@ tcp_packet tcb_t::make_packet() {
         tcp_header_t out_tcp{
                 .src_port    = this->local_info_.port_addr,
                 .dst_port    = this->remote_info_.port_addr,
-                .seq_no      = 0 == seg_len ? this->send_.seq_no_unack : this->send_.seq_no_next,
-                .ack_no      = this->receive_.next,
+                .seq_no      = 0 == seg_len ? this->send_.state.seq_no_unack
+                                            : this->send_.state.seq_no_next,
+                .ack_no      = this->receive_.state.next,
                 .data_offset = tcp_header_t::fixed_size() >> 2,
                 .ACK         = 1,
                 .PSH         = seg_len > 0,
                 .SYN         = kTCPSynReceived == this->next_state_,
-                .window      = 0xFAF0u,
+                .window      = send_.state.window,
         };
 
-        std::copy_n(this->send_queue_.begin(), seg_len,
+        std::copy_n(this->send_.pq->begin(), seg_len,
                     out_tcp.produce_to_net(out_buffer->get_pointer()));
-        send_queue_.erase(send_queue_.begin(), send_queue_.begin() + seg_len);
+        this->send_.pq->erase(this->send_.pq->begin(), this->send_.pq->begin() + seg_len);
 
-        this->send_.seq_no_next += seg_len;
+        this->send_.state.seq_no_next += seg_len;
 
         out_pkt.buffer = std::move(out_buffer);
 
@@ -359,7 +365,7 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
                                         using type = std::decay_t<decltype(opt)>;
                                         if constexpr (std::same_as<type, nop>) {
                                         } else if constexpr (std::same_as<type, mss>) {
-                                                this->send_.mss = opt.value;
+                                                this->send_.state.mss = opt.value;
                                         } else if constexpr (std::same_as<type, window_scale>) {
                                         } else if constexpr (std::same_as<type, sack>) {
                                         } else if constexpr (std::same_as<type, timestamp>) {
@@ -370,11 +376,13 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
 
                 uint32_t const isn{generate_isn()};
 
-                this->receive_.next      = tcph.seq_no + 1;
-                this->receive_.window    = tcph.window;
-                this->send_.seq_no_next  = isn + 1;
-                this->send_.seq_no_unack = isn;
-                this->next_state_        = kTCPSynReceived;
+                this->receive_.state.next   = tcph.seq_no + 1;
+                this->receive_.state.window = tcph.window;
+                this->send_.pq              = std::make_unique<boost::circular_buffer<std::byte>>(
+                        this->receive_.state.window);
+                this->send_.state.seq_no_next  = isn + 1;
+                this->send_.state.seq_no_unack = isn;
+                this->next_state_              = kTCPSynReceived;
                 this->make_and_send_pkt();
 
                 spdlog::debug("[SEND SYN ACK]");
@@ -399,11 +407,13 @@ bool tcb_t::tcp_handle_syn_sent(tcp_header_t const& tcph, tcp_packet const& in_p
 
         // first check the ACK bit
         if (tcph.SYN && tcph.ACK) {
-                if (!(tcph.ack_no < this->send_.seq_no_unack) &&
-                    !(tcph.ack_no > this->send_.seq_no_next)) {
-                        this->receive_.next      = tcph.seq_no + 1;
-                        this->receive_.window    = tcph.window;
-                        this->send_.seq_no_unack = tcph.ack_no;
+                if (!(tcph.ack_no < this->send_.state.seq_no_unack) &&
+                    !(tcph.ack_no > this->send_.state.seq_no_next)) {
+                        this->receive_.state.next   = tcph.seq_no + 1;
+                        this->receive_.state.window = tcph.window;
+                        this->send_.pq = std::make_unique<boost::circular_buffer<std::byte>>(
+                                this->receive_.state.window);
+                        this->send_.state.seq_no_unack = tcph.ack_no;
 
                         auto const tcph{
                                 tcp_header_t::consume_from_net(in_pkt.buffer->get_pointer())};
@@ -418,7 +428,7 @@ bool tcb_t::tcp_handle_syn_sent(tcp_header_t const& tcph, tcp_packet const& in_p
                                                 using type = std::decay_t<decltype(opt)>;
                                                 if constexpr (std::same_as<type, nop>) {
                                                 } else if constexpr (std::same_as<type, mss>) {
-                                                        this->send_.mss = opt.value;
+                                                        this->send_.state.mss = opt.value;
                                                 } else if constexpr (std::same_as<type,
                                                                                   window_scale>) {
                                                 } else if constexpr (std::same_as<type, sack>) {
@@ -599,37 +609,39 @@ bool tcb_t::tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen) {
                 case kTCPClosing:
                 case kTCPLastAck:
                 case kTCPTimeWait:
-                        if (seglen == 0 && this->receive_.window == 0) {
-                                if (tcph.seq_no == this->receive_.next) {
+                        if (seglen == 0 && this->receive_.state.window == 0) {
+                                if (tcph.seq_no == this->receive_.state.next) {
                                         return true;
                                 } else {
                                         return false;
                                 }
                         }
 
-                        if (seglen == 0 && this->receive_.window > 0) {
+                        if (seglen == 0 && this->receive_.state.window > 0) {
                                 // RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
-                                if (this->receive_.next <= tcph.seq_no &&
-                                    tcph.seq_no < this->receive_.next + this->receive_.window) {
+                                if (this->receive_.state.next <= tcph.seq_no &&
+                                    tcph.seq_no < this->receive_.state.next +
+                                                          this->receive_.state.window) {
                                         return true;
                                 } else {
                                         return false;
                                 }
                         }
 
-                        if (seglen > 0 && this->receive_.window == 0) {
+                        if (seglen > 0 && this->receive_.state.window == 0) {
                                 return false;
                         }
 
-                        if (seglen > 0 && this->receive_.window > 0) {
+                        if (seglen > 0 && this->receive_.state.window > 0) {
                                 // RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
                                 //        or RCV.NXT =< SEG.SEQ+SEG.LEN-1 < RCV.NXT +
                                 //        RCV.WND
-                                if ((this->receive_.next <= tcph.seq_no &&
-                                     this->receive_.next + this->receive_.window) ||
-                                    (this->receive_.next <= tcph.seq_no + seglen - 1 &&
+                                if ((this->receive_.state.next <= tcph.seq_no &&
+                                     this->receive_.state.next + this->receive_.state.window) ||
+                                    (this->receive_.state.next <= tcph.seq_no + seglen - 1 &&
                                      tcph.seq_no + seglen - 1 <
-                                             this->receive_.next + this->receive_.window)) {
+                                             this->receive_.state.next +
+                                                     this->receive_.state.window)) {
                                         return true;
                                 } else {
                                         return false;
@@ -805,8 +817,8 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                          * is not acceptable, form a reset segment, <SEQ=SEG.ACK><CTL=RST>
                          */
                         case kTCPSynReceived:
-                                if (this->send_.seq_no_unack <= tcph.ack_no &&
-                                    tcph.ack_no <= this->send_.seq_no_next) {
+                                if (this->send_.state.seq_no_unack <= tcph.ack_no &&
+                                    tcph.ack_no <= this->send_.state.seq_no_next) {
                                         this->state_      = kTCPEstablished;
                                         this->next_state_ = kTCPEstablished;
                                         this->listen_finish();
@@ -843,16 +855,16 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                         case kTCPFinWait_2:
                         case kTCPCloseWait:
                         case kTCPClosing:
-                                if (this->send_.seq_no_unack < tcph.ack_no &&
-                                    tcph.ack_no <= this->send_.seq_no_next) {
-                                        this->send_.seq_no_unack = tcph.ack_no;
+                                if (this->send_.state.seq_no_unack < tcph.ack_no &&
+                                    tcph.ack_no <= this->send_.state.seq_no_next) {
+                                        this->send_.state.seq_no_unack = tcph.ack_no;
                                         // TODO: update windows
                                 }
 
-                                if (tcph.ack_no < this->send_.seq_no_unack) { /* ignore */
+                                if (tcph.ack_no < this->send_.state.seq_no_unack) { /* ignore */
                                 }
 
-                                if (tcph.ack_no > this->send_.seq_no_next) {
+                                if (tcph.ack_no > this->send_.state.seq_no_next) {
                                         this->make_and_send_pkt();
                                         return;
                                 }
@@ -993,10 +1005,10 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                         case kTCPFinWait_2: {
                                 spdlog::debug("[RECEIVE DATA] {}", seglen);
 
-                                this->receive_.next += seglen;
+                                this->receive_.state.next += seglen;
 
                                 if (!this->on_data_receive_.empty()) {
-                                        assert(this->receive_queue_.empty());
+                                        assert(this->receive_.pq->empty());
 
                                         auto [buf, cb] = std::move(on_data_receive_.front());
                                         on_data_receive_.pop();
@@ -1007,22 +1019,22 @@ void tcb_t::process(tcp_packet&& in_pkt) {
 
                                         auto const rem_len{seglen - buf.size()};
 
-                                        this->receive_queue_.resize(this->receive_queue_.size() +
-                                                                    rem_len);
+                                        this->receive_.pq->resize(this->receive_.pq->size() +
+                                                                  rem_len);
 
                                         in_pkt.buffer->export_payload(
-                                                this->receive_queue_.end() - rem_len,
-                                                this->receive_queue_.end(), hlen + buf.size());
+                                                this->receive_.pq->end() - rem_len,
+                                                this->receive_.pq->end(), hlen + buf.size());
 
                                         this->io_ctx_.post([len = buf.size(), cb = std::move(cb)] {
                                                 cb(len);
                                         });
                                 } else {
-                                        this->receive_queue_.resize(this->receive_queue_.size() +
-                                                                    seglen);
+                                        this->receive_.pq->resize(this->receive_.pq->size() +
+                                                                  seglen);
                                         in_pkt.buffer->export_payload(
-                                                this->receive_queue_.end() - seglen,
-                                                this->receive_queue_.end(), hlen);
+                                                this->receive_.pq->end() - seglen,
+                                                this->receive_.pq->end(), hlen);
                                 }
 
                                 this->make_and_send_pkt();
@@ -1069,7 +1081,7 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                          */
                         case kTCPSynReceived:
                         case kTCPEstablished:
-                                this->receive_.next += 1;
+                                this->receive_.state.next += 1;
                                 this->next_state_ = kTCPCloseWait;
                                 this->make_and_send_pkt();
                                 /**
@@ -1135,13 +1147,11 @@ void tcb_t::start_connecting() {
                 },
         };
 
-        this->receive_.mss = 1460;
+        this->receive_.state.mss = 1460;
 
         auto out_buffer{std::make_unique<base_packet>(tcp_header_t::fixed_size() + 8)};
 
         assert(0 == (tcp_header_t::fixed_size() & 0x3));
-
-        this->send_.window = 0xFAF0u;
 
         tcp_header_t out_tcp{
                 .src_port    = this->local_info_.port_addr,
@@ -1150,11 +1160,11 @@ void tcb_t::start_connecting() {
                 .ack_no      = 0,
                 .data_offset = (tcp_header_t::fixed_size() + 8) >> 2,
                 .SYN         = 1,
-                .window      = this->send_.window,
+                .window      = this->send_.state.window,
         };
 
-        this->send_.seq_no_unack = out_tcp.seq_no;
-        this->send_.seq_no_next  = out_tcp.seq_no + 1;
+        this->send_.state.seq_no_unack = out_tcp.seq_no;
+        this->send_.state.seq_no_next  = out_tcp.seq_no + 1;
 
         encode_options({out_tcp.produce_to_net(out_buffer->get_pointer()), 8}, opts);
 

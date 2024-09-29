@@ -5,15 +5,16 @@
 #include <cstdint>
 
 #include <chrono>
-#include <deque>
 #include <functional>
 #include <memory>
 #include <queue>
+#include <span>
+#include <utility>
 
 #include <boost/asio/io_context.hpp>
+#include <boost/circular_buffer.hpp>
 
 #include "base_packet.hpp"
-#include "defination.hpp"
 #include "socket.hpp"
 #include "tcp_header.hpp"
 #include "tcp_packet.hpp"
@@ -22,27 +23,34 @@ namespace mstack {
 
 using port_addr_t = uint16_t;
 
-struct send_state_t {
-        uint32_t                  seq_no_unack;
-        uint32_t                  seq_no_next;
-        uint16_t                  window;
-        uint8_t                   window_scale;
-        uint16_t                  mss;
-        uint32_t                  cwnd;
-        uint32_t                  ssthresh;
-        uint16_t                  dupacks;
-        uint16_t                  retransmits;
-        uint16_t                  backoff;
-        std::chrono::milliseconds rttvar;
-        std::chrono::milliseconds srtt;
-        std::chrono::milliseconds rto;
+struct send {
+        struct {
+                uint32_t seq_no_unack;
+                uint32_t seq_no_next;
+                uint16_t window;
+                uint8_t  window_scale;
+                uint16_t mss;
+                uint32_t cwnd;
+                uint32_t ssthresh;
+                uint16_t dupacks;
+                uint16_t retransmits;
+                uint16_t backoff;
+
+                std::chrono::milliseconds rttvar;
+                std::chrono::milliseconds srtt;
+                std::chrono::milliseconds rto;
+        } state;
+        std::unique_ptr<boost::circular_buffer<std::byte>> pq;
 };
 
-struct receive_state_t {
-        uint32_t next;
-        uint32_t window;
-        uint8_t  window_scale;
-        uint16_t mss;
+struct receive {
+        struct {
+                uint32_t next;
+                uint32_t window;
+                uint8_t  window_scale;
+                uint16_t mss;
+        } state;
+        std::unique_ptr<boost::circular_buffer<std::byte>> pq;
 };
 
 class tcb_manager;
@@ -64,13 +72,10 @@ private:
                            std::weak_ptr<tcb_t>)>
                 on_connection_established_;
 
-        std::deque<std::byte> send_queue_;
-        std::deque<std::byte> receive_queue_;
-
         std::queue<std::pair<std::span<std::byte>, std::function<void(size_t)>>> on_data_receive_;
 
-        send_state_t    send_{};
-        receive_state_t receive_{};
+        send    send_;
+        receive receive_;
 
         explicit tcb_t(boost::asio::io_context&                  io_ctx,
                        tcb_manager&                              mngr,
