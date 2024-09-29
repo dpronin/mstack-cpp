@@ -1,11 +1,11 @@
 #include "tcb.hpp"
 
 #include <cassert>
-#include <concepts>
 #include <cstddef>
 #include <cstdint>
 
 #include <algorithm>
+#include <concepts>
 #include <functional>
 #include <memory>
 #include <queue>
@@ -205,6 +205,8 @@ void tcb_t::async_write(std::span<std::byte const>                              
 void tcb_t::make_and_send_pkt() { enqueue(make_packet()); }
 
 void tcb_t::enqueue_send(std::span<std::byte const> pkt) {
+        assert(!(this->send_.pq->size() + pkt.size() > this->send_.pq->capacity()));
+
         this->send_.pq->insert(this->send_.pq->end(), pkt.begin(), pkt.end());
         while (!this->send_.pq->empty())
                 make_and_send_pkt();
@@ -1017,19 +1019,19 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                                                                       buf.size()));
                                         in_pkt.buffer->export_payload(buf.begin(), buf.end(), hlen);
 
-                                        auto const rem_len{seglen - buf.size()};
+                                        this->receive_.pq->resize(seglen - buf.size());
 
-                                        this->receive_.pq->resize(this->receive_.pq->size() +
-                                                                  rem_len);
-
-                                        in_pkt.buffer->export_payload(
-                                                this->receive_.pq->end() - rem_len,
-                                                this->receive_.pq->end(), hlen + buf.size());
+                                        in_pkt.buffer->export_payload(this->receive_.pq->begin(),
+                                                                      this->receive_.pq->end(),
+                                                                      hlen + buf.size());
 
                                         this->io_ctx_.post([len = buf.size(), cb = std::move(cb)] {
                                                 cb(len);
                                         });
                                 } else {
+                                        assert(!(this->receive_.pq->size() + seglen >
+                                                 this->receive_.pq->capacity()));
+
                                         this->receive_.pq->resize(this->receive_.pq->size() +
                                                                   seglen);
                                         in_pkt.buffer->export_payload(
