@@ -52,7 +52,8 @@ public:
         tcb_manager(tcb_manager&&)            = delete;
         tcb_manager& operator=(tcb_manager&&) = delete;
 
-        void async_connect(endpoint const&                               ep,
+        void async_connect(endpoint const&                               remote_ep,
+                           ipv4_addr_t const&                            local_addr,
                            std::function<void(boost::system::error_code const& ec,
                                               ipv4_port_t const&               remote_info,
                                               ipv4_port_t const&               local_info,

@@ -13,13 +13,15 @@ namespace mstack {
 
 socket::socket() : net(netns::_default_()) {}
 
-void socket::async_connect(endpoint const&                                       ep,
+void socket::async_connect(endpoint const&                                       remote_ep,
+                           ipv4_addr_t const&                                    local_addr,
                            std::function<void(boost::system::error_code const&)> cb) {
         net.tcb_m().async_connect(
-                ep, [this, proto = ep.proto(), cb = std::move(cb)](
-                            boost::system::error_code const& ec,
-                            ipv4_port_t const&               remote_info [[maybe_unused]],
-                            ipv4_port_t const& local_info, std::weak_ptr<tcb_t> tcb) {
+                remote_ep, local_addr,
+                [this, proto = remote_ep.proto(), cb = std::move(cb)](
+                        boost::system::error_code const& ec,
+                        ipv4_port_t const&               remote_info [[maybe_unused]],
+                        ipv4_port_t const& local_info, std::weak_ptr<tcb_t> tcb) {
                         if (ec) {
                                 spdlog::critical("failed to accept a new connection, reason: {}",
                                                  ec.what());

@@ -33,7 +33,8 @@ public:
         socket(socket&&)            = delete;
         socket& operator=(socket&&) = delete;
 
-        void async_connect(endpoint const&                                       ep,
+        void async_connect(endpoint const&                                       remote_ep,
+                           ipv4_addr_t const&                                    local_addr,
                            std::function<void(boost::system::error_code const&)> cb);
 
         void async_read_some(std::span<std::byte>                                          buf,

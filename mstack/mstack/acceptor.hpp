@@ -13,7 +13,6 @@ namespace mstack {
 
 struct socket;
 struct endpoint;
-class tcb_manager;
 
 class acceptor {
 public:

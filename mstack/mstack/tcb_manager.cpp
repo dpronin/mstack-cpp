@@ -4,9 +4,7 @@
 
 #include <memory>
 #include <random>
-#include <system_error>
 #include <unordered_map>
-#include <unordered_set>
 
 #include <boost/asio/io_context.hpp>
 
@@ -15,6 +13,7 @@
 #include "base_protocol.hpp"
 #include "defination.hpp"
 #include "endpoint.hpp"
+#include "ipv4_addr.hpp"
 #include "packets.hpp"
 #include "socket.hpp"
 #include "tcb.hpp"
@@ -64,21 +63,22 @@ void tcb_manager::rule_insert_back(
         rules_.emplace_back(std::move(matcher), proto, std::move(cb));
 }
 
-void tcb_manager::async_connect(endpoint const&                           ep,
+void tcb_manager::async_connect(endpoint const&                           remote_ep,
+                                ipv4_addr_t const&                        local_addr,
                                 std::function<void(boost::system::error_code const& ec,
                                                    ipv4_port_t const&               remote_info,
                                                    ipv4_port_t const&               local_info,
                                                    std::weak_ptr<tcb_t>)> cb) {
         while (true) {
                 two_ends_t const two_end = {
-                        .remote_info = ep.ep(),
-                        .local_info  = {0x0a0a0a02, port_gen_ctx_->generate()},
+                        .remote_info = remote_ep.ep(),
+                        .local_info  = {local_addr, port_gen_ctx_->generate()},
                 };
 
                 auto [tcb_it, created] = tcbs_.emplace(
                         two_end,
                         tcb_t::create_shared(io_ctx_, *this, two_end.remote_info,
-                                             two_end.local_info, ep.proto(), kTCPConnecting,
+                                             two_end.local_info, remote_ep.proto(), kTCPConnecting,
                                              kTCPConnecting, std::move(cb)));
                 if (!created) continue;
 
