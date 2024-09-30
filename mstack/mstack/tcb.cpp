@@ -182,14 +182,13 @@ tcb_t::tcb_t(boost::asio::io_context&                  io_ctx,
 
 void tcb_t::async_read_some(std::span<std::byte>                                          buf,
                             std::function<void(boost::system::error_code const&, size_t)> cb) {
-        if (!this->receive_.pq->empty()) {
-                buf = buf.subspan(0, std::min(this->receive_.pq->size(), buf.size()));
-                std::copy_n(this->receive_.pq->begin(), buf.size(), buf.begin());
-                this->receive_.pq->erase(this->receive_.pq->begin(),
-                                         this->receive_.pq->begin() + buf.size());
-                this->io_ctx_.post([buf, cb = std::move(cb)] { cb({}, buf.size()); });
+        if (!receive_.pq->empty()) {
+                buf = buf.subspan(0, std::min(receive_.pq->size(), buf.size()));
+                std::copy_n(receive_.pq->begin(), buf.size(), buf.begin());
+                receive_.pq->erase(receive_.pq->begin(), receive_.pq->begin() + buf.size());
+                io_ctx_.post([buf, cb = std::move(cb)] { cb({}, buf.size()); });
         } else {
-                this->on_data_receive_.push({
+                on_data_receive_.push({
                         buf,
                         [cb = std::move(cb)](size_t nbytes) { cb({}, nbytes); },
                 });
@@ -198,17 +197,17 @@ void tcb_t::async_read_some(std::span<std::byte>                                
 
 void tcb_t::async_write(std::span<std::byte const>                                    buf,
                         std::function<void(boost::system::error_code const&, size_t)> cb) {
-        this->enqueue_send(buf);
-        this->io_ctx_.post([sz = buf.size(), cb = std::move(cb)] { cb({}, sz); });
+        enqueue_send(buf);
+        io_ctx_.post([sz = buf.size(), cb = std::move(cb)] { cb({}, sz); });
 }
 
 void tcb_t::make_and_send_pkt() { enqueue(make_packet()); }
 
 void tcb_t::enqueue_send(std::span<std::byte const> pkt) {
-        assert(!(this->send_.pq->size() + pkt.size() > this->send_.pq->capacity()));
+        assert(!(send_.pq->size() + pkt.size() > send_.pq->capacity()));
 
-        this->send_.pq->insert(this->send_.pq->end(), pkt.begin(), pkt.end());
-        while (!this->send_.pq->empty())
+        send_.pq->insert(send_.pq->end(), pkt.begin(), pkt.end());
+        while (!send_.pq->empty())
                 make_and_send_pkt();
 }
 
@@ -221,12 +220,12 @@ void tcb_t::listen_finish() {
 tcp_packet tcb_t::make_packet() {
         tcp_packet out_pkt{
                 .proto       = tcb_manager::PROTO,
-                .remote_info = this->remote_info_,
-                .local_info  = this->local_info_,
+                .remote_info = remote_info_,
+                .local_info  = local_info_,
         };
 
         auto const seg_len{
-                std::min(static_cast<size_t>(this->send_.state.mss), this->send_.pq->size()),
+                std::min(static_cast<size_t>(send_.state.mss), send_.pq->size()),
         };
 
         auto out_buffer = std::make_unique<base_packet>(tcp_header_t::fixed_size() + seg_len);
@@ -234,27 +233,26 @@ tcp_packet tcb_t::make_packet() {
         assert(0 == (tcp_header_t::fixed_size() & 0x3));
 
         tcp_header_t out_tcp{
-                .src_port    = this->local_info_.port_addr,
-                .dst_port    = this->remote_info_.port_addr,
-                .seq_no      = 0 == seg_len ? this->send_.state.seq_no_unack
-                                            : this->send_.state.seq_no_next,
-                .ack_no      = this->receive_.state.next,
+                .src_port    = local_info_.port_addr,
+                .dst_port    = remote_info_.port_addr,
+                .seq_no      = 0 == seg_len ? send_.state.seq_no_unack : send_.state.seq_no_next,
+                .ack_no      = receive_.state.next,
                 .data_offset = tcp_header_t::fixed_size() >> 2,
                 .ACK         = 1,
                 .PSH         = seg_len > 0,
-                .SYN         = kTCPSynReceived == this->next_state_,
+                .SYN         = kTCPSynReceived == next_state_,
                 .window      = send_.state.window,
         };
 
-        std::copy_n(this->send_.pq->begin(), seg_len,
+        std::copy_n(send_.pq->begin() + send_.state.seq_no_next - send_.state.seq_no_unack, seg_len,
                     out_tcp.produce_to_net(out_buffer->get_pointer()));
-        this->send_.pq->erase(this->send_.pq->begin(), this->send_.pq->begin() + seg_len);
+        send_.pq->erase(send_.pq->begin(), send_.pq->begin() + seg_len);
 
-        this->send_.state.seq_no_next += seg_len;
+        send_.state.seq_no_next += seg_len;
 
         out_pkt.buffer = std::move(out_buffer);
 
-        if (this->next_state_ != this->state_) this->state_ = this->next_state_;
+        if (next_state_ != state_) state_ = next_state_;
 
         return out_pkt;
 }
@@ -262,7 +260,7 @@ tcp_packet tcb_t::make_packet() {
 uint32_t tcb_t::generate_isn() { return std::random_device{}(); }
 
 bool tcb_t::tcp_handle_close_state(tcp_header_t const& tcph) {
-        assert(kTCPClosed == this->state_);
+        assert(kTCPClosed == state_);
 
         /**
          *  If the state is CLOSED (i.e., TCB does not exist) then
@@ -300,7 +298,7 @@ bool tcb_t::tcp_handle_close_state(tcp_header_t const& tcph) {
 
 bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& in_pkt) {
         //  If the state is LISTEN then
-        assert(kTCPListen == this->state_);
+        assert(kTCPListen == state_);
 
         spdlog::debug("[TCP LISTEN] {}", tcph);
 
@@ -367,7 +365,7 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
                                         using type = std::decay_t<decltype(opt)>;
                                         if constexpr (std::same_as<type, nop>) {
                                         } else if constexpr (std::same_as<type, mss>) {
-                                                this->send_.state.mss = opt.value;
+                                                send_.state.mss = opt.value;
                                         } else if constexpr (std::same_as<type, window_scale>) {
                                         } else if constexpr (std::same_as<type, sack>) {
                                         } else if constexpr (std::same_as<type, timestamp>) {
@@ -378,14 +376,14 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
 
                 uint32_t const isn{generate_isn()};
 
-                this->receive_.state.next   = tcph.seq_no + 1;
-                this->receive_.state.window = tcph.window;
-                this->send_.pq              = std::make_unique<boost::circular_buffer<std::byte>>(
-                        this->receive_.state.window);
-                this->send_.state.seq_no_next  = isn + 1;
-                this->send_.state.seq_no_unack = isn;
-                this->next_state_              = kTCPSynReceived;
-                this->make_and_send_pkt();
+                receive_.state.next   = tcph.seq_no + 1;
+                receive_.state.window = tcph.window;
+                send_.pq =
+                        std::make_unique<boost::circular_buffer<std::byte>>(receive_.state.window);
+                send_.state.seq_no_next  = isn + 1;
+                send_.state.seq_no_unack = isn;
+                next_state_              = kTCPSynReceived;
+                make_and_send_pkt();
 
                 spdlog::debug("[SEND SYN ACK]");
 
@@ -405,17 +403,17 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
 
 bool tcb_t::tcp_handle_syn_sent(tcp_header_t const& tcph, tcp_packet const& in_pkt) {
         // If the state is SYN-SENT then
-        assert(kTCPSynSent == this->state_);
+        assert(kTCPSynSent == state_);
 
         // first check the ACK bit
         if (tcph.SYN && tcph.ACK) {
-                if (!(tcph.ack_no < this->send_.state.seq_no_unack) &&
-                    !(tcph.ack_no > this->send_.state.seq_no_next)) {
-                        this->receive_.state.next   = tcph.seq_no + 1;
-                        this->receive_.state.window = tcph.window;
-                        this->send_.pq = std::make_unique<boost::circular_buffer<std::byte>>(
-                                this->receive_.state.window);
-                        this->send_.state.seq_no_unack = tcph.ack_no;
+                if (!(tcph.ack_no < send_.state.seq_no_unack) &&
+                    !(tcph.ack_no > send_.state.seq_no_next)) {
+                        receive_.state.next   = tcph.seq_no + 1;
+                        receive_.state.window = tcph.window;
+                        send_.pq              = std::make_unique<boost::circular_buffer<std::byte>>(
+                                receive_.state.window);
+                        send_.state.seq_no_unack = tcph.ack_no;
 
                         auto const tcph{
                                 tcp_header_t::consume_from_net(in_pkt.buffer->get_pointer())};
@@ -430,7 +428,7 @@ bool tcb_t::tcp_handle_syn_sent(tcp_header_t const& tcph, tcp_packet const& in_p
                                                 using type = std::decay_t<decltype(opt)>;
                                                 if constexpr (std::same_as<type, nop>) {
                                                 } else if constexpr (std::same_as<type, mss>) {
-                                                        this->send_.state.mss = opt.value;
+                                                        send_.state.mss = opt.value;
                                                 } else if constexpr (std::same_as<type,
                                                                                   window_scale>) {
                                                 } else if constexpr (std::same_as<type, sack>) {
@@ -441,12 +439,12 @@ bool tcb_t::tcp_handle_syn_sent(tcp_header_t const& tcph, tcp_packet const& in_p
                                         opt);
                         }
 
-                        this->state_      = kTCPEstablished;
-                        this->next_state_ = kTCPEstablished;
+                        state_      = kTCPEstablished;
+                        next_state_ = kTCPEstablished;
 
-                        this->make_and_send_pkt();
+                        make_and_send_pkt();
 
-                        this->listen_finish();
+                        listen_finish();
                 } else {
                         // TODO: send RST
                         return true;
@@ -599,10 +597,10 @@ bool tcb_t::tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen) {
 
         // DLOG(INFO) << "SN: " << tcph.seq_no << " ";
         // DLOG(INFO) << "SL: " << segment_length << " ";
-        // DLOG(INFO) << "RW: " << this->receive.window << " ";
-        // DLOG(INFO) << "RN: " << this->receive.next;
+        // DLOG(INFO) << "RW: " << receive.window << " ";
+        // DLOG(INFO) << "RN: " << receive.next;
 
-        switch (this->state_) {
+        switch (state_) {
                 case kTCPSynReceived:
                 case kTCPEstablished:
                 case kTCPFinWait_1:
@@ -611,39 +609,37 @@ bool tcb_t::tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen) {
                 case kTCPClosing:
                 case kTCPLastAck:
                 case kTCPTimeWait:
-                        if (seglen == 0 && this->receive_.state.window == 0) {
-                                if (tcph.seq_no == this->receive_.state.next) {
+                        if (seglen == 0 && receive_.state.window == 0) {
+                                if (tcph.seq_no == receive_.state.next) {
                                         return true;
                                 } else {
                                         return false;
                                 }
                         }
 
-                        if (seglen == 0 && this->receive_.state.window > 0) {
+                        if (seglen == 0 && receive_.state.window > 0) {
                                 // RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
-                                if (this->receive_.state.next <= tcph.seq_no &&
-                                    tcph.seq_no < this->receive_.state.next +
-                                                          this->receive_.state.window) {
+                                if (receive_.state.next <= tcph.seq_no &&
+                                    tcph.seq_no < receive_.state.next + receive_.state.window) {
                                         return true;
                                 } else {
                                         return false;
                                 }
                         }
 
-                        if (seglen > 0 && this->receive_.state.window == 0) {
+                        if (seglen > 0 && receive_.state.window == 0) {
                                 return false;
                         }
 
-                        if (seglen > 0 && this->receive_.state.window > 0) {
+                        if (seglen > 0 && receive_.state.window > 0) {
                                 // RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
                                 //        or RCV.NXT =< SEG.SEQ+SEG.LEN-1 < RCV.NXT +
                                 //        RCV.WND
-                                if ((this->receive_.state.next <= tcph.seq_no &&
-                                     this->receive_.state.next + this->receive_.state.window) ||
-                                    (this->receive_.state.next <= tcph.seq_no + seglen - 1 &&
+                                if ((receive_.state.next <= tcph.seq_no &&
+                                     receive_.state.next + receive_.state.window) ||
+                                    (receive_.state.next <= tcph.seq_no + seglen - 1 &&
                                      tcph.seq_no + seglen - 1 <
-                                             this->receive_.state.next +
-                                                     this->receive_.state.window)) {
+                                             receive_.state.next + receive_.state.window)) {
                                         return true;
                                 } else {
                                         return false;
@@ -664,13 +660,13 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                       seglen);
 
         spdlog::debug("[TCP] [CHECK TCP_CLOSED] {}", *this);
-        if (this->state_ == kTCPClosed && tcp_handle_close_state(tcph)) return;
+        if (state_ == kTCPClosed && tcp_handle_close_state(tcph)) return;
 
         spdlog::debug("[TCP] [CHECK TCP_LISTEN] {}", *this);
-        if (this->state_ == kTCPListen && tcp_handle_listen_state(tcph, in_pkt)) return;
+        if (state_ == kTCPListen && tcp_handle_listen_state(tcph, in_pkt)) return;
 
         spdlog::debug("[TCP] [CHECK TCP_SYN_SENT] {}", *this);
-        if (this->state_ == kTCPSynSent && tcp_handle_syn_sent(tcph, in_pkt)) return;
+        if (state_ == kTCPSynSent && tcp_handle_syn_sent(tcph, in_pkt)) return;
 
         spdlog::debug("[TCP] [PROCESS 1] {}", *this);
 
@@ -688,7 +684,7 @@ void tcb_t::process(tcp_packet&& in_pkt) {
 
         // TODO: second check the RST bit
         if (tcph.RST) {
-                switch (this->state_) {
+                switch (state_) {
                         /**
                          *  SYN-RECEIVED STATE
                          *      If the RST bit is set
@@ -773,7 +769,7 @@ void tcb_t::process(tcp_packet&& in_pkt) {
 
         // TODO: fourth, check the SYN bit
         if (tcph.SYN) {
-                switch (this->state_) {
+                switch (state_) {
                                 /**
                                  *  SYN-RECEIVED
                                  *  ESTABLISHED STATE
@@ -811,7 +807,7 @@ void tcb_t::process(tcp_packet&& in_pkt) {
 
         // fifth check the ACK field
         if (tcph.ACK) {
-                switch (this->state_) {
+                switch (state_) {
                         /**
                          *  SYN-RECEIVED STATE
                          *      If SND.UNA =< SEG.ACK =< SND.NXT then enter ESTABLISHED
@@ -819,11 +815,11 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                          * is not acceptable, form a reset segment, <SEQ=SEG.ACK><CTL=RST>
                          */
                         case kTCPSynReceived:
-                                if (this->send_.state.seq_no_unack <= tcph.ack_no &&
-                                    tcph.ack_no <= this->send_.state.seq_no_next) {
-                                        this->state_      = kTCPEstablished;
-                                        this->next_state_ = kTCPEstablished;
-                                        this->listen_finish();
+                                if (send_.state.seq_no_unack <= tcph.ack_no &&
+                                    tcph.ack_no <= send_.state.seq_no_next) {
+                                        state_      = kTCPEstablished;
+                                        next_state_ = kTCPEstablished;
+                                        listen_finish();
                                 } else {
                                         // TODO: send RST
                                         return;
@@ -857,17 +853,17 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                         case kTCPFinWait_2:
                         case kTCPCloseWait:
                         case kTCPClosing:
-                                if (this->send_.state.seq_no_unack < tcph.ack_no &&
-                                    tcph.ack_no <= this->send_.state.seq_no_next) {
-                                        this->send_.state.seq_no_unack = tcph.ack_no;
+                                if (send_.state.seq_no_unack < tcph.ack_no &&
+                                    tcph.ack_no <= send_.state.seq_no_next) {
+                                        send_.state.seq_no_unack = tcph.ack_no;
                                         // TODO: update windows
                                 }
 
-                                if (tcph.ack_no < this->send_.state.seq_no_unack) { /* ignore */
+                                if (tcph.ack_no < send_.state.seq_no_unack) { /* ignore */
                                 }
 
-                                if (tcph.ack_no > this->send_.state.seq_no_next) {
-                                        this->make_and_send_pkt();
+                                if (tcph.ack_no > send_.state.seq_no_next) {
+                                        make_and_send_pkt();
                                         return;
                                 }
 
@@ -877,8 +873,8 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                                  *      state, if our FIN is now acknowledged then enter
                                  *      FIN-WAIT-2 and continue processing in that state.
                                  */
-                                if (this->state_ == kTCPFinWait_1) {
-                                        this->next_state_ = kTCPFinWait_2;
+                                if (state_ == kTCPFinWait_1) {
+                                        next_state_ = kTCPFinWait_2;
                                 }
 
                                 /**
@@ -888,7 +884,7 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                                  * user's CLOSE can be acknowledged ("ok") but do not delete
                                  * the TCB.
                                  */
-                                if (this->state_ == kTCPFinWait_2) {
+                                if (state_ == kTCPFinWait_2) {
                                         // * CLOSE FINISH
                                 }
                                 /**
@@ -896,7 +892,7 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                                  *      Do the same processing as for the ESTABLISHED state.
                                  */
 
-                                if (this->state_ == kTCPCloseWait) {
+                                if (state_ == kTCPCloseWait) {
                                 }
                                 /**
                                  *  CLOSING STATE
@@ -904,8 +900,8 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                                  *      state, if the ACK acknowledges our FIN then enter
                                  * the TIME-WAIT state, otherwise ignore the segment.
                                  */
-                                if (this->state_ == kTCPClosing) {
-                                        this->next_state_ = kTCPTimeWait;
+                                if (state_ == kTCPClosing) {
+                                        next_state_ = kTCPTimeWait;
                                 }
                                 break;
                         /**
@@ -915,7 +911,7 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                          *      delete the TCB, enter the CLOSED state, and return.
                          */
                         case kTCPLastAck:
-                                this->next_state_ = kTCPClosed;
+                                next_state_ = kTCPClosed;
                                 return;
                         /**
                          *  TIME-WAIT STATE
@@ -924,7 +920,7 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                          *      restart the 2 MSL timeout.
                          */
                         case kTCPTimeWait:
-                                this->make_and_send_pkt();
+                                make_and_send_pkt();
                                 break;
                 }
         }
@@ -933,7 +929,7 @@ void tcb_t::process(tcp_packet&& in_pkt) {
 
         // TODO: sixth, check the URG bit
         if (tcph.URG) {
-                switch (this->state_) {
+                switch (state_) {
                         /**
                          *  ESTABLISHED STATE
                          *  FIN-WAIT-1 STATE
@@ -970,7 +966,7 @@ void tcb_t::process(tcp_packet&& in_pkt) {
 
         // seventh, process the segment text
         if (seglen > 0) {
-                switch (this->state_) {
+                switch (state_) {
                         /**
                          *   ESTABLISHED STATE
                          *   FIN-WAIT-1 STATE
@@ -1007,10 +1003,10 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                         case kTCPFinWait_2: {
                                 spdlog::debug("[RECEIVE DATA] {}", seglen);
 
-                                this->receive_.state.next += seglen;
+                                receive_.state.next += seglen;
 
-                                if (!this->on_data_receive_.empty()) {
-                                        assert(this->receive_.pq->empty());
+                                if (!on_data_receive_.empty()) {
+                                        assert(receive_.pq->empty());
 
                                         auto [buf, cb] = std::move(on_data_receive_.front());
                                         on_data_receive_.pop();
@@ -1019,27 +1015,25 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                                                                       buf.size()));
                                         in_pkt.buffer->export_payload(buf.begin(), buf.end(), hlen);
 
-                                        this->receive_.pq->resize(seglen - buf.size());
+                                        receive_.pq->resize(seglen - buf.size());
 
-                                        in_pkt.buffer->export_payload(this->receive_.pq->begin(),
-                                                                      this->receive_.pq->end(),
+                                        in_pkt.buffer->export_payload(receive_.pq->begin(),
+                                                                      receive_.pq->end(),
                                                                       hlen + buf.size());
 
-                                        this->io_ctx_.post([len = buf.size(), cb = std::move(cb)] {
+                                        io_ctx_.post([len = buf.size(), cb = std::move(cb)] {
                                                 cb(len);
                                         });
                                 } else {
-                                        assert(!(this->receive_.pq->size() + seglen >
-                                                 this->receive_.pq->capacity()));
+                                        assert(!(receive_.pq->size() + seglen >
+                                                 receive_.pq->capacity()));
 
-                                        this->receive_.pq->resize(this->receive_.pq->size() +
-                                                                  seglen);
-                                        in_pkt.buffer->export_payload(
-                                                this->receive_.pq->end() - seglen,
-                                                this->receive_.pq->end(), hlen);
+                                        receive_.pq->resize(receive_.pq->size() + seglen);
+                                        in_pkt.buffer->export_payload(receive_.pq->end() - seglen,
+                                                                      receive_.pq->end(), hlen);
                                 }
 
-                                this->make_and_send_pkt();
+                                make_and_send_pkt();
 
                                 break;
                         }
@@ -1063,7 +1057,7 @@ void tcb_t::process(tcp_packet&& in_pkt) {
 
         // eighth, check the FIN bit
         if (tcph.FIN) {
-                switch (this->state_) {
+                switch (state_) {
                         /**
                          *      Do not process the FIN if the state is CLOSED, LISTEN or
                          *      SYN-SENT since the SEG.SEQ cannot be validated; drop the
@@ -1083,9 +1077,9 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                          */
                         case kTCPSynReceived:
                         case kTCPEstablished:
-                                this->receive_.state.next += 1;
-                                this->next_state_ = kTCPCloseWait;
-                                this->make_and_send_pkt();
+                                receive_.state.next += 1;
+                                next_state_ = kTCPCloseWait;
+                                make_and_send_pkt();
                                 /**
                                  *  FIN-WAIT-1 STATE
                                  *      If our FIN has been ACKed (perhaps in this segment),
@@ -1094,10 +1088,10 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                                  * state.
                                  */
                         case kTCPFinWait_1:
-                                if (this->next_state_ == kTCPFinWait_2) {
-                                        this->next_state_ = kTCPTimeWait;
+                                if (next_state_ == kTCPFinWait_2) {
+                                        next_state_ = kTCPTimeWait;
                                 } else {
-                                        this->next_state_ = kTCPClosing;
+                                        next_state_ = kTCPClosing;
                                 }
                                 /**
                                  *  FIN-WAIT-2 STATE
@@ -1106,7 +1100,7 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                                  */
                         case kTCPFinWait_2:
                                 // * start time_wait
-                                this->next_state_ = kTCPTimeWait;
+                                next_state_ = kTCPTimeWait;
                                 /**
                                  *  CLOSE-WAIT STATE
                                  *      Remain in the CLOSE-WAIT state.
@@ -1135,7 +1129,10 @@ void tcb_t::process(tcp_packet&& in_pkt) {
         }
 }
 
-void tcb_t::enqueue(tcp_packet&& out_pkt) { mngr_.enqueue(std::move(out_pkt)); }
+void tcb_t::enqueue(tcp_packet&& out_pkt) {
+        spdlog::debug("[TCP] ENQUEUE {}", out_pkt);
+        mngr_.enqueue(std::move(out_pkt));
+}
 
 void tcb_t::start_connecting() {
         auto const opts{
@@ -1149,36 +1146,34 @@ void tcb_t::start_connecting() {
                 },
         };
 
-        this->receive_.state.mss = 1460;
+        receive_.state.mss = 1460;
 
         auto out_buffer{std::make_unique<base_packet>(tcp_header_t::fixed_size() + 8)};
 
         assert(0 == (tcp_header_t::fixed_size() & 0x3));
 
         tcp_header_t out_tcp{
-                .src_port    = this->local_info_.port_addr,
-                .dst_port    = this->remote_info_.port_addr,
+                .src_port    = local_info_.port_addr,
+                .dst_port    = remote_info_.port_addr,
                 .seq_no      = generate_isn(),
                 .ack_no      = 0,
                 .data_offset = (tcp_header_t::fixed_size() + 8) >> 2,
                 .SYN         = 1,
-                .window      = this->send_.state.window,
+                .window      = send_.state.window,
         };
 
-        this->send_.state.seq_no_unack = out_tcp.seq_no;
-        this->send_.state.seq_no_next  = out_tcp.seq_no + 1;
+        send_.state.seq_no_unack = out_tcp.seq_no;
+        send_.state.seq_no_next  = out_tcp.seq_no + 1;
 
         encode_options({out_tcp.produce_to_net(out_buffer->get_pointer()), 8}, opts);
 
-        this->state_      = kTCPSynSent;
-        this->next_state_ = kTCPEstablished;
-
-        spdlog::debug("[TCP] ");
+        state_      = kTCPSynSent;
+        next_state_ = kTCPEstablished;
 
         enqueue({
                 .proto       = 0x06,
-                .remote_info = this->remote_info_,
-                .local_info  = this->local_info_,
+                .remote_info = remote_info_,
+                .local_info  = local_info_,
                 .buffer      = std::move(out_buffer),
         });
 }
