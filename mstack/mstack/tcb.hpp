@@ -25,8 +25,8 @@ using port_addr_t = uint16_t;
 
 struct send {
         struct {
-                uint32_t seq_no_unack;
-                uint32_t seq_no_next;
+                uint32_t seq_nr_unack;
+                uint32_t seq_nr_next;
                 uint16_t window;
                 uint8_t  window_scale;
                 uint16_t mss;
@@ -119,13 +119,18 @@ public:
         int                proto() const { return proto_; }
 
 private:
+        size_t app_data_unacknowleged() const;
+        size_t app_data_to_send_left() const;
+
+        bool has_app_data_to_send() const;
+
         void enqueue(tcp_packet&& out_pkt);
 
         void listen_finish();
 
         void make_and_send_pkt();
 
-        void enqueue_send(std::span<std::byte const> packet);
+        void enqueue_app_data(std::span<std::byte const> packet);
 
         std::unique_ptr<base_packet> prepare_data_optional(int& option_len);
 
