@@ -62,7 +62,7 @@ void socket::async_read_complete(std::span<std::byte>                           
                 }
 
                 if (!(nbytes < buf.size())) {
-                        cb(boost::system::error_code{std::error_code{}}, 0);
+                        cb({}, 0);
                 } else {
                         async_read_complete(buf.subspan(nbytes), std::move(cb));
                 }
