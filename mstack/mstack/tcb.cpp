@@ -1168,7 +1168,7 @@ void tcb_t::enqueue(tcp_packet&& out_pkt) {
 }
 
 void tcb_t::start_connecting() {
-        receive_.state.mss = 1460;
+        receive_.state.mss = 1446;  // due to MTU being 1500 by default
 
         auto const opts{
                 tcp_options{
