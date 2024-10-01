@@ -186,9 +186,9 @@ void tcb_t::async_read_some(std::span<std::byte>                                
                 buf = buf.subspan(0, std::min(receive_.pq->size(), buf.size()));
                 std::copy_n(receive_.pq->begin(), buf.size(), buf.begin());
                 receive_.pq->erase(receive_.pq->begin(), receive_.pq->begin() + buf.size());
+                receive_.state.next += buf.size();
                 io_ctx_.post([this, len = buf.size(), cb = std::move(cb)] {
                         cb({}, len);
-                        receive_.state.next += len;
                         make_and_send_pkt();
                 });
         } else {
@@ -688,7 +688,7 @@ void tcb_t::process(tcp_packet&& in_pkt) {
 
         // first check sequence number
         if (!tcp_check_segment(tcph, seglen)) {
-                spdlog::debug("[SEGMENT SEQ FAIL]");
+                spdlog::warn("[SEGMENT SEQ FAIL]");
                 if (!tcph.RST) {
                         // <SEQ=SND.NXT><ACK=RCV.NXT><CTL=ACK>
                         // TODO: send ACK
@@ -1023,36 +1023,49 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                         case kTCPEstablished:
                         case kTCPFinWait_1:
                         case kTCPFinWait_2: {
-                                spdlog::debug("[RECEIVE DATA] {}", seglen);
+                                spdlog::debug("[TCP] RECEIVE DATA {}", seglen);
 
-                                if (!on_data_receive_.empty()) {
-                                        assert(receive_.pq->empty());
+                                if (!(tcph.seq_no < receive_.state.next + receive_.pq->size())) {
+                                        if (!on_data_receive_.empty()) {
+                                                assert(receive_.pq->empty());
 
-                                        auto [buf, cb] = std::move(on_data_receive_.front());
-                                        on_data_receive_.pop();
+                                                auto [buf, cb] =
+                                                        std::move(on_data_receive_.front());
+                                                on_data_receive_.pop();
 
-                                        buf = buf.subspan(0, std::min(static_cast<size_t>(seglen),
-                                                                      buf.size()));
-                                        in_pkt.buffer->export_payload(buf.begin(), buf.end(), hlen);
+                                                buf = buf.subspan(
+                                                        0, std::min(static_cast<size_t>(seglen),
+                                                                    buf.size()));
 
-                                        receive_.pq->resize(seglen - buf.size());
+                                                in_pkt.buffer->export_payload(buf.begin(),
+                                                                              buf.end(), hlen);
+                                                receive_.state.next += buf.size();
 
-                                        in_pkt.buffer->export_payload(receive_.pq->begin(),
-                                                                      receive_.pq->end(),
-                                                                      hlen + buf.size());
+                                                receive_.pq->resize(seglen - buf.size());
 
-                                        io_ctx_.post([this, len = buf.size(), cb = std::move(cb)] {
-                                                cb(len);
-                                                receive_.state.next += len;
-                                                make_and_send_pkt();
-                                        });
+                                                in_pkt.buffer->export_payload(receive_.pq->begin(),
+                                                                              receive_.pq->end(),
+                                                                              hlen + buf.size());
+
+                                                io_ctx_.post([this, len = buf.size(),
+                                                              cb = std::move(cb)] {
+                                                        cb(len);
+                                                        make_and_send_pkt();
+                                                });
+                                        } else {
+                                                assert(!(receive_.pq->size() + seglen >
+                                                         receive_.pq->capacity()));
+
+                                                receive_.pq->resize(receive_.pq->size() + seglen);
+                                                in_pkt.buffer->export_payload(
+                                                        receive_.pq->end() - seglen,
+                                                        receive_.pq->end(), hlen);
+                                        }
                                 } else {
-                                        assert(!(receive_.pq->size() + seglen >
-                                                 receive_.pq->capacity()));
-
-                                        receive_.pq->resize(receive_.pq->size() + seglen);
-                                        in_pkt.buffer->export_payload(receive_.pq->end() - seglen,
-                                                                      receive_.pq->end(), hlen);
+                                        // ignore retransmission
+                                        spdlog::warn(
+                                                "[TCP] DETECTED RETRANSMISSION, TCPH {}. IGNORE",
+                                                tcph);
                                 }
 
                                 break;
