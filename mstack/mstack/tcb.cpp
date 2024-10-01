@@ -370,7 +370,7 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
 
         if (tcph.SYN) {
                 auto const tcph{tcp_header_t::consume_from_net(in_pkt.buffer->get_pointer())};
-                auto const hlen{tcph.data_offset * 4};
+                auto const hlen{tcph.data_offset << 2};
                 auto const optlen{hlen - tcp_header_t::fixed_size()};
                 auto const seglen{in_pkt.buffer->get_remaining_len() - hlen};
 
@@ -433,7 +433,7 @@ bool tcb_t::tcp_handle_syn_sent(tcp_header_t const& tcph, tcp_packet const& in_p
 
                         auto const tcph{
                                 tcp_header_t::consume_from_net(in_pkt.buffer->get_pointer())};
-                        auto const hlen{tcph.data_offset * 4};
+                        auto const hlen{tcph.data_offset << 2};
                         auto const optlen{hlen - tcp_header_t::fixed_size()};
                         auto const seglen{in_pkt.buffer->get_remaining_len() - hlen};
 
@@ -609,7 +609,7 @@ bool tcb_t::tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen) {
          *      numbers may be held for later processing.
          */
 
-        auto const hlen{tcph.data_offset * 4};
+        auto const hlen{tcph.data_offset << 2};
 
         // DLOG(INFO) << "SN: " << tcph.seq_no << " ";
         // DLOG(INFO) << "SL: " << segment_length << " ";
@@ -668,7 +668,7 @@ bool tcb_t::tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen) {
 
 void tcb_t::process(tcp_packet&& in_pkt) {
         auto const tcph{tcp_header_t::consume_from_net(in_pkt.buffer->get_pointer())};
-        auto const hlen{tcph.data_offset * 4};
+        auto const hlen{tcph.data_offset << 2};
         auto const optlen{hlen - tcp_header_t::fixed_size()};
         auto const seglen{in_pkt.buffer->get_remaining_len() - hlen};
 
