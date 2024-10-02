@@ -9,6 +9,8 @@
 #include <random>
 #include <string>
 
+#include <boost/container_hash/hash.hpp>
+
 #include "utils.hpp"
 
 namespace mstack {
@@ -80,6 +82,8 @@ public:
                         utils::produce_to_net<std::byte>(ptr, d);
         }
 
+        mac const& raw() const { return mac_; }
+
         static constexpr size_t size() { return 6; }
 
         friend std::ostream& operator<<(std::ostream& out, const mac_addr_t& m) {
@@ -99,3 +103,17 @@ struct fmt::formatter<mstack::mac_addr_t> : fmt::formatter<std::string> {
                 return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
         }
 };
+
+namespace std {
+template <>
+struct hash<mstack::mac_addr_t> {
+        size_t operator()(mstack::mac_addr_t const& mac_addr) const {
+                auto const& mac{mac_addr.raw()};
+                return boost::hash_range(mac.begin(), mac.end());
+        }
+};
+}
+
+namespace mstack {
+inline size_t hash_value(mac_addr_t const& v) { return std::hash<mac_addr_t>{}(v); }
+}  // namespace mstack

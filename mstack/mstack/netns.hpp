@@ -4,11 +4,11 @@
 
 #include <boost/asio/io_context.hpp>
 
-#include "mstack/arp_cache.hpp"
-#include "mstack/ethernet.hpp"
-#include "mstack/ipv4.hpp"
-#include "mstack/routing_table.hpp"
-#include "mstack/tcb_manager.hpp"
+#include "arp_cache.hpp"
+#include "ethernet.hpp"
+#include "ipv4.hpp"
+#include "routing_table.hpp"
+#include "tcb_manager.hpp"
 
 namespace mstack {
 
