@@ -666,10 +666,10 @@ void tcb_t::process(tcp_packet&& in_pkt) {
         auto const hlen{tcph.data_offset << 2};
         auto const optlen{hlen - tcp_header_t::fixed_size()};
 
-        auto opts{in_pkt.buffer->payload().subspan(0, optlen)};
+        auto const opts{std::as_bytes(in_pkt.buffer->payload().subspan(0, optlen))};
         in_pkt.buffer->pop_front(optlen);
 
-        auto const segment{in_pkt.buffer->payload()};
+        auto const segment{std::as_bytes(in_pkt.buffer->payload())};
 
         spdlog::debug("[TCP] RECEIVE h={}, hlen={}, optlen={}, seglen={}", tcph, hlen, optlen,
                       segment.size());
@@ -1022,12 +1022,10 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                         case kTCPEstablished:
                         case kTCPFinWait_1:
                         case kTCPFinWait_2: {
-                                spdlog::debug("[TCP] RECEIVE DATA {}",
-                                              in_pkt.buffer->payload().size());
+                                spdlog::debug("[TCP] RECEIVE DATA {}", segment.size());
 
                                 if (!(tcph.seq_no < receive_.state.next + receive_.pq->size())) {
-                                        if (auto const segment{in_pkt.buffer->payload()};
-                                            !on_data_receive_.empty()) {
+                                        if (!on_data_receive_.empty()) {
                                                 assert(receive_.pq->empty());
 
                                                 auto [buf, cb] =
