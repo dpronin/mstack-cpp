@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <memory>
 
 #include <linux/if_tun.h>
 
@@ -35,18 +36,17 @@ void tap::async_write(std::span<std::byte const> buf, Completion&& completion) {
 }
 
 void tap::send_front_pkt_out() {
-        auto          raw{std::move(out_queue_.front())};
-        ssize_t const len{raw.buffer->export_data(out_buf_)};
-        async_write({out_buf_.data(), static_cast<size_t>(len)},
-                    [this](boost::system::error_code const& ec,
-                           size_t                           nbytes [[maybe_unused]]) mutable {
-                            if (ec) {
-                                    spdlog::error("[TAP {}] WRITE FAIL {}", ndev_, ec.what());
-                                    return;
-                            }
-                            out_queue_.pop();
-                            if (!out_queue_.empty()) send_front_pkt_out();
-                    });
+        auto raw{std::move(out_queue_.front())};
+        auto buf{raw.buffer->payload()};
+        async_write(buf, [this, b = std::move(raw.buffer)](boost::system::error_code const& ec,
+                                                           size_t nbytes [[maybe_unused]]) mutable {
+                if (ec) {
+                        spdlog::error("[TAP {}] WRITE FAIL {}", ndev_, ec.what());
+                        return;
+                }
+                out_queue_.pop();
+                if (!out_queue_.empty()) send_front_pkt_out();
+        });
 }
 
 void tap::process(raw_packet&& pkt) {
@@ -55,20 +55,24 @@ void tap::process(raw_packet&& pkt) {
 }
 
 void tap::async_receive() {
-        async_read_some(in_buf_, [this](boost::system::error_code const& ec, size_t nbytes) {
-                if (ec) {
-                        spdlog::error("[TAP {}] RECEIVE FAIL {}", ndev_, ec.what());
-                        return;
-                }
-                spdlog::debug("[TAP {}] RECEIVE {}", ndev_, nbytes);
-                net_.eth().receive(
-                        {
-                                .buffer = std::make_unique<mstack::base_packet>(
-                                        std::span{in_buf_.data(), nbytes}),
-                        },
-                        shared_from_this());
-                async_receive();
-        });
+        auto  buf{std::make_unique_for_overwrite<std::byte[]>(1500)};
+        auto* p_buf{buf.get()};
+        async_read_some({p_buf, 1500},
+                        [this, buf = std::move(buf)](boost::system::error_code const& ec,
+                                                     size_t nbytes) mutable {
+                                if (ec) {
+                                        spdlog::error("[TAP {}] RECEIVE FAIL {}", ndev_, ec.what());
+                                        return;
+                                }
+                                spdlog::debug("[TAP {}] RECEIVE {}", ndev_, nbytes);
+                                net_.eth().receive(
+                                        {
+                                                .buffer = std::make_unique<mstack::base_packet>(
+                                                        std::move(buf), nbytes),
+                                        },
+                                        shared_from_this());
+                                async_receive();
+                        });
 }
 
 tap::tap(netns& net /* = netns::_default_()*/, std::string_view name /* = ""*/)

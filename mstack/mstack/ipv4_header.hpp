@@ -17,7 +17,7 @@ struct ipv4_header_t {
         uint16_t    frag_offset : 13;
         uint8_t     ttl;
         uint8_t     proto_type;
-        uint16_t    header_checksum;
+        uint16_t    header_chsum;
         ipv4_addr_t src_ip_addr;
         ipv4_addr_t dst_ip_addr;
 
@@ -40,7 +40,7 @@ struct ipv4_header_t {
                 ipv4_header.frag_offset             = flags_frag_offset & ((1 << 13) - 1);
                 ipv4_header.ttl                     = utils::consume_from_net<uint8_t>(ptr);
                 ipv4_header.proto_type              = utils::consume_from_net<uint8_t>(ptr);
-                ipv4_header.header_checksum         = utils::consume_from_net<uint16_t>(ptr);
+                ipv4_header.header_chsum            = utils::consume_from_net<uint16_t>(ptr);
                 ipv4_header.src_ip_addr.consume_from_net(ptr);
                 ipv4_header.dst_ip_addr.consume_from_net(ptr);
                 return ipv4_header;
@@ -54,7 +54,7 @@ struct ipv4_header_t {
                 utils::produce_to_net<uint16_t>(ptr, NOP << 15 | DF << 14 | MF << 13 | frag_offset);
                 utils::produce_to_net(ptr, ttl);
                 utils::produce_to_net(ptr, proto_type);
-                utils::produce_to_net(ptr, header_checksum);
+                utils::produce_to_net(ptr, header_chsum);
                 src_ip_addr.produce_to_net(ptr);
                 dst_ip_addr.produce_to_net(ptr);
         }

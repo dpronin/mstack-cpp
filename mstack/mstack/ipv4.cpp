@@ -9,8 +9,10 @@
 
 #include "ethernetv2_frame.hpp"
 #include "ipv4_header.hpp"
+#include "ipv4_packet.hpp"
 #include "mac_addr.hpp"
 #include "routing_table.hpp"
+#include "size_literals.hpp"
 #include "tap.hpp"
 
 namespace mstack {
@@ -23,30 +25,29 @@ ipv4::ipv4(boost::asio::io_context& io_ctx, std::shared_ptr<routing_table const>
 void ipv4::process(ipv4_packet&& in_pkt) {
         spdlog::debug("[IPV4] HDL FROM U-LAYER {}", in_pkt);
 
-        in_pkt.buffer->reflush_packet(ipv4_header_t::size());
-
-        ipv4_header_t out_ipv4_header = {
+        ipv4_header_t ipv4_header = {
                 .version       = 0x4,
                 .header_length = 0x5,
-                .total_length  = static_cast<uint16_t>(in_pkt.buffer->get_total_len() +
+                .total_length  = static_cast<uint16_t>(in_pkt.buffer->payload().size() +
                                                        ipv4_header_t::size()),
                 .id            = seq_++,
                 .ttl           = 0x40,
-                .proto_type    = static_cast<uint8_t>(in_pkt.proto),
+                .proto_type    = in_pkt.proto,
                 .src_ip_addr   = in_pkt.src_ipv4_addr,
                 .dst_ip_addr   = in_pkt.dst_ipv4_addr,
         };
 
-        auto* ptr{in_pkt.buffer->get_pointer()};
-        out_ipv4_header.produce_to_net(ptr);
+        auto out_buffer{std::move(in_pkt.buffer)};
 
-        out_ipv4_header.header_checksum = utils::checksum_net({ptr, ipv4_header_t::size()});
+        out_buffer->push_front(ipv4_header_t::size());
 
-        out_ipv4_header.produce_to_net(ptr);
+        ipv4_header.produce_to_net(out_buffer->head());
+        ipv4_header.header_chsum = utils::checksum_net({out_buffer->head(), ipv4_header_t::size()});
+        ipv4_header.produce_to_net(out_buffer->head());
 
         ethernetv2_frame out_pkt{
                 .proto  = PROTO,
-                .buffer = std::move(in_pkt.buffer),
+                .buffer = std::move(out_buffer),
         };
 
         auto nh{rt_->query(in_pkt.dst_ipv4_addr)};
@@ -74,24 +75,19 @@ void ipv4::process(ipv4_packet&& in_pkt) {
 std::optional<ipv4_packet> ipv4::make_packet(ethernetv2_frame&& in_pkt) {
         spdlog::debug("[IPV4] HDL FROM L-LAYER {}", in_pkt);
 
-        std::optional<ipv4_packet> r;
+        if (auto const* h{in_pkt.buffer->head()}; 0x4_b != ((h[0] >> 4) & 0xf_b)) return {};
 
-        auto* ptr{in_pkt.buffer->get_pointer()};
-        if (static_cast<std::byte>(0x4) != ((ptr[0] >> 4) & static_cast<std::byte>(0x0f))) return r;
-
-        auto ipv4_header{ipv4_header_t::consume_from_net(ptr)};
-        in_pkt.buffer->add_offset(ipv4_header_t::size());
+        auto ipv4_header{ipv4_header_t::consume_from_net(in_pkt.buffer->head())};
+        in_pkt.buffer->pop_front(ipv4_header_t::size());
 
         spdlog::debug("[RECEIVE] {}", ipv4_header);
 
-        r = {
+        return ipv4_packet{
                 .src_ipv4_addr = ipv4_header.src_ip_addr,
                 .dst_ipv4_addr = ipv4_header.dst_ip_addr,
                 .proto         = ipv4_header.proto_type,
                 .buffer        = std::move(in_pkt.buffer),
         };
-
-        return r;
 }
 
 }  // namespace mstack

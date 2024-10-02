@@ -19,6 +19,8 @@
 
 #include "base_packet.hpp"
 #include "defination.hpp"
+#include "ethernet_header.hpp"
+#include "ipv4_header.hpp"
 #include "socket.hpp"
 #include "tcb.hpp"
 #include "tcb_manager.hpp"
@@ -236,19 +238,20 @@ void tcb_t::listen_finish() {
 }
 
 tcp_packet tcb_t::make_packet() {
-        tcp_packet out_pkt{
-                .proto       = tcb_manager::PROTO,
-                .remote_info = remote_info_,
-                .local_info  = local_info_,
-        };
-
         auto const seg_len{app_data_to_send_left()};
 
-        auto out_buffer = std::make_unique<base_packet>(tcp_header_t::fixed_size() + seg_len);
+        auto const additional_room{ethernetv2_header_t::size() + ipv4_header_t::size()};
+
+        auto const room{additional_room + tcp_header_t::fixed_size() + seg_len};
+
+        auto out_buffer{
+                std::make_unique<base_packet>(std::make_unique_for_overwrite<std::byte[]>(room),
+                                              room, additional_room),
+        };
 
         assert(0 == (tcp_header_t::fixed_size() & 0x3));
 
-        tcp_header_t out_tcp{
+        auto const out_tcp = tcp_header_t{
                 .src_port    = local_info_.port_addr,
                 .dst_port    = remote_info_.port_addr,
                 .seq_no      = 0 == seg_len ? send_.state.seq_nr_unack : send_.state.seq_nr_next,
@@ -263,14 +266,17 @@ tcp_packet tcb_t::make_packet() {
         assert(!((send_.pq->begin() + app_data_unacknowleged() + seg_len) > send_.pq->end()));
 
         std::copy_n(send_.pq->begin() + app_data_unacknowleged(), seg_len,
-                    out_tcp.produce_to_net(out_buffer->get_pointer()));
+                    out_tcp.produce_to_net(out_buffer->head()));
         send_.state.seq_nr_next += seg_len;
-
-        out_pkt.buffer = std::move(out_buffer);
 
         if (next_state_ != state_) state_ = next_state_;
 
-        return out_pkt;
+        return {
+                .proto       = tcb_manager::PROTO,
+                .remote_info = remote_info_,
+                .local_info  = local_info_,
+                .buffer      = std::move(out_buffer),
+        };
 }
 
 uint32_t tcb_t::generate_isn() { return std::random_device{}(); }
@@ -312,7 +318,7 @@ bool tcb_t::tcp_handle_close_state(tcp_header_t const& tcph) {
         return false;
 }
 
-bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& in_pkt) {
+bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, std::span<std::byte const> opts) {
         //  If the state is LISTEN then
         assert(kTCPListen == state_);
 
@@ -369,13 +375,7 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
          */
 
         if (tcph.SYN) {
-                auto const tcph{tcp_header_t::consume_from_net(in_pkt.buffer->get_pointer())};
-                auto const hlen{tcph.data_offset << 2};
-                auto const optlen{hlen - tcp_header_t::fixed_size()};
-                auto const seglen{in_pkt.buffer->get_remaining_len() - hlen};
-
-                for (auto const& opt :
-                     decode_options({in_pkt.buffer->get_pointer() + hlen - optlen, optlen})) {
+                for (auto const& opt : decode_options(opts)) {
                         std::visit(
                                 [this](auto const& opt) {
                                         using type = std::decay_t<decltype(opt)>;
@@ -417,7 +417,7 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& 
         return true;
 }
 
-bool tcb_t::tcp_handle_syn_sent(tcp_header_t const& tcph, tcp_packet const& in_pkt) {
+bool tcb_t::tcp_handle_syn_sent(tcp_header_t const& tcph, std::span<std::byte const> opts) {
         // If the state is SYN-SENT then
         assert(kTCPSynSent == state_);
 
@@ -431,14 +431,7 @@ bool tcb_t::tcp_handle_syn_sent(tcp_header_t const& tcph, tcp_packet const& in_p
                                 receive_.state.window);
                         send_.state.seq_nr_unack = tcph.ack_no;
 
-                        auto const tcph{
-                                tcp_header_t::consume_from_net(in_pkt.buffer->get_pointer())};
-                        auto const hlen{tcph.data_offset << 2};
-                        auto const optlen{hlen - tcp_header_t::fixed_size()};
-                        auto const seglen{in_pkt.buffer->get_remaining_len() - hlen};
-
-                        for (auto const& opt : decode_options(
-                                     {in_pkt.buffer->get_pointer() + hlen - optlen, optlen})) {
+                        for (auto const& opt : decode_options(opts)) {
                                 std::visit(
                                         [this](auto const& opt) {
                                                 using type = std::decay_t<decltype(opt)>;
@@ -667,27 +660,33 @@ bool tcb_t::tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen) {
 }
 
 void tcb_t::process(tcp_packet&& in_pkt) {
-        auto const tcph{tcp_header_t::consume_from_net(in_pkt.buffer->get_pointer())};
+        auto const tcph{tcp_header_t::consume_from_net(in_pkt.buffer->head())};
+        in_pkt.buffer->pop_front(tcp_header_t::fixed_size());
+
         auto const hlen{tcph.data_offset << 2};
         auto const optlen{hlen - tcp_header_t::fixed_size()};
-        auto const seglen{in_pkt.buffer->get_remaining_len() - hlen};
+
+        auto opts{in_pkt.buffer->payload().subspan(0, optlen)};
+        in_pkt.buffer->pop_front(optlen);
+
+        auto const segment{in_pkt.buffer->payload()};
 
         spdlog::debug("[TCP] RECEIVE h={}, hlen={}, optlen={}, seglen={}", tcph, hlen, optlen,
-                      seglen);
+                      segment.size());
 
         spdlog::debug("[TCP] [CHECK TCP_CLOSED] {}", *this);
         if (state_ == kTCPClosed && tcp_handle_close_state(tcph)) return;
 
         spdlog::debug("[TCP] [CHECK TCP_LISTEN] {}", *this);
-        if (state_ == kTCPListen && tcp_handle_listen_state(tcph, in_pkt)) return;
+        if (state_ == kTCPListen && tcp_handle_listen_state(tcph, opts)) return;
 
         spdlog::debug("[TCP] [CHECK TCP_SYN_SENT] {}", *this);
-        if (state_ == kTCPSynSent && tcp_handle_syn_sent(tcph, in_pkt)) return;
+        if (state_ == kTCPSynSent && tcp_handle_syn_sent(tcph, opts)) return;
 
         spdlog::debug("[TCP] [PROCESS 1] {}", *this);
 
         // first check sequence number
-        if (!tcp_check_segment(tcph, seglen)) {
+        if (!tcp_check_segment(tcph, segment.size())) {
                 spdlog::warn("[SEGMENT SEQ FAIL]");
                 if (!tcph.RST) {
                         // <SEQ=SND.NXT><ACK=RCV.NXT><CTL=ACK>
@@ -987,7 +986,7 @@ void tcb_t::process(tcp_packet&& in_pkt) {
         spdlog::debug("[TCP] [PROCESS 7] {}", *this);
 
         // seventh, process the segment text
-        if (seglen > 0) {
+        if (segment.size() > 0) {
                 switch (state_) {
                         /**
                          *   ESTABLISHED STATE
@@ -1023,10 +1022,12 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                         case kTCPEstablished:
                         case kTCPFinWait_1:
                         case kTCPFinWait_2: {
-                                spdlog::debug("[TCP] RECEIVE DATA {}", seglen);
+                                spdlog::debug("[TCP] RECEIVE DATA {}",
+                                              in_pkt.buffer->payload().size());
 
                                 if (!(tcph.seq_no < receive_.state.next + receive_.pq->size())) {
-                                        if (!on_data_receive_.empty()) {
+                                        if (auto const segment{in_pkt.buffer->payload()};
+                                            !on_data_receive_.empty()) {
                                                 assert(receive_.pq->empty());
 
                                                 auto [buf, cb] =
@@ -1034,18 +1035,16 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                                                 on_data_receive_.pop();
 
                                                 buf = buf.subspan(
-                                                        0, std::min(static_cast<size_t>(seglen),
-                                                                    buf.size()));
+                                                        0, std::min(segment.size(), buf.size()));
 
-                                                in_pkt.buffer->export_payload(buf.begin(),
-                                                                              buf.end(), hlen);
+                                                std::ranges::copy(segment.subspan(0, buf.size()),
+                                                                  buf.begin());
                                                 receive_.state.next += buf.size();
 
-                                                receive_.pq->resize(seglen - buf.size());
+                                                receive_.pq->resize(segment.size() - buf.size());
 
-                                                in_pkt.buffer->export_payload(receive_.pq->begin(),
-                                                                              receive_.pq->end(),
-                                                                              hlen + buf.size());
+                                                std::ranges::copy(segment.subspan(buf.size()),
+                                                                  receive_.pq->begin());
 
                                                 io_ctx_.post([this, len = buf.size(),
                                                               cb = std::move(cb)] {
@@ -1053,13 +1052,13 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                                                         make_and_send_pkt();
                                                 });
                                         } else {
-                                                assert(!(receive_.pq->size() + seglen >
+                                                assert(!(receive_.pq->size() + segment.size() >
                                                          receive_.pq->capacity()));
 
-                                                receive_.pq->resize(receive_.pq->size() + seglen);
-                                                in_pkt.buffer->export_payload(
-                                                        receive_.pq->end() - seglen,
-                                                        receive_.pq->end(), hlen);
+                                                receive_.pq->resize(receive_.pq->size() +
+                                                                    segment.size());
+                                                std::ranges::copy(segment, receive_.pq->end() -
+                                                                                   segment.size());
                                         }
                                 } else {
                                         // ignore retransmission
@@ -1181,16 +1180,23 @@ void tcb_t::start_connecting() {
                 },
         };
 
-        auto out_buffer{std::make_unique<base_packet>(tcp_header_t::fixed_size() + 8)};
+        auto const additional_room{ethernetv2_header_t::size() + ipv4_header_t::size()};
+
+        auto const room{additional_room + tcp_header_t::fixed_size() + 8};
+
+        auto out_buffer{
+                std::make_unique<base_packet>(std::make_unique_for_overwrite<std::byte[]>(room),
+                                              room, additional_room),
+        };
 
         assert(0 == (tcp_header_t::fixed_size() & 0x3));
 
-        tcp_header_t out_tcp{
+        auto const out_tcp = tcp_header_t{
                 .src_port    = local_info_.port_addr,
                 .dst_port    = remote_info_.port_addr,
                 .seq_no      = generate_isn(),
                 .ack_no      = 0,
-                .data_offset = (tcp_header_t::fixed_size() + 8) >> 2,
+                .data_offset = static_cast<uint16_t>(out_buffer->payload().size() >> 2),
                 .SYN         = 1,
                 .window      = send_.state.window,
         };
@@ -1198,7 +1204,7 @@ void tcb_t::start_connecting() {
         send_.state.seq_nr_unack = out_tcp.seq_no;
         send_.state.seq_nr_next  = out_tcp.seq_no + 1;
 
-        encode_options({out_tcp.produce_to_net(out_buffer->get_pointer()), 8}, opts);
+        encode_options({out_tcp.produce_to_net(out_buffer->head()), 8}, opts);
 
         state_      = kTCPSynSent;
         next_state_ = kTCPEstablished;

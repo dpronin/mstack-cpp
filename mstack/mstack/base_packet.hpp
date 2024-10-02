@@ -1,94 +1,85 @@
 #pragma once
 
-#include <cerrno>
+#include <cassert>
 #include <cstddef>
 
-#include <algorithm>
-#include <iterator>
 #include <memory>
 #include <span>
 #include <utility>
-#include <vector>
 
 namespace mstack {
 
 class base_packet {
 private:
-        std::vector<std::pair<int, std::unique_ptr<std::byte[]>>> _data_stack;
-        std::unique_ptr<std::byte[]>                              _raw_data;
+        std::unique_ptr<std::byte[]> data_;
+        size_t                       capacity_;
+
+        std::byte* start_;
+        std::byte* end_;
+
+        std::byte* head_;
+        std::byte* tail_;
 
 public:
-        int _data_stack_len;
-        int _head;
-        int _len;
-
-public:
-        explicit base_packet(std::span<std::byte const> buf)
-            : _raw_data(std::make_unique_for_overwrite<std::byte[]>(buf.size())),
-              _head(0),
-              _len(buf.size()),
-              _data_stack_len(0) {
-                std::ranges::copy(buf, _raw_data.get());
+        explicit base_packet(std::unique_ptr<std::byte[]> buf, size_t len, size_t head_off = 0)
+            : data_{std::move(buf)},
+              capacity_{len},
+              start_{data_.get()},
+              end_{start_ + capacity_},
+              head_{start_ + head_off},
+              tail_{end_} {
+                assert(start_);
+                assert(!(head_ > tail_));
         }
-
-        explicit base_packet(int len)
-            : _raw_data(std::make_unique<std::byte[]>(len)),
-              _head(0),
-              _len(len),
-              _data_stack_len(0) {}
 
         ~base_packet() = default;
 
         base_packet(base_packet const&)            = delete;
         base_packet& operator=(base_packet const&) = delete;
 
-        base_packet(base_packet&&)            = delete;
-        base_packet& operator=(base_packet&&) = delete;
+        base_packet(base_packet&&)            = default;
+        base_packet& operator=(base_packet&&) = default;
 
 public:
-        std::byte* get_pointer() { return &_raw_data[_head]; }
+        std::byte const* head() const { return head_; }
+        std::byte*       head() { return head_; }
 
-        int get_remaining_len() { return _len - _head; }
+        std::byte const* tail() const { return tail_; }
+        std::byte*       tail() { return tail_; }
 
-        int get_total_len() { return _data_stack_len; }
+        std::span<std::byte>       payload() { return {head(), tail()}; }
+        std::span<std::byte const> payload() const { return {head(), tail()}; }
 
-        void add_offset(int offset) { _head += offset; }
+        size_t capacity() const { return capacity_; }
 
-        void reflush_packet(int len) {
-                _data_stack_len += _len;
-                _data_stack.push_back({_len, std::move(_raw_data)});
+        size_t push_front_room() const { return head() - start_; }
+        size_t pop_front_room() const { return payload().size(); }
 
-                _head     = 0;
-                _len      = len;
-                _raw_data = std::make_unique<std::byte[]>(len);
+        size_t push_back_room() const { return end_ - tail(); }
+        size_t pop_back_room() const { return payload().size(); }
+
+        std::byte* pop_front(size_t n) {
+                head_ += n;
+                assert(!(head_ > tail_));
+                return head_;
         }
 
-        template <std::output_iterator<std::byte> Iterator>
-        Iterator export_payload(Iterator begin, Iterator end, int skip_bytes) {
-                for (int i = _head + skip_bytes; begin != end && i < _len; i++)
-                        *begin++ = _raw_data[i];
-                return begin;
+        std::byte* push_front(size_t n) {
+                head_ -= n;
+                assert(!(start_ > head_));
+                return head_;
         }
 
-        std::byte* export_payload(std::byte* buf, int skip_bytes) {
-                for (int i = _head + skip_bytes; i < _len; i++)
-                        *buf++ = _raw_data[i];
-                return buf;
+        std::byte* pop_back(size_t n) {
+                tail_ -= n;
+                assert(!(head_ > tail_));
+                return tail_;
         }
 
-        ssize_t export_data(std::span<std::byte> buf) {
-                if (_data_stack_len > buf.size()) return -EOVERFLOW;
-
-                reflush_packet(1);
-
-                int index = 0;
-                for (int i = _data_stack.size() - 1; i >= 0; i--) {
-                        for (int j = 0; j < _data_stack[i].first; j++) {
-                                buf[index++] = _data_stack[i].second[j];
-                        }
-                }
-
-                return index;
+        std::byte* push_back(size_t n) {
+                tail_ += n;
+                assert(!(tail_ > end_));
+                return tail_;
         }
 };
 

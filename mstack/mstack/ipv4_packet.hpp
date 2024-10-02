@@ -17,7 +17,7 @@ namespace mstack {
 struct ipv4_packet {
         ipv4_addr_t                  src_ipv4_addr;
         ipv4_addr_t                  dst_ipv4_addr;
-        uint16_t                     proto;
+        uint8_t                      proto;
         std::unique_ptr<base_packet> buffer;
 
         friend std::ostream& operator<<(std::ostream& out, ipv4_packet const& p) {

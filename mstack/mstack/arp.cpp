@@ -7,6 +7,9 @@
 
 #include <spdlog/spdlog.h>
 
+#include "arp_header.hpp"
+#include "ethernet_header.hpp"
+
 namespace {
 std::byte operator""_b(unsigned long long x) { return static_cast<std::byte>(x); }
 }  // namespace
@@ -40,7 +43,7 @@ void arp::update(std::pair<mac_addr_t, ipv4_addr_t> const& peer) {
 
 void arp::async_reply(std::pair<mac_addr_t, ipv4_addr_t> const& from,
                       std::pair<mac_addr_t, ipv4_addr_t> const& to,
-                      std::shared_ptr<tap>                      dev) {
+                      ethernetv2_frame&&                        in_frame) {
         arpv4_header_t const out_arp{
                 .htype = 0x0001u,
                 .ptype = 0x0800u,
@@ -53,8 +56,10 @@ void arp::async_reply(std::pair<mac_addr_t, ipv4_addr_t> const& from,
                 .tpa   = to.second,
         };
 
-        auto out_buffer{std::make_unique<base_packet>(arpv4_header_t::size())};
-        out_arp.produce_to_net(out_buffer->get_pointer());
+        auto out_buffer{std::move(in_frame.buffer)};
+
+        out_buffer->push_front(arpv4_header_t::size());
+        out_arp.produce_to_net(out_buffer->head());
 
         spdlog::debug("[ARP] ENQUEUE REPLY {}", out_arp);
 
@@ -63,15 +68,15 @@ void arp::async_reply(std::pair<mac_addr_t, ipv4_addr_t> const& from,
                 .dst_mac_addr = out_arp.tha,
                 .proto        = PROTO,
                 .buffer       = std::move(out_buffer),
-                .dev          = std::move(dev),
+                .dev          = std::move(in_frame.dev),
         });
 }
 
-void arp::process_request(arpv4_header_t const& in_arp, std::shared_ptr<tap> dev) {
+void arp::process_request(arpv4_header_t const& in_arp, ethernetv2_frame&& in_frame) {
         spdlog::debug("[ARP] PROCESS REQ");
         update({in_arp.sha, in_arp.spa});
         if (auto const& tha{arp_cache_->query(in_arp.tpa)})
-                async_reply({*tha, in_arp.tpa}, {in_arp.sha, in_arp.spa}, std::move(dev));
+                async_reply({*tha, in_arp.tpa}, {in_arp.sha, in_arp.spa}, std::move(in_frame));
 }
 
 void arp::async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from,
@@ -89,8 +94,14 @@ void arp::async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from,
                 .tpa   = to,
         };
 
-        auto out_buffer{std::make_unique<base_packet>(arpv4_header_t::size())};
-        out_arp.produce_to_net(out_buffer->get_pointer());
+        auto const room{ethernetv2_header_t::size() + arpv4_header_t::size()};
+
+        auto out_buffer{
+                std::make_unique<base_packet>(std::make_unique_for_overwrite<std::byte[]>(room),
+                                              room, ethernetv2_header_t::size()),
+        };
+
+        out_arp.produce_to_net(out_buffer->head());
 
         spdlog::debug("[ARP] ENQUEUE REQUEST {}", out_arp);
 
@@ -113,15 +124,16 @@ void arp::process_reply(arpv4_header_t const& in_arp) {
 
 void arp::process(ethernetv2_frame&& in_frame) {
         auto const in_arp{
-                arpv4_header_t::consume_from_net(in_frame.buffer->get_pointer()),
+                arpv4_header_t::consume_from_net(in_frame.buffer->head()),
         };
+        in_frame.buffer->pop_front(arpv4_header_t::size());
 
         spdlog::debug("[ARP] RECEIVE PACKET {}", in_arp);
 
         if (0x0001 == in_arp.htype && 0x0800 == in_arp.ptype) {
                 switch (in_arp.oper) {
                         case 0x0001u:
-                                process_request(in_arp, std::move(in_frame.dev));
+                                process_request(in_arp, std::move(in_frame));
                                 break;
                         case 0x0002u:
                                 process_reply(in_arp);

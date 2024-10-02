@@ -40,8 +40,8 @@ private:
         void update(std::pair<mac_addr_t, ipv4_addr_t> const& peer);
         void async_reply(std::pair<mac_addr_t, ipv4_addr_t> const& from,
                          std::pair<mac_addr_t, ipv4_addr_t> const& to,
-                         std::shared_ptr<tap>                      dev);
-        void process_request(arpv4_header_t const& in_arp, std::shared_ptr<tap> dev);
+                         ethernetv2_frame&&                        in_frame);
+        void process_request(arpv4_header_t const& in_arp, ethernetv2_frame&& in_frame);
         void async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from,
                            ipv4_addr_t const&                        to,
                            std::shared_ptr<tap>                      dev);

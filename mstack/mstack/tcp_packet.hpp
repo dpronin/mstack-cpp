@@ -15,7 +15,7 @@
 namespace mstack {
 
 struct tcp_packet {
-        uint16_t                     proto;
+        uint8_t                      proto;
         ipv4_port_t                  remote_info;
         ipv4_port_t                  local_info;
         std::unique_ptr<base_packet> buffer;

@@ -28,7 +28,7 @@ struct tcp_header_t {
         uint16_t FIN : 1;
 
         uint16_t window;
-        uint16_t checksum;
+        uint16_t chsum;
         uint16_t urgent_pointer;
 
         static constexpr size_t fixed_size() { return sizeof(tcp_header_t); }
@@ -54,7 +54,7 @@ struct tcp_header_t {
                 tcp_header.SYN            = (header_length_flags >> 1) & 0x1;
                 tcp_header.FIN            = (header_length_flags >> 0) & 0x1;
                 tcp_header.window         = utils::consume_from_net<uint16_t>(ptr);
-                tcp_header.checksum       = utils::consume_from_net<uint16_t>(ptr);
+                tcp_header.chsum          = utils::consume_from_net<uint16_t>(ptr);
                 tcp_header.urgent_pointer = utils::consume_from_net<uint16_t>(ptr);
 
                 return tcp_header;
@@ -69,7 +69,7 @@ struct tcp_header_t {
                                                              URG << 5 | ACK << 4 | PSH << 3 |
                                                              RST << 2 | SYN << 1 | FIN);
                 utils::produce_to_net(ptr, window);
-                utils::produce_to_net(ptr, checksum);
+                utils::produce_to_net(ptr, chsum);
                 utils::produce_to_net(ptr, urgent_pointer);
                 return ptr;
         }

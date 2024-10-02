@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include <ostream>
@@ -13,13 +14,13 @@
 namespace mstack {
 
 struct icmp_header_t {
-        uint8_t  proto_type = 0;
-        uint8_t  code       = 0;
-        uint16_t checksum   = 0;
-        uint16_t id         = 0;
-        uint16_t seq        = 0;
+        uint8_t  proto_type;
+        uint8_t  code;
+        uint16_t checksum;
+        uint16_t id;
+        uint16_t seq;
 
-        static constexpr size_t size() { return 1 + 1 + 2 + 2 + 2; }
+        static constexpr size_t size() { return sizeof(icmp_header_t); }
 
         static icmp_header_t consume_from_net(std::byte* ptr) {
                 return {
@@ -44,7 +45,7 @@ struct icmp_header_t {
                 using u = uint32_t;
                 return out << std::format("[ICMP PACKET] {} {} {} {}", u(m.proto_type), u(m.code),
                                           u(m.id), u(m.seq));
-        };
+        }
 };
 
 }  // namespace mstack

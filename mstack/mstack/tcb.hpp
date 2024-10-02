@@ -138,9 +138,9 @@ private:
 
         bool tcp_handle_close_state(tcp_header_t const& tcph);
 
-        bool tcp_handle_listen_state(tcp_header_t const& tcph, tcp_packet const& in_pkt);
+        bool tcp_handle_listen_state(tcp_header_t const& tcph, std::span<std::byte const> opts);
 
-        bool tcp_handle_syn_sent(tcp_header_t const& tcph, tcp_packet const& in_pkt);
+        bool tcp_handle_syn_sent(tcp_header_t const& tcph, std::span<std::byte const> opts);
 
         bool tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen);
 

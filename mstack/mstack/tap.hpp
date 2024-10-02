@@ -3,7 +3,6 @@
 #include <cassert>
 #include <cstddef>
 
-#include <array>
 #include <memory>
 #include <optional>
 #include <queue>
@@ -34,9 +33,6 @@ private:
         std::optional<ipv4_addr_t>            ipv4_addr_;
         std::string                           ndev_;
         std::queue<raw_packet>                out_queue_;
-
-        std::array<std::byte, 1500> in_buf_;
-        std::array<std::byte, 1500> out_buf_;
 
         template <typename Completion>
         void async_read_some(std::span<std::byte> buf, Completion&& completion);

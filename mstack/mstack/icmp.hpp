@@ -23,14 +23,15 @@ public:
 
         void process(ipv4_packet&& in_pkt) override {
                 auto const in_icmp_h{
-                        icmp_header_t::consume_from_net(in_pkt.buffer->get_pointer()),
+                        icmp_header_t::consume_from_net(in_pkt.buffer->head()),
                 };
+                in_pkt.buffer->pop_front(icmp_header_t::size());
 
                 spdlog::debug("[RECEIVED ICMP] {}", in_icmp_h);
 
                 switch (in_icmp_h.proto_type) {
                         case 0x08:
-                                process_request(in_icmp_h, in_pkt);
+                                process_request(in_icmp_h, std::move(in_pkt));
                                 break;
                         default:
                                 break;
@@ -38,11 +39,11 @@ public:
         }
 
 private:
-        void process_request(icmp_header_t const& in_icmp_h, ipv4_packet const& in_pkt) {
-                async_reply(in_icmp_h, in_pkt);
+        void process_request(icmp_header_t const& in_icmp_h, ipv4_packet&& in_pkt) {
+                async_reply(in_icmp_h, std::move(in_pkt));
         }
 
-        void async_reply(icmp_header_t const& in_icmp_h, ipv4_packet const& in_packet) {
+        void async_reply(icmp_header_t const& in_icmp_h, ipv4_packet&& in_pkt) {
                 auto out_icmp_header{
                         icmp_header_t{
                                 .id  = in_icmp_h.id,
@@ -50,31 +51,20 @@ private:
                         },
                 };
 
-                auto out_buffer{
-                        std::make_unique<base_packet>(in_packet.buffer->get_remaining_len()),
-                };
+                auto out_buffer{std::move(in_pkt.buffer)};
 
-                std::byte* payload_pointer{
-                        out_icmp_header.produce_to_net(out_buffer->get_pointer()),
-                };
+                out_buffer->push_front(icmp_header_t::size());
+                out_icmp_header.produce_to_net(out_buffer->head());
 
-                in_packet.buffer->export_payload(payload_pointer, icmp_header_t::size());
-
-                std::byte* pointer{out_buffer->get_pointer()};
-                auto const checksum{
-                        utils::checksum_net(
-                                {pointer, static_cast<size_t>(out_buffer->get_remaining_len())}),
-                };
-
-                out_icmp_header.checksum = checksum;
-                out_icmp_header.produce_to_net(pointer);
+                out_icmp_header.checksum = utils::checksum_net(out_buffer->payload());
+                out_icmp_header.produce_to_net(out_buffer->head());
 
                 spdlog::debug("[ICMP] ENQUEUE REPLY {}", out_icmp_header);
 
                 enqueue({
-                        .src_ipv4_addr = in_packet.dst_ipv4_addr,
-                        .dst_ipv4_addr = in_packet.src_ipv4_addr,
-                        .proto         = in_packet.proto,
+                        .src_ipv4_addr = in_pkt.dst_ipv4_addr,
+                        .dst_ipv4_addr = in_pkt.src_ipv4_addr,
+                        .proto         = in_pkt.proto,
                         .buffer        = std::move(out_buffer),
                 });
         }

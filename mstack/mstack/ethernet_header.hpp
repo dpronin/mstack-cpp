@@ -14,7 +14,7 @@ struct ethernetv2_header_t {
         mac_addr_t src_mac_addr;
         uint16_t   proto = 0;
 
-        static constexpr size_t size() { return mac_addr_t::size() + mac_addr_t::size() + 2; }
+        static constexpr size_t size() { return 2 * mac_addr_t::size() + 2; }
 
         static ethernetv2_header_t consume_from_net(std::byte* ptr) {
                 ethernetv2_header_t ethernet_header;

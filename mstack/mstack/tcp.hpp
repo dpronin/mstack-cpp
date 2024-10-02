@@ -27,22 +27,18 @@ public:
         void process(tcp_packet&& in_pkt) override {
                 spdlog::debug("[TCP] HDL FROM U-LAYER {}", in_pkt);
 
-                uint32_t sum{0};
+                uint32_t const tcp_pseudo_header_chsum{
+                        utils::hton(in_pkt.local_info.ipv4_addr.raw()) +
+                                utils::hton(in_pkt.remote_info.ipv4_addr.raw()) +
+                                utils::hton(static_cast<uint16_t>(in_pkt.proto)) +
+                                utils::hton(static_cast<uint16_t>(in_pkt.buffer->payload().size())),
+                };
 
-                sum += utils::ntoh(in_pkt.local_info.ipv4_addr.raw());
-                sum += utils::ntoh(in_pkt.remote_info.ipv4_addr.raw());
-                sum += utils::ntoh(in_pkt.proto);
-                sum += utils::ntoh(static_cast<uint16_t>(in_pkt.buffer->get_remaining_len()));
+                auto tcp_header{tcp_header_t::consume_from_net(in_pkt.buffer->head())};
+                tcp_header.chsum =
+                        utils::checksum_net(in_pkt.buffer->payload(), tcp_pseudo_header_chsum);
 
-                auto tcp_header{tcp_header_t::consume_from_net(in_pkt.buffer->get_pointer())};
-
-                tcp_header.checksum = utils::checksum_net(
-                        {
-                                in_pkt.buffer->get_pointer(),
-                                static_cast<size_t>(in_pkt.buffer->get_remaining_len()),
-                        },
-                        sum);
-                tcp_header.produce_to_net(in_pkt.buffer->get_pointer());
+                tcp_header.produce_to_net(in_pkt.buffer->head());
 
                 enqueue({
                         .src_ipv4_addr = in_pkt.local_info.ipv4_addr,
@@ -55,12 +51,12 @@ public:
 private:
         std::optional<tcp_packet> make_packet(ipv4_packet&& in_pkt) override {
                 auto const tcp_header{
-                        tcp_header_t::consume_from_net(in_pkt.buffer->get_pointer()),
+                        tcp_header_t::consume_from_net(in_pkt.buffer->head()),
                 };
 
                 spdlog::debug("[RECEIVE] {}", tcp_header);
 
-                tcp_packet out_tcp_packet{
+                return tcp_packet{
                         .proto = PROTO,
                         .remote_info =
                                 {
@@ -74,8 +70,6 @@ private:
                                 },
                         .buffer = std::move(in_pkt.buffer),
                 };
-
-                return std::move(out_tcp_packet);
         }
 };
 
