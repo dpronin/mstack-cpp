@@ -21,12 +21,13 @@ arp::arp(boost::asio::io_context& io_ctx, std::shared_ptr<arp_cache_t> arp_cache
 void arp::async_resolve(mac_addr_t const&                          from_mac,
                         ipv4_addr_t const&                         from_ipv4,
                         ipv4_addr_t const&                         to_ipv4,
+                        std::shared_ptr<tap>                       dev,
                         std::function<void(mac_addr_t const& mac)> cb) {
         if (auto const mac{arp_cache_->query(to_ipv4)}) {
                 io_ctx_.post([cb = std::move(cb), mac = *mac] mutable { cb(mac); });
         } else {
                 on_replies_[to_ipv4].connect(cb);
-                async_request({from_mac, from_ipv4}, to_ipv4);
+                async_request({from_mac, from_ipv4}, to_ipv4, std::move(dev));
         }
 }
 
@@ -38,7 +39,8 @@ void arp::update(std::pair<mac_addr_t, ipv4_addr_t> const& peer) {
 }
 
 void arp::async_reply(std::pair<mac_addr_t, ipv4_addr_t> const& from,
-                      std::pair<mac_addr_t, ipv4_addr_t> const& to) {
+                      std::pair<mac_addr_t, ipv4_addr_t> const& to,
+                      std::shared_ptr<tap>                      dev) {
         arpv4_header_t const out_arp{
                 .htype = 0x0001u,
                 .ptype = 0x0800u,
@@ -61,17 +63,20 @@ void arp::async_reply(std::pair<mac_addr_t, ipv4_addr_t> const& from,
                 .dst_mac_addr = out_arp.tha,
                 .proto        = PROTO,
                 .buffer       = std::move(out_buffer),
+                .dev          = std::move(dev),
         });
 }
 
-void arp::process_request(arpv4_header_t const& in_arp) {
+void arp::process_request(arpv4_header_t const& in_arp, std::shared_ptr<tap> dev) {
         spdlog::debug("[ARP] PROCESS REQ");
         update({in_arp.sha, in_arp.spa});
         if (auto const& tha{arp_cache_->query(in_arp.tpa)})
-                async_reply({*tha, in_arp.tpa}, {in_arp.sha, in_arp.spa});
+                async_reply({*tha, in_arp.tpa}, {in_arp.sha, in_arp.spa}, std::move(dev));
 }
 
-void arp::async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from, ipv4_addr_t const& to) {
+void arp::async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from,
+                        ipv4_addr_t const&                        to,
+                        std::shared_ptr<tap>                      dev) {
         arpv4_header_t const out_arp{
                 .htype = 0x0001,
                 .ptype = 0x0800,
@@ -95,6 +100,7 @@ void arp::async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from, ipv4_add
                         std::array<std::byte, 6>{0xff_b, 0xff_b, 0xff_b, 0xff_b, 0xff_b, 0xff_b},
                 .proto  = PROTO,
                 .buffer = std::move(out_buffer),
+                .dev    = std::move(dev),
         });
 }
 
@@ -105,9 +111,9 @@ void arp::process_reply(arpv4_header_t const& in_arp) {
         on_reply(in_arp.sha);
 }
 
-void arp::process(ethernetv2_frame&& in_packet) {
+void arp::process(ethernetv2_frame&& in_frame) {
         auto const in_arp{
-                arpv4_header_t::consume_from_net(in_packet.buffer->get_pointer()),
+                arpv4_header_t::consume_from_net(in_frame.buffer->get_pointer()),
         };
 
         spdlog::debug("[ARP] RECEIVE PACKET {}", in_arp);
@@ -115,7 +121,7 @@ void arp::process(ethernetv2_frame&& in_packet) {
         if (0x0001 == in_arp.htype && 0x0800 == in_arp.ptype) {
                 switch (in_arp.oper) {
                         case 0x0001u:
-                                process_request(in_arp);
+                                process_request(in_arp, std::move(in_frame.dev));
                                 break;
                         case 0x0002u:
                                 process_reply(in_arp);

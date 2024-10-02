@@ -14,11 +14,14 @@
 
 namespace mstack {
 
+class tap;
+
 struct ethernetv2_frame {
         mac_addr_t                   src_mac_addr;
         mac_addr_t                   dst_mac_addr;
         uint16_t                     proto;
         std::unique_ptr<base_packet> buffer;
+        std::shared_ptr<tap>         dev;
 
         friend std::ostream& operator<<(std::ostream& out, ethernetv2_frame const& p) {
                 out << p.src_mac_addr;

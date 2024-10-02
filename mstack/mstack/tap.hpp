@@ -46,8 +46,6 @@ private:
 
         void send_front_pkt_out();
 
-        void process(raw_packet&& pkt);
-
         void async_receive();
 
         explicit tap(netns& net = netns::_default_(), std::string_view name = "");
@@ -68,6 +66,8 @@ public:
         std::string const& name() const;
 
         auto& get_executor();
+
+        void process(raw_packet&& pkt);
 
         void                       set_ipv4_addr(ipv4_addr_t const& ipv4_addr);
         std::optional<ipv4_addr_t> ipv4_addr() const;

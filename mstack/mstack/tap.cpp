@@ -61,10 +61,12 @@ void tap::async_receive() {
                         return;
                 }
                 spdlog::debug("[TAP {}] RECEIVE {}", ndev_, nbytes);
-                net_.eth().receive(mstack::raw_packet{
-                        .buffer = std::make_unique<mstack::base_packet>(
-                                std::span{in_buf_.data(), nbytes}),
-                });
+                net_.eth().receive(
+                        {
+                                .buffer = std::make_unique<mstack::base_packet>(
+                                        std::span{in_buf_.data(), nbytes}),
+                        },
+                        shared_from_this());
                 async_receive();
         });
 }
@@ -108,8 +110,6 @@ tap::tap(netns& net /* = netns::_default_()*/, std::string_view name /* = ""*/)
         spdlog::debug("[TAP {}]: MAC ADDRESS {} IS SET", ndev_, mac_addr_);
 
         pfd_.assign(fd_.get_fd());
-
-        net_.eth().under_handler_update(std::bind(&tap::process, this, std::placeholders::_1));
 
         async_receive();
 }

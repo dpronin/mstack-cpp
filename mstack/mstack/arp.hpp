@@ -33,16 +33,20 @@ public:
         void async_resolve(mac_addr_t const&                          from_mac,
                            ipv4_addr_t const&                         from_ipv4,
                            ipv4_addr_t const&                         to_ipv4,
+                           std::shared_ptr<tap>                       dev,
                            std::function<void(mac_addr_t const& mac)> cb);
 
 private:
         void update(std::pair<mac_addr_t, ipv4_addr_t> const& peer);
         void async_reply(std::pair<mac_addr_t, ipv4_addr_t> const& from,
-                         std::pair<mac_addr_t, ipv4_addr_t> const& to);
-        void process_request(arpv4_header_t const& in_arp);
-        void async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from, ipv4_addr_t const& to);
+                         std::pair<mac_addr_t, ipv4_addr_t> const& to,
+                         std::shared_ptr<tap>                      dev);
+        void process_request(arpv4_header_t const& in_arp, std::shared_ptr<tap> dev);
+        void async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from,
+                           ipv4_addr_t const&                        to,
+                           std::shared_ptr<tap>                      dev);
         void process_reply(arpv4_header_t const& in_arp);
-        void process(ethernetv2_frame&& in_packet) override;
+        void process(ethernetv2_frame&& in_frame) override;
 
         std::shared_ptr<arp_cache_t> arp_cache_;
         std::unordered_map<ipv4_addr_t, boost::signals2::signal<void(mac_addr_t const& mac)>>

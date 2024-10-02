@@ -4,6 +4,7 @@
 
 #include <concepts>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <queue>
 #include <unordered_map>
@@ -16,6 +17,8 @@
 #include "raw_packet.hpp"
 
 namespace mstack {
+
+class tap;
 
 template <typename UnderPacketType, typename UpperPacketType>
 class base_protocol {
@@ -92,8 +95,8 @@ class base_protocol<void, UpperPacketType> {
 private:
         boost::asio::io_context&                                      io_ctx_;
         std::unordered_map<int, std::function<void(UpperPacketType)>> upper_protos_;
-        std::function<void(raw_packet&&)>                             under_proto_;
-        std::queue<raw_packet>                                        packet_queue_;
+        std::function<void(raw_packet&&, std::shared_ptr<tap>)>       under_proto_;
+        std::queue<std::pair<raw_packet, std::shared_ptr<tap>>>       packet_queue_;
 
 public:
         template <std::convertible_to<int> Index, typename UpperProto>
@@ -103,14 +106,14 @@ public:
                 };
         }
 
-        void under_handler_update(std::function<void(raw_packet&&)> handler) {
+        void under_handler_update(std::function<void(raw_packet&&, std::shared_ptr<tap>)> handler) {
                 under_proto_ = std::move(handler);
         }
 
         void receive(UpperPacketType&& in) { process(std::move(in)); }
 
-        void receive(raw_packet&& in) {
-                if (auto out{make_packet(std::move(in))}) dispatch(std::move(*out));
+        void receive(raw_packet&& in, std::shared_ptr<tap> dev) {
+                if (auto out{make_packet(std::move(in), std::move(dev))}) dispatch(std::move(*out));
         }
 
 protected:
@@ -123,11 +126,11 @@ protected:
         base_protocol(base_protocol&&)            = delete;
         base_protocol& operator=(base_protocol&&) = delete;
 
-        void enqueue(raw_packet&& pkt) {
-                packet_queue_.push(std::move(pkt));
+        void enqueue(raw_packet&& pkt, std::shared_ptr<tap> dev) {
+                packet_queue_.push({std::move(pkt), std::move(dev)});
                 io_ctx_.post([this] {
                         if (under_proto_) {
-                                under_proto_(std::move(packet_queue_.front()));
+                                std::apply(under_proto_, std::move(packet_queue_.front()));
                                 packet_queue_.pop();
                         }
                 });
@@ -135,7 +138,9 @@ protected:
 
         virtual void process(UpperPacketType&& in_pkt [[maybe_unused]]) {}
 
-        virtual std::optional<UpperPacketType> make_packet(raw_packet&& in_pkt [[maybe_unused]]) {
+        virtual std::optional<UpperPacketType> make_packet(raw_packet&& in_pkt [[maybe_unused]],
+                                                           std::shared_ptr<tap> dev
+                                                           [[maybe_unused]]) {
                 return std::nullopt;
         }
 
