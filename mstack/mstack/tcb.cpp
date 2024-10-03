@@ -403,7 +403,7 @@ bool tcb_t::tcp_handle_listen_state(tcp_header_t const& tcph, std::span<std::byt
 
                 spdlog::debug("[SEND SYN ACK]");
 
-                return false;
+                return true;
         }
 
         /**
@@ -618,7 +618,7 @@ bool tcb_t::tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen) {
                 case kTCPClosing:
                 case kTCPLastAck:
                 case kTCPTimeWait:
-                        if (seglen == 0 && receive_.state.window == 0) {
+                        if (seglen == 0 && send_.state.window == 0) {
                                 if (tcph.seq_no == receive_.state.next) {
                                         return true;
                                 } else {
@@ -626,29 +626,29 @@ bool tcb_t::tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen) {
                                 }
                         }
 
-                        if (seglen == 0 && receive_.state.window > 0) {
+                        if (seglen == 0 && send_.state.window > 0) {
                                 // RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
                                 if (receive_.state.next <= tcph.seq_no &&
-                                    tcph.seq_no < receive_.state.next + receive_.state.window) {
+                                    tcph.seq_no < receive_.state.next + send_.state.window) {
                                         return true;
                                 } else {
                                         return false;
                                 }
                         }
 
-                        if (seglen > 0 && receive_.state.window == 0) {
+                        if (seglen > 0 && send_.state.window == 0) {
                                 return false;
                         }
 
-                        if (seglen > 0 && receive_.state.window > 0) {
+                        if (seglen > 0 && send_.state.window > 0) {
                                 // RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
                                 //        or RCV.NXT =< SEG.SEQ+SEG.LEN-1 < RCV.NXT +
                                 //        RCV.WND
                                 if ((receive_.state.next <= tcph.seq_no &&
-                                     receive_.state.next + receive_.state.window) ||
+                                     receive_.state.next + send_.state.window) ||
                                     (receive_.state.next <= tcph.seq_no + seglen - 1 &&
                                      tcph.seq_no + seglen - 1 <
-                                             receive_.state.next + receive_.state.window)) {
+                                             receive_.state.next + send_.state.window)) {
                                         return true;
                                 } else {
                                         return false;
@@ -660,11 +660,12 @@ bool tcb_t::tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen) {
 }
 
 void tcb_t::process(tcp_packet&& in_pkt) {
+        assert(!(in_pkt.buffer->payload().size() < tcp_header_t::fixed_size()));
         auto const tcph{tcp_header_t::consume_from_net(in_pkt.buffer->head())};
-        in_pkt.buffer->pop_front(tcp_header_t::fixed_size());
 
         auto const hlen{tcph.data_offset << 2};
         auto const optlen{hlen - tcp_header_t::fixed_size()};
+        in_pkt.buffer->pop_front(hlen - optlen);
 
         auto const opts{std::as_bytes(in_pkt.buffer->payload().subspan(0, optlen))};
         in_pkt.buffer->pop_front(optlen);
@@ -683,8 +684,6 @@ void tcb_t::process(tcp_packet&& in_pkt) {
         spdlog::debug("[TCP] [CHECK TCP_SYN_SENT] {}", *this);
         if (state_ == kTCPSynSent && tcp_handle_syn_sent(tcph, opts)) return;
 
-        spdlog::debug("[TCP] [PROCESS 1] {}", *this);
-
         // first check sequence number
         if (!tcp_check_segment(tcph, segment.size())) {
                 spdlog::warn("[SEGMENT SEQ FAIL]");
@@ -694,8 +693,6 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                 }
                 return;
         }
-
-        spdlog::debug("[TCP] [PROCESS 2] {}", *this);
 
         // TODO: second check the RST bit
         if (tcph.RST) {
@@ -755,7 +752,6 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                 }
         }
 
-        spdlog::debug("[TCP] [PROCESS 3] {}", *this);
         // TODO: third check security and precedence
         /**
          *  SYN-RECEIVED
@@ -779,8 +775,6 @@ void tcb_t::process(tcp_packet&& in_pkt) {
          *  different security or precedence from causing an abort of the
          *  current connection.
          */
-
-        spdlog::debug("[TCP] [PROCESS 4] {}", *this);
 
         // TODO: fourth, check the SYN bit
         if (tcph.SYN) {
@@ -817,8 +811,6 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                                 return;
                 }
         }
-
-        spdlog::debug("[TCP] [PROCESS 5] {}", *this);
 
         // fifth check the ACK field
         if (tcph.ACK) {
@@ -946,8 +938,6 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                 }
         }
 
-        spdlog::debug("[TCP] [PROCESS 6] {}", *this);
-
         // TODO: sixth, check the URG bit
         if (tcph.URG) {
                 switch (state_) {
@@ -982,8 +972,6 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                                 break;
                 }
         }
-
-        spdlog::debug("[TCP] [PROCESS 7] {}", *this);
 
         // seventh, process the segment text
         if (segment.size() > 0) {
@@ -1083,8 +1071,6 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                 }
         }
 
-        spdlog::debug("[TCP] [PROCESS 8] {}", *this);
-
         // eighth, check the FIN bit
         if (tcph.FIN) {
                 switch (state_) {
@@ -1154,8 +1140,6 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                         case kTCPTimeWait:
                                 return;
                 }
-
-                spdlog::debug("[TCP] [PROCESS 9] {}", *this);
         }
 }
 
