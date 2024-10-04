@@ -63,7 +63,7 @@ public:
 
         auto& get_executor();
 
-        void process(skbuff&& skb);
+        void process(skbuff&& skb_in);
 
         void                       set_ipv4_addr(ipv4_addr_t const& ipv4_addr);
         std::optional<ipv4_addr_t> ipv4_addr() const;

@@ -49,8 +49,8 @@ void device::send_front_pkt_out() {
         });
 }
 
-void device::process(skbuff&& skb) {
-        out_skb_q_.push(std::move(skb));
+void device::process(skbuff&& skb_in) {
+        out_skb_q_.push(std::move(skb_in));
         if (1 == out_skb_q_.size()) send_front_pkt_out();
 }
 

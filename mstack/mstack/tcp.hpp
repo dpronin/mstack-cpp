@@ -24,34 +24,34 @@ public:
         tcp(tcp&&)            = delete;
         tcp& operator=(tcp&&) = delete;
 
-        void process(tcp_packet&& in_pkt) override {
-                spdlog::debug("[TCP] HDL FROM U-LAYER {}", in_pkt);
+        void process(tcp_packet&& pkt_in) override {
+                spdlog::debug("[TCP] HDL FROM U-LAYER {}", pkt_in);
 
                 uint32_t const tcp_pseudo_header_chsum{
-                        utils::hton(in_pkt.local_info.ipv4_addr.raw()) +
-                                utils::hton(in_pkt.remote_info.ipv4_addr.raw()) +
-                                utils::hton(static_cast<uint16_t>(in_pkt.proto)) +
-                                utils::hton(static_cast<uint16_t>(in_pkt.skb.payload().size())),
+                        utils::hton(pkt_in.local_info.ipv4_addr.raw()) +
+                                utils::hton(pkt_in.remote_info.ipv4_addr.raw()) +
+                                utils::hton(static_cast<uint16_t>(pkt_in.proto)) +
+                                utils::hton(static_cast<uint16_t>(pkt_in.skb.payload().size())),
                 };
 
-                auto tcp_header{tcp_header_t::consume_from_net(in_pkt.skb.head())};
+                auto tcp_header{tcp_header_t::consume_from_net(pkt_in.skb.head())};
                 tcp_header.chsum =
-                        utils::checksum_net(in_pkt.skb.payload(), tcp_pseudo_header_chsum);
+                        utils::checksum_net(pkt_in.skb.payload(), tcp_pseudo_header_chsum);
 
-                tcp_header.produce_to_net(in_pkt.skb.head());
+                tcp_header.produce_to_net(pkt_in.skb.head());
 
                 enqueue({
-                        .src_ipv4_addr = in_pkt.local_info.ipv4_addr,
-                        .dst_ipv4_addr = in_pkt.remote_info.ipv4_addr,
-                        .proto         = in_pkt.proto,
-                        .skb           = std::move(in_pkt.skb),
+                        .src_ipv4_addr = pkt_in.local_info.ipv4_addr,
+                        .dst_ipv4_addr = pkt_in.remote_info.ipv4_addr,
+                        .proto         = pkt_in.proto,
+                        .skb           = std::move(pkt_in.skb),
                 });
         }
 
 private:
-        std::optional<tcp_packet> make_packet(ipv4_packet&& in_pkt) override {
+        std::optional<tcp_packet> make_packet(ipv4_packet&& pkt_in) override {
                 auto const tcp_header{
-                        tcp_header_t::consume_from_net(in_pkt.skb.head()),
+                        tcp_header_t::consume_from_net(pkt_in.skb.head()),
                 };
 
                 spdlog::debug("[RECEIVE] {}", tcp_header);
@@ -60,15 +60,15 @@ private:
                         .proto = PROTO,
                         .remote_info =
                                 {
-                                        .ipv4_addr = in_pkt.src_ipv4_addr,
+                                        .ipv4_addr = pkt_in.src_ipv4_addr,
                                         .port_addr = tcp_header.src_port,
                                 },
                         .local_info =
                                 {
-                                        .ipv4_addr = in_pkt.dst_ipv4_addr,
+                                        .ipv4_addr = pkt_in.dst_ipv4_addr,
                                         .port_addr = tcp_header.dst_port,
                                 },
-                        .skb = std::move(in_pkt.skb),
+                        .skb = std::move(pkt_in.skb),
                 };
         }
 };

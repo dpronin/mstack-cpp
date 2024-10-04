@@ -80,7 +80,7 @@ public:
                                                  ipv4_port_t const&               local_info,
                                                  std::weak_ptr<tcb_t>)>          cb);
 
-        void process(tcp_packet&& in_pkt) override;
+        void process(tcp_packet&& pkt_in) override;
 };
 
 }  // namespace mstack

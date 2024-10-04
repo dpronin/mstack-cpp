@@ -67,25 +67,25 @@ protected:
                 });
         }
 
-        virtual void process(UpperPacketType&& in_pkt [[maybe_unused]]) = 0;
+        virtual void process(UpperPacketType&& pkt_in [[maybe_unused]]) = 0;
 
-        virtual std::optional<UpperPacketType> make_packet(UnderPacketType&& in_pkt
+        virtual std::optional<UpperPacketType> make_packet(UnderPacketType&& pkt_in
                                                            [[maybe_unused]]) {
                 return std::nullopt;
         }
 
-        virtual std::optional<UpperPacketType> make_packet(skbuff&& skb [[maybe_unused]]) {
+        virtual std::optional<UpperPacketType> make_packet(skbuff&& skb_in [[maybe_unused]]) {
                 return std::nullopt;
         }
 
 private:
-        void dispatch(UpperPacketType&& in_pkt) {
-                if (auto prot_it{upper_protos_.find(in_pkt.proto)};
+        void dispatch(UpperPacketType&& pkt_in) {
+                if (auto prot_it{upper_protos_.find(pkt_in.proto)};
                     upper_protos_.end() != prot_it) {
-                        spdlog::debug("[PROCESS PACKET] PROTO {:#04X}", in_pkt.proto);
-                        prot_it->second(std::move(in_pkt));
+                        spdlog::debug("[PROCESS PACKET] PROTO {:#04X}", pkt_in.proto);
+                        prot_it->second(std::move(pkt_in));
                 } else {
-                        spdlog::debug("[UNKNOWN PACKET] PROTO {:#04X}", in_pkt.proto);
+                        spdlog::debug("[UNKNOWN PACKET] PROTO {:#04X}", pkt_in.proto);
                 }
         }
 };
@@ -137,9 +137,9 @@ protected:
                 });
         }
 
-        virtual void process(UpperPacketType&& in_pkt [[maybe_unused]]) {}
+        virtual void process(UpperPacketType&& pkt_in [[maybe_unused]]) {}
 
-        virtual std::optional<UpperPacketType> make_packet(skbuff&& in_pkt [[maybe_unused]],
+        virtual std::optional<UpperPacketType> make_packet(skbuff&& skb_in [[maybe_unused]],
                                                            std::shared_ptr<device> dev
                                                            [[maybe_unused]]) {
                 return std::nullopt;
@@ -194,7 +194,7 @@ protected:
                 });
         }
 
-        virtual void process(UnderPacketType&& in_pkt [[maybe_unused]]) {}
+        virtual void process(UnderPacketType&& pkt_in [[maybe_unused]]) {}
 };
 
 }  // namespace mstack

@@ -639,18 +639,18 @@ bool tcb_t::tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen) {
         return false;
 }
 
-void tcb_t::process(tcp_packet&& in_pkt) {
-        assert(!(in_pkt.skb.payload().size() < tcp_header_t::fixed_size()));
-        auto const tcph{tcp_header_t::consume_from_net(in_pkt.skb.head())};
+void tcb_t::process(tcp_packet&& pkt_in) {
+        assert(!(pkt_in.skb.payload().size() < tcp_header_t::fixed_size()));
+        auto const tcph{tcp_header_t::consume_from_net(pkt_in.skb.head())};
 
         auto const hlen{tcph.data_offset << 2};
         auto const optlen{hlen - tcp_header_t::fixed_size()};
-        in_pkt.skb.pop_front(hlen - optlen);
+        pkt_in.skb.pop_front(hlen - optlen);
 
-        auto const opts{std::as_bytes(in_pkt.skb.payload().subspan(0, optlen))};
-        in_pkt.skb.pop_front(optlen);
+        auto const opts{std::as_bytes(pkt_in.skb.payload().subspan(0, optlen))};
+        pkt_in.skb.pop_front(optlen);
 
-        auto const segment{std::as_bytes(in_pkt.skb.payload())};
+        auto const segment{std::as_bytes(pkt_in.skb.payload())};
 
         spdlog::debug("[TCP] RECEIVE h={}, hlen={}, optlen={}, seglen={}", tcph, hlen, optlen,
                       segment.size());

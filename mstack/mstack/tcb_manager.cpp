@@ -90,10 +90,10 @@ void tcb_manager::async_connect(endpoint const&                           remote
         }
 }
 
-void tcb_manager::process(tcp_packet&& in_pkt) {
+void tcb_manager::process(tcp_packet&& pkt_in) {
         two_ends_t const two_end = {
-                .remote_info = in_pkt.remote_info,
-                .local_info  = in_pkt.local_info,
+                .remote_info = pkt_in.remote_info,
+                .local_info  = pkt_in.local_info,
         };
 
         spdlog::debug("[TCB MNGR] RECEIVE {}", two_end);
@@ -122,7 +122,7 @@ void tcb_manager::process(tcp_packet&& in_pkt) {
 
         if (p_tcb) {
                 spdlog::debug("[TCB MNGR] HANDLE {}", two_end);
-                p_tcb->process(std::move(in_pkt));
+                p_tcb->process(std::move(pkt_in));
         } else {
                 spdlog::warn("[TCB MNGR] UNKNOWN INPUT {}", two_end);
         }

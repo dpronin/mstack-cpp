@@ -21,17 +21,17 @@ public:
         icmp(icmp&&)            = delete;
         icmp& operator=(icmp&&) = delete;
 
-        void process(ipv4_packet&& in_pkt) override {
+        void process(ipv4_packet&& pkt_in) override {
                 auto const in_icmp_h{
-                        icmp_header_t::consume_from_net(in_pkt.skb.head()),
+                        icmp_header_t::consume_from_net(pkt_in.skb.head()),
                 };
-                in_pkt.skb.pop_front(icmp_header_t::size());
+                pkt_in.skb.pop_front(icmp_header_t::size());
 
                 spdlog::debug("[RECEIVED ICMP] {}", in_icmp_h);
 
                 switch (in_icmp_h.proto_type) {
                         case 0x08:
-                                process_request(in_icmp_h, std::move(in_pkt));
+                                process_request(in_icmp_h, std::move(pkt_in));
                                 break;
                         default:
                                 break;
@@ -39,11 +39,11 @@ public:
         }
 
 private:
-        void process_request(icmp_header_t const& in_icmp_h, ipv4_packet&& in_pkt) {
-                async_reply(in_icmp_h, std::move(in_pkt));
+        void process_request(icmp_header_t const& in_icmp_h, ipv4_packet&& pkt_in) {
+                async_reply(in_icmp_h, std::move(pkt_in));
         }
 
-        void async_reply(icmp_header_t const& in_icmp_h, ipv4_packet&& in_pkt) {
+        void async_reply(icmp_header_t const& in_icmp_h, ipv4_packet&& pkt_in) {
                 auto out_icmp_header{
                         icmp_header_t{
                                 .id  = in_icmp_h.id,
@@ -51,7 +51,7 @@ private:
                         },
                 };
 
-                auto skb_out{std::move(in_pkt.skb)};
+                auto skb_out{std::move(pkt_in.skb)};
 
                 skb_out.push_front(icmp_header_t::size());
                 out_icmp_header.produce_to_net(skb_out.head());
@@ -62,9 +62,9 @@ private:
                 spdlog::debug("[ICMP] ENQUEUE REPLY {}", out_icmp_header);
 
                 enqueue({
-                        .src_ipv4_addr = in_pkt.dst_ipv4_addr,
-                        .dst_ipv4_addr = in_pkt.src_ipv4_addr,
-                        .proto         = in_pkt.proto,
+                        .src_ipv4_addr = pkt_in.dst_ipv4_addr,
+                        .dst_ipv4_addr = pkt_in.src_ipv4_addr,
+                        .proto         = pkt_in.proto,
                         .skb           = std::move(skb_out),
                 });
         }

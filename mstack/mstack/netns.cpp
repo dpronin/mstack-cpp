@@ -67,8 +67,8 @@ netns::impl::impl(boost::asio::io_context& io_ctx)
         arp_.under_proto_update(eth_);
         eth_.upper_proto_update(mstack::ipv4::PROTO, ipv4_);
         eth_.upper_proto_update(mstack::arp::PROTO, arp_);
-        eth_.under_handler_update([](skbuff&& in_pkt, std::shared_ptr<device> dev) {
-                dev->process(std::move(in_pkt));
+        eth_.under_handler_update([](skbuff&& skb_in, std::shared_ptr<device> dev) {
+                dev->process(std::move(skb_in));
         });
 }
 

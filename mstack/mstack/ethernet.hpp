@@ -21,7 +21,7 @@ public:
         void process(ethernetv2_frame&& in_packet) override;
 
 private:
-        std::optional<ethernetv2_frame> make_packet(skbuff&&                in_pkt,
+        std::optional<ethernetv2_frame> make_packet(skbuff&&                skb_in,
                                                     std::shared_ptr<device> dev) override;
 };
 
