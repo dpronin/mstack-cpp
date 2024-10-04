@@ -49,7 +49,7 @@ public:
         void async_write(std::span<std::byte const>                                    buf,
                          std::function<void(boost::system::error_code const&, size_t)> cb);
 
-        endpoint local_endpoint() const { return {local_info}; }
+        endpoint const& local_endpoint() const { return local_info; }
 
         endpoint remote_endpoint() const;
 

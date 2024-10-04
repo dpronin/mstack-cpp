@@ -26,13 +26,16 @@ public:
         acceptor(acceptor&&)            = delete;
         acceptor& operator=(acceptor&&) = delete;
 
+        endpoint const& local_endpoint() const { return ep_; }
+
         void async_accept(socket& sk, std::function<void(boost::system::error_code const&)> cb);
 
         netns& net();
         netns& net() const;
 
 private:
-        netns& net_;
+        netns&   net_;
+        endpoint ep_;
         std::queue<
                 std::function<void(ipv4_port_t const&, ipv4_port_t const&, std::weak_ptr<tcb_t>)>>
                 cbs_;

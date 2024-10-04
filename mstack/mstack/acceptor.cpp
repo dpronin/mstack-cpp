@@ -17,7 +17,7 @@
 
 namespace mstack {
 
-acceptor::acceptor(netns& net, endpoint const& ep) : net_(net) {
+acceptor::acceptor(netns& net, endpoint const& ep) : net_(net), ep_(ep) {
         net_.tcb_m().rule_insert_back(
                 [=](ipv4_port_t const& remote_info, ipv4_port_t const& local_info) {
                         return local_info == ep.ep();
