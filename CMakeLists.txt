@@ -9,7 +9,6 @@ endif ()
 find_package(spdlog)
 find_package(Threads REQUIRED)
 find_package(Boost COMPONENTS system)
-find_package(libnl)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

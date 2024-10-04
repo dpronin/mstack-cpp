@@ -30,6 +30,7 @@ public:
         arp_cache_t&   arp_cache() noexcept { return *arp_cache_; }
         routing_table& rt() noexcept { return *rt_; }
         ipv4&          ip() noexcept { return ipv4_; }
+        class tcp&     tcp() noexcept { return tcp_; }
         tcb_manager&   tcb_m() noexcept { return tcb_m_; }
 
         boost::asio::io_context& io_context_execution() { return io_ctx_; }
@@ -38,7 +39,7 @@ private:
         boost::asio::io_context& io_ctx_;
 
         tcb_manager                    tcb_m_;
-        tcp                            tcp_;
+        class tcp                      tcp_;
         icmp                           icmp_;
         std::shared_ptr<arp_cache_t>   arp_cache_;
         arp                            arp_;
@@ -80,6 +81,7 @@ ethernetv2&    netns::eth() noexcept { return pimpl_->eth(); }
 arp_cache_t&   netns::arp_cache() noexcept { return pimpl_->arp_cache(); }
 routing_table& netns::rt() noexcept { return pimpl_->rt(); }
 ipv4&          netns::ip() noexcept { return pimpl_->ip(); }
+class tcp&     netns::tcp() noexcept { return pimpl_->tcp(); }
 tcb_manager&   netns::tcb_m() noexcept { return pimpl_->tcb_m(); }
 
 boost::asio::io_context& netns::io_context_execution() noexcept {

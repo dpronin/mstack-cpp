@@ -1,7 +1,6 @@
 [requires]
 spdlog/[~1.14]
 boost/[~1.86]
-libnl/[~3.9]
 
 [tool_requires]
 cmake/[^3.12]

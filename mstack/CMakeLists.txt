@@ -15,12 +15,6 @@ else ()
     target_link_libraries(mstack PUBLIC spdlog)
 endif ()
 
-if (TARGET libnl::libnl)
-    target_link_libraries(mstack PUBLIC libnl::libnl)
-else ()
-    target_link_libraries(mstack PUBLIC nl-3)
-endif ()
-
 if (TARGET Boost::system)
     target_link_libraries(mstack PUBLIC Boost::system)
 else ()

@@ -18,7 +18,6 @@
 #include "mac_addr.hpp"
 #include "netns.hpp"
 #include "skbuff.hpp"
-#include "utils.hpp"
 
 namespace mstack {
 
@@ -98,11 +97,6 @@ device::device(netns& net /* = netns::_default_()*/, std::string_view name /* = 
         }
 
         ndev_ = std::string_view{ifr.ifr_name};
-
-        if (utils::set_interface_up(ndev_) != 0) {
-                spdlog::critical("[TAP] SET UP {}", ndev_);
-                return;
-        }
 
         mac_addr_ = mac_addr_t::generate();
 

@@ -9,6 +9,7 @@
 #include "ipv4.hpp"
 #include "routing_table.hpp"
 #include "tcb_manager.hpp"
+#include "tcp.hpp"
 
 namespace mstack {
 
@@ -35,6 +36,7 @@ public:
         arp_cache_t&   arp_cache() noexcept;
         routing_table& rt() noexcept;
         ipv4&          ip() noexcept;
+        class tcp&     tcp() noexcept;
         tcb_manager&   tcb_m() noexcept;
 
         boost::asio::io_context& io_context_execution() noexcept;
