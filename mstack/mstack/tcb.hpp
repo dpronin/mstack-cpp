@@ -46,7 +46,7 @@ struct send {
 struct receive {
         struct {
                 uint32_t next;
-                uint32_t window;
+                uint16_t window;
                 uint8_t  window_scale;
                 uint16_t mss;
         } state;
@@ -75,7 +75,7 @@ private:
         std::queue<std::pair<std::span<std::byte>, std::function<void(size_t)>>> on_data_receive_;
 
         send    send_;
-        receive receive_;
+        receive rcv_;
 
         explicit tcb_t(boost::asio::io_context&                  io_ctx,
                        tcb_manager&                              mngr,
