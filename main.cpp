@@ -13,10 +13,10 @@
 #include <spdlog/spdlog.h>
 
 #include "mstack/acceptor.hpp"
+#include "mstack/device.hpp"
 #include "mstack/ipv4_addr.hpp"
 #include "mstack/netns.hpp"
 #include "mstack/socket.hpp"
-#include "mstack/tap.hpp"
 #include "mstack/tcp.hpp"
 #include "mstack/write.hpp"
 
@@ -81,7 +81,7 @@ int main(int argc, char const* argv[]) {
 
         auto& netns{mstack::netns::_default_()};
 
-        auto dev{mstack::tap::create(netns, dev_name)};
+        auto dev{mstack::device::create(netns, dev_name)};
 
         auto bind_ipv4{bind_devipv4port.substr(0, bind_devipv4port.find(':'))};
         bind_devipv4port.remove_prefix(std::min(bind_devipv4port.size(), bind_ipv4.size() + 1));

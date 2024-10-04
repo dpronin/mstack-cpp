@@ -33,7 +33,7 @@ public:
         void async_resolve(mac_addr_t const&                          from_mac,
                            ipv4_addr_t const&                         from_ipv4,
                            ipv4_addr_t const&                         to_ipv4,
-                           std::shared_ptr<tap>                       dev,
+                           std::shared_ptr<device>                    dev,
                            std::function<void(mac_addr_t const& mac)> cb);
 
 private:
@@ -44,7 +44,7 @@ private:
         void process_request(arpv4_header_t const& in_arp, ethernetv2_frame&& in_frame);
         void async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from,
                            ipv4_addr_t const&                        to,
-                           std::shared_ptr<tap>                      dev);
+                           std::shared_ptr<device>                   dev);
         void process_reply(arpv4_header_t const& in_arp);
         void process(ethernetv2_frame&& in_frame) override;
 

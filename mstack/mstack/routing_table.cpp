@@ -2,7 +2,7 @@
 
 #include <spdlog/spdlog.h>
 
-#include "tap.hpp"
+#include "device.hpp"
 
 namespace mstack {
 

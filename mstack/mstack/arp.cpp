@@ -24,7 +24,7 @@ arp::arp(boost::asio::io_context& io_ctx, std::shared_ptr<arp_cache_t> arp_cache
 void arp::async_resolve(mac_addr_t const&                          from_mac,
                         ipv4_addr_t const&                         from_ipv4,
                         ipv4_addr_t const&                         to_ipv4,
-                        std::shared_ptr<tap>                       dev,
+                        std::shared_ptr<device>                    dev,
                         std::function<void(mac_addr_t const& mac)> cb) {
         if (auto const mac{arp_cache_->query(to_ipv4)}) {
                 io_ctx_.post([cb = std::move(cb), mac = *mac] mutable { cb(mac); });
@@ -81,7 +81,7 @@ void arp::process_request(arpv4_header_t const& in_arp, ethernetv2_frame&& in_fr
 
 void arp::async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from,
                         ipv4_addr_t const&                        to,
-                        std::shared_ptr<tap>                      dev) {
+                        std::shared_ptr<device>                   dev) {
         arpv4_header_t const out_arp{
                 .htype = 0x0001,
                 .ptype = 0x0800,

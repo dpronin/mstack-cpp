@@ -4,12 +4,12 @@
 
 #include "arp.hpp"
 #include "arp_cache.hpp"
+#include "device.hpp"
 #include "ethernet.hpp"
 #include "icmp.hpp"
 #include "ipv4.hpp"
 #include "raw_packet.hpp"
 #include "routing_table.hpp"
-#include "tap.hpp"
 #include "tcb_manager.hpp"
 #include "tcp.hpp"
 
@@ -67,7 +67,7 @@ netns::impl::impl(boost::asio::io_context& io_ctx)
         arp_.under_proto_update(eth_);
         eth_.upper_proto_update(mstack::ipv4::PROTO, ipv4_);
         eth_.upper_proto_update(mstack::arp::PROTO, arp_);
-        eth_.under_handler_update([](raw_packet&& in_pkt, std::shared_ptr<tap> dev) {
+        eth_.under_handler_update([](raw_packet&& in_pkt, std::shared_ptr<device> dev) {
                 dev->process(std::move(in_pkt));
         });
 }

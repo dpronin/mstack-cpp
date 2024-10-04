@@ -7,7 +7,7 @@
 
 #include "ethernet_header.hpp"
 
-#include "tap.hpp"
+#include "device.hpp"
 
 namespace mstack {
 
@@ -30,8 +30,8 @@ void ethernetv2::process(ethernetv2_frame&& in_frame) {
         enqueue({.buffer = std::move(out_buffer)}, std::move(in_frame.dev));
 }
 
-std::optional<ethernetv2_frame> ethernetv2::make_packet(raw_packet&&         in_pkt,
-                                                        std::shared_ptr<tap> dev) {
+std::optional<ethernetv2_frame> ethernetv2::make_packet(raw_packet&&            in_pkt,
+                                                        std::shared_ptr<device> dev) {
         auto const e_header{ethernetv2_header_t::consume_from_net(in_pkt.buffer->head())};
         in_pkt.buffer->pop_front(ethernetv2_header_t::size());
 

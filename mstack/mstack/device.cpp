@@ -1,4 +1,4 @@
-#include "tap.hpp"
+#include "device.hpp"
 
 #include <cassert>
 
@@ -23,25 +23,25 @@
 namespace mstack {
 
 template <typename Completion>
-void tap::async_read_some(std::span<std::byte> buf, Completion&& completion) {
-        spdlog::debug("[TAP {}]: READ SOME MAX {} BYTES", ndev_, buf.size());
+void device::async_read_some(std::span<std::byte> buf, Completion&& completion) {
+        spdlog::debug("[DEV {}]: READ SOME MAX {} BYTES", ndev_, buf.size());
         pfd_.async_read_some(boost::asio::buffer(buf), std::forward<Completion>(completion));
 }
 
 template <typename Completion>
-void tap::async_write(std::span<std::byte const> buf, Completion&& completion) {
-        spdlog::debug("[TAP {}]: WRITE EXACTLY {} BYTES", ndev_, buf.size());
+void device::async_write(std::span<std::byte const> buf, Completion&& completion) {
+        spdlog::debug("[DEV {}]: WRITE EXACTLY {} BYTES", ndev_, buf.size());
         boost::asio::async_write(pfd_, boost::asio::buffer(buf),
                                  std::forward<Completion>(completion));
 }
 
-void tap::send_front_pkt_out() {
+void device::send_front_pkt_out() {
         auto raw{std::move(out_queue_.front())};
         auto buf{raw.buffer->payload()};
         async_write(buf, [this, b = std::move(raw.buffer)](boost::system::error_code const& ec,
                                                            size_t nbytes [[maybe_unused]]) mutable {
                 if (ec) {
-                        spdlog::error("[TAP {}] WRITE FAIL {}", ndev_, ec.what());
+                        spdlog::error("[DEV {}] WRITE FAIL {}", ndev_, ec.what());
                         return;
                 }
                 out_queue_.pop();
@@ -49,22 +49,22 @@ void tap::send_front_pkt_out() {
         });
 }
 
-void tap::process(raw_packet&& pkt) {
+void device::process(raw_packet&& pkt) {
         out_queue_.push(std::move(pkt));
         if (1 == out_queue_.size()) send_front_pkt_out();
 }
 
-void tap::async_receive() {
+void device::async_receive() {
         auto  buf{std::make_unique_for_overwrite<std::byte[]>(1500)};
         auto* p_buf{buf.get()};
         async_read_some({p_buf, 1500},
                         [this, buf = std::move(buf)](boost::system::error_code const& ec,
                                                      size_t nbytes) mutable {
                                 if (ec) {
-                                        spdlog::error("[TAP {}] RECEIVE FAIL {}", ndev_, ec.what());
+                                        spdlog::error("[DEV {}] RECEIVE FAIL {}", ndev_, ec.what());
                                         return;
                                 }
-                                spdlog::debug("[TAP {}] RECEIVE {}", ndev_, nbytes);
+                                spdlog::debug("[DEV {}] RECEIVE {}", ndev_, nbytes);
                                 net_.eth().receive(
                                         {
                                                 .buffer = std::make_unique<mstack::base_packet>(
@@ -75,7 +75,7 @@ void tap::async_receive() {
                         });
 }
 
-tap::tap(netns& net /* = netns::_default_()*/, std::string_view name /* = ""*/)
+device::device(netns& net /* = netns::_default_()*/, std::string_view name /* = ""*/)
     : net_(net), pfd_(net_.io_context_execution()) {
         auto fd{
                 file_desc::open("/dev/net/tun", file_desc::RDWR | file_desc::NONBLOCK),
@@ -111,26 +111,26 @@ tap::tap(netns& net /* = netns::_default_()*/, std::string_view name /* = ""*/)
 
         mac_addr_ = mac_addr_t::generate();
 
-        spdlog::debug("[TAP {}]: MAC ADDRESS {} IS SET", ndev_, mac_addr_);
+        spdlog::debug("[DEV {}]: MAC ADDRESS {} IS SET", ndev_, mac_addr_);
 
         pfd_.assign(fd_.get_fd());
 
         async_receive();
 }
 
-std::string const& tap::name() const { return ndev_; }
+std::string const& device::name() const { return ndev_; }
 
-auto& tap::get_executor() { return pfd_.get_executor(); }
+auto& device::get_executor() { return pfd_.get_executor(); }
 
-std::optional<ipv4_addr_t> tap::ipv4_addr() const { return ipv4_addr_; }
+std::optional<ipv4_addr_t> device::ipv4_addr() const { return ipv4_addr_; }
 
-void tap::set_ipv4_addr(ipv4_addr_t const& ipv4_addr) {
+void device::set_ipv4_addr(ipv4_addr_t const& ipv4_addr) {
         reset_ipv4_addr();
         ipv4_addr_ = ipv4_addr;
         net_.arp_cache().update({ipv4_addr, mac_addr_});
 }
 
-void tap::reset_ipv4_addr() {
+void device::reset_ipv4_addr() {
         if (ipv4_addr_) {
                 net_.arp_cache().reset(*ipv4_addr_);
                 net_.rt().reset(*ipv4_addr_);
@@ -138,9 +138,9 @@ void tap::reset_ipv4_addr() {
         }
 }
 
-netns&       tap::net() { return net_; }
-netns const& tap::net() const { return net_; }
+netns&       device::net() { return net_; }
+netns const& device::net() const { return net_; }
 
-mac_addr_t const& tap::mac_addr() const { return mac_addr_; }
+mac_addr_t const& device::mac_addr() const { return mac_addr_; }
 
 }  // namespace mstack

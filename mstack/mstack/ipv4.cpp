@@ -7,13 +7,13 @@
 
 #include <spdlog/spdlog.h>
 
+#include "device.hpp"
 #include "ethernetv2_frame.hpp"
 #include "ipv4_header.hpp"
 #include "ipv4_packet.hpp"
 #include "mac_addr.hpp"
 #include "routing_table.hpp"
 #include "size_literals.hpp"
-#include "tap.hpp"
 
 namespace mstack {
 

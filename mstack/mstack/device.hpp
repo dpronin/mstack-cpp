@@ -24,7 +24,7 @@ namespace mstack {
 
 class netns;
 
-class tap : public std::enable_shared_from_this<tap> {
+class device : public std::enable_shared_from_this<device> {
 private:
         netns&                                net_;
         boost::asio::posix::stream_descriptor pfd_;
@@ -44,20 +44,20 @@ private:
 
         void async_receive();
 
-        explicit tap(netns& net = netns::_default_(), std::string_view name = "");
+        explicit device(netns& net = netns::_default_(), std::string_view name = "");
 
 public:
         template <typename... Args>
-        static std::shared_ptr<tap> create(Args&&... args) {
-                return std::shared_ptr<tap>{new tap{std::forward<Args>(args)...}};
+        static std::shared_ptr<device> create(Args&&... args) {
+                return std::shared_ptr<device>{new device{std::forward<Args>(args)...}};
         }
-        ~tap() = default;
+        ~device() = default;
 
-        tap(const tap&) = delete;
-        tap(tap&&)      = delete;
+        device(const device&) = delete;
+        device(device&&)      = delete;
 
-        tap& operator=(const tap&) = delete;
-        tap& operator=(tap&&)      = delete;
+        device& operator=(const device&) = delete;
+        device& operator=(device&&)      = delete;
 
         std::string const& name() const;
 

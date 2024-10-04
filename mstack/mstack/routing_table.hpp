@@ -8,13 +8,13 @@
 
 namespace mstack {
 
-class tap;
+class device;
 
 class routing_table {
 public:
         struct record {
-                ipv4_addr_t          addr;
-                std::shared_ptr<tap> dev;
+                ipv4_addr_t             addr;
+                std::shared_ptr<device> dev;
         };
 
         void reset(ipv4_addr_t const& addr);
