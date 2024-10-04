@@ -187,7 +187,7 @@ void tcb_t::async_read_some(std::span<std::byte>                                
         if (!rcv_.pq->empty()) {
                 buf = buf.subspan(0, std::min(rcv_.pq->size(), buf.size()));
                 std::copy_n(rcv_.pq->begin(), buf.size(), buf.begin());
-                rcv_.pq->erase(rcv_.pq->begin(), rcv_.pq->begin() + buf.size());
+                rcv_.pq->erase_begin(buf.size());
                 rcv_.state.next += buf.size();
                 io_ctx_.post([this, len = buf.size(), cb = std::move(cb)] {
                         cb({}, len);
@@ -842,13 +842,10 @@ void tcb_t::process(tcp_packet&& in_pkt) {
                         case kTCPFinWait_2:
                         case kTCPCloseWait:
                         case kTCPClosing:
-                                send_.pq->erase(
-                                        send_.pq->begin(),
-                                        send_.pq->begin() +
-                                                std::min(send_.pq->size(),
-                                                         static_cast<size_t>(
-                                                                 tcph.ack_no -
-                                                                 send_.state.seq_nr_unack)));
+                                send_.pq->erase_begin(
+                                        std::min(send_.pq->size(),
+                                                 static_cast<size_t>(tcph.ack_no -
+                                                                     send_.state.seq_nr_unack)));
 
                                 send_.state.seq_nr_unack =
                                         std::clamp(tcph.ack_no, send_.state.seq_nr_unack,
