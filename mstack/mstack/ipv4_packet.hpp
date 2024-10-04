@@ -2,23 +2,22 @@
 
 #include <cstdint>
 
-#include <memory>
 #include <ostream>
 #include <sstream>
 #include <string>
 
 #include <fmt/format.h>
 
-#include "base_packet.hpp"
 #include "ipv4_addr.hpp"
+#include "skbuff.hpp"
 
 namespace mstack {
 
 struct ipv4_packet {
-        ipv4_addr_t                  src_ipv4_addr;
-        ipv4_addr_t                  dst_ipv4_addr;
-        uint8_t                      proto;
-        std::unique_ptr<base_packet> buffer;
+        ipv4_addr_t src_ipv4_addr;
+        ipv4_addr_t dst_ipv4_addr;
+        uint8_t     proto;
+        skbuff      skb;
 
         friend std::ostream& operator<<(std::ostream& out, ipv4_packet const& p) {
                 out << p.src_ipv4_addr;

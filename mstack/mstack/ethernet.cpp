@@ -24,22 +24,22 @@ void ethernetv2::process(ethernetv2_frame&& in_frame) {
                 .proto        = in_frame.proto,
         };
 
-        auto out_buffer{std::move(in_frame.buffer)};
-        e_packet.produce_to_net(out_buffer->push_front(ethernetv2_header_t::size()));
+        auto out_buffer{std::move(in_frame.skb)};
+        e_packet.produce_to_net(out_buffer.push_front(ethernetv2_header_t::size()));
 
-        enqueue({.buffer = std::move(out_buffer)}, std::move(in_frame.dev));
+        enqueue(std::move(out_buffer), std::move(in_frame.dev));
 }
 
-std::optional<ethernetv2_frame> ethernetv2::make_packet(raw_packet&&            in_pkt,
+std::optional<ethernetv2_frame> ethernetv2::make_packet(skbuff&&                skb_in,
                                                         std::shared_ptr<device> dev) {
-        auto const e_header{ethernetv2_header_t::consume_from_net(in_pkt.buffer->head())};
-        in_pkt.buffer->pop_front(ethernetv2_header_t::size());
+        auto const e_header{ethernetv2_header_t::consume_from_net(skb_in.head())};
+        skb_in.pop_front(ethernetv2_header_t::size());
 
         return ethernetv2_frame{
                 .src_mac_addr = e_header.src_mac_addr,
                 .dst_mac_addr = e_header.dst_mac_addr,
                 .proto        = e_header.proto,
-                .buffer       = std::move(in_pkt.buffer),
+                .skb          = std::move(skb_in),
                 .dev          = std::move(dev),
         };
 }

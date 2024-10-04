@@ -14,7 +14,7 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/circular_buffer.hpp>
 
-#include "base_packet.hpp"
+#include "skbuff.hpp"
 #include "socket.hpp"
 #include "tcp_header.hpp"
 #include "tcp_packet.hpp"
@@ -132,7 +132,7 @@ private:
 
         void enqueue_app_data(std::span<std::byte const> packet);
 
-        std::unique_ptr<base_packet> prepare_data_optional(int& option_len);
+        skbuff prepare_data_optional(int& option_len);
 
         tcp_packet make_packet();
 

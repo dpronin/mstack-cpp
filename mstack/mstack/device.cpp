@@ -17,7 +17,7 @@
 #include "ipv4_addr.hpp"
 #include "mac_addr.hpp"
 #include "netns.hpp"
-#include "raw_packet.hpp"
+#include "skbuff.hpp"
 #include "utils.hpp"
 
 namespace mstack {
@@ -36,43 +36,38 @@ void device::async_write(std::span<std::byte const> buf, Completion&& completion
 }
 
 void device::send_front_pkt_out() {
-        auto raw{std::move(out_queue_.front())};
-        auto buf{raw.buffer->payload()};
-        async_write(buf, [this, b = std::move(raw.buffer)](boost::system::error_code const& ec,
-                                                           size_t nbytes [[maybe_unused]]) mutable {
+        auto skb{std::move(out_skb_q_.front())};
+        auto buf{skb.payload()};
+        async_write(buf, [this, skb = std::move(skb)](boost::system::error_code const& ec,
+                                                      size_t nbytes [[maybe_unused]]) mutable {
                 if (ec) {
                         spdlog::error("[DEV {}] WRITE FAIL {}", ndev_, ec.what());
                         return;
                 }
-                out_queue_.pop();
-                if (!out_queue_.empty()) send_front_pkt_out();
+                out_skb_q_.pop();
+                if (!out_skb_q_.empty()) send_front_pkt_out();
         });
 }
 
-void device::process(raw_packet&& pkt) {
-        out_queue_.push(std::move(pkt));
-        if (1 == out_queue_.size()) send_front_pkt_out();
+void device::process(skbuff&& skb) {
+        out_skb_q_.push(std::move(skb));
+        if (1 == out_skb_q_.size()) send_front_pkt_out();
 }
 
 void device::async_receive() {
         auto  buf{std::make_unique_for_overwrite<std::byte[]>(1500)};
         auto* p_buf{buf.get()};
-        async_read_some({p_buf, 1500},
-                        [this, buf = std::move(buf)](boost::system::error_code const& ec,
-                                                     size_t nbytes) mutable {
-                                if (ec) {
-                                        spdlog::error("[DEV {}] RECEIVE FAIL {}", ndev_, ec.what());
-                                        return;
-                                }
-                                spdlog::debug("[DEV {}] RECEIVE {}", ndev_, nbytes);
-                                net_.eth().receive(
-                                        {
-                                                .buffer = std::make_unique<mstack::base_packet>(
-                                                        std::move(buf), nbytes),
-                                        },
-                                        shared_from_this());
-                                async_receive();
-                        });
+        async_read_some(
+                {p_buf, 1500}, [this, buf = std::move(buf)](boost::system::error_code const& ec,
+                                                            size_t nbytes) mutable {
+                        if (ec) {
+                                spdlog::error("[DEV {}] RECEIVE FAIL {}", ndev_, ec.what());
+                                return;
+                        }
+                        spdlog::debug("[DEV {}] RECEIVE {}", ndev_, nbytes);
+                        net_.eth().receive(skbuff{std::move(buf), nbytes}, shared_from_this());
+                        async_receive();
+                });
 }
 
 device::device(netns& net /* = netns::_default_()*/, std::string_view name /* = ""*/)

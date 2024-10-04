@@ -3,13 +3,14 @@
 #include <cassert>
 #include <cstddef>
 
+#include <algorithm>
 #include <memory>
 #include <span>
 #include <utility>
 
 namespace mstack {
 
-class base_packet {
+class skbuff {
 private:
         std::unique_ptr<std::byte[]> data_;
         size_t                       capacity_;
@@ -21,7 +22,7 @@ private:
         std::byte* tail_;
 
 public:
-        explicit base_packet(std::unique_ptr<std::byte[]> buf, size_t len, size_t head_off = 0)
+        explicit skbuff(std::unique_ptr<std::byte[]> buf, size_t len, size_t head_off = 0)
             : data_{std::move(buf)},
               capacity_{len},
               start_{data_.get()},
@@ -32,13 +33,30 @@ public:
                 assert(!(head_ > tail_));
         }
 
-        ~base_packet() = default;
+        ~skbuff() = default;
 
-        base_packet(base_packet const&)            = delete;
-        base_packet& operator=(base_packet const&) = delete;
+        skbuff(skbuff const& other) : capacity_(other.capacity_) {
+                if (this != &other) {
+                        data_ = std::make_unique_for_overwrite<std::byte[]>(capacity_);
+                        std::copy_n(other.data_.get(), capacity_, data_.get());
+                        start_ = data_.get();
+                        end_   = start_ + capacity_;
+                        head_  = start_ + other.push_front_room();
+                        tail_  = end_ - other.push_back_room();
+                }
+        }
 
-        base_packet(base_packet&&)            = default;
-        base_packet& operator=(base_packet&&) = default;
+        skbuff& operator=(skbuff const& other) {
+                if (this != &other) {
+                        auto copy{other};
+                        using std::swap;
+                        swap(*this, copy);
+                }
+                return *this;
+        }
+
+        skbuff(skbuff&&)            = default;
+        skbuff& operator=(skbuff&&) = default;
 
 public:
         std::byte const* head() const { return head_; }

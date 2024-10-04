@@ -56,10 +56,10 @@ void arp::async_reply(std::pair<mac_addr_t, ipv4_addr_t> const& from,
                 .tpa   = to.second,
         };
 
-        auto out_buffer{std::move(in_frame.buffer)};
+        auto out_buffer{std::move(in_frame.skb)};
 
-        out_buffer->push_front(arpv4_header_t::size());
-        out_arp.produce_to_net(out_buffer->head());
+        out_buffer.push_front(arpv4_header_t::size());
+        out_arp.produce_to_net(out_buffer.head());
 
         spdlog::debug("[ARP] ENQUEUE REPLY {}", out_arp);
 
@@ -67,7 +67,7 @@ void arp::async_reply(std::pair<mac_addr_t, ipv4_addr_t> const& from,
                 .src_mac_addr = out_arp.sha,
                 .dst_mac_addr = out_arp.tha,
                 .proto        = PROTO,
-                .buffer       = std::move(out_buffer),
+                .skb          = std::move(out_buffer),
                 .dev          = std::move(in_frame.dev),
         });
 }
@@ -96,12 +96,13 @@ void arp::async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from,
 
         auto const room{ethernetv2_header_t::size() + arpv4_header_t::size()};
 
-        auto out_buffer{
-                std::make_unique<base_packet>(std::make_unique_for_overwrite<std::byte[]>(room),
-                                              room, ethernetv2_header_t::size()),
+        auto skb_out = skbuff{
+                std::make_unique_for_overwrite<std::byte[]>(room),
+                room,
+                ethernetv2_header_t::size(),
         };
 
-        out_arp.produce_to_net(out_buffer->head());
+        out_arp.produce_to_net(skb_out.head());
 
         spdlog::debug("[ARP] ENQUEUE REQUEST {}", out_arp);
 
@@ -109,9 +110,9 @@ void arp::async_request(std::pair<mac_addr_t, ipv4_addr_t> const& from,
                 .src_mac_addr = out_arp.sha,
                 .dst_mac_addr =
                         std::array<std::byte, 6>{0xff_b, 0xff_b, 0xff_b, 0xff_b, 0xff_b, 0xff_b},
-                .proto  = PROTO,
-                .buffer = std::move(out_buffer),
-                .dev    = std::move(dev),
+                .proto = PROTO,
+                .skb   = std::move(skb_out),
+                .dev   = std::move(dev),
         });
 }
 
@@ -124,9 +125,9 @@ void arp::process_reply(arpv4_header_t const& in_arp) {
 
 void arp::process(ethernetv2_frame&& in_frame) {
         auto const in_arp{
-                arpv4_header_t::consume_from_net(in_frame.buffer->head()),
+                arpv4_header_t::consume_from_net(in_frame.skb.head()),
         };
-        in_frame.buffer->pop_front(arpv4_header_t::size());
+        in_frame.skb.pop_front(arpv4_header_t::size());
 
         spdlog::debug("[ARP] RECEIVE PACKET {}", in_arp);
 

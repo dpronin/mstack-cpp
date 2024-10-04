@@ -31,27 +31,27 @@ public:
                         utils::hton(in_pkt.local_info.ipv4_addr.raw()) +
                                 utils::hton(in_pkt.remote_info.ipv4_addr.raw()) +
                                 utils::hton(static_cast<uint16_t>(in_pkt.proto)) +
-                                utils::hton(static_cast<uint16_t>(in_pkt.buffer->payload().size())),
+                                utils::hton(static_cast<uint16_t>(in_pkt.skb.payload().size())),
                 };
 
-                auto tcp_header{tcp_header_t::consume_from_net(in_pkt.buffer->head())};
+                auto tcp_header{tcp_header_t::consume_from_net(in_pkt.skb.head())};
                 tcp_header.chsum =
-                        utils::checksum_net(in_pkt.buffer->payload(), tcp_pseudo_header_chsum);
+                        utils::checksum_net(in_pkt.skb.payload(), tcp_pseudo_header_chsum);
 
-                tcp_header.produce_to_net(in_pkt.buffer->head());
+                tcp_header.produce_to_net(in_pkt.skb.head());
 
                 enqueue({
                         .src_ipv4_addr = in_pkt.local_info.ipv4_addr,
                         .dst_ipv4_addr = in_pkt.remote_info.ipv4_addr,
                         .proto         = in_pkt.proto,
-                        .buffer        = std::move(in_pkt.buffer),
+                        .skb           = std::move(in_pkt.skb),
                 });
         }
 
 private:
         std::optional<tcp_packet> make_packet(ipv4_packet&& in_pkt) override {
                 auto const tcp_header{
-                        tcp_header_t::consume_from_net(in_pkt.buffer->head()),
+                        tcp_header_t::consume_from_net(in_pkt.skb.head()),
                 };
 
                 spdlog::debug("[RECEIVE] {}", tcp_header);
@@ -68,7 +68,7 @@ private:
                                         .ipv4_addr = in_pkt.dst_ipv4_addr,
                                         .port_addr = tcp_header.dst_port,
                                 },
-                        .buffer = std::move(in_pkt.buffer),
+                        .skb = std::move(in_pkt.skb),
                 };
         }
 };

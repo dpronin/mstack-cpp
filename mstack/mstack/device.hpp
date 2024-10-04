@@ -18,7 +18,7 @@
 #include "ipv4_addr.hpp"
 #include "mac_addr.hpp"
 #include "netns.hpp"
-#include "raw_packet.hpp"
+#include "skbuff.hpp"
 
 namespace mstack {
 
@@ -32,7 +32,7 @@ private:
         mac_addr_t                            mac_addr_;
         std::optional<ipv4_addr_t>            ipv4_addr_;
         std::string                           ndev_;
-        std::queue<raw_packet>                out_queue_;
+        std::queue<skbuff>                    out_skb_q_;
 
         template <typename Completion>
         void async_read_some(std::span<std::byte> buf, Completion&& completion);
@@ -63,7 +63,7 @@ public:
 
         auto& get_executor();
 
-        void process(raw_packet&& pkt);
+        void process(skbuff&& skb);
 
         void                       set_ipv4_addr(ipv4_addr_t const& ipv4_addr);
         std::optional<ipv4_addr_t> ipv4_addr() const;

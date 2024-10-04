@@ -28,26 +28,26 @@ void ipv4::process(ipv4_packet&& in_pkt) {
         ipv4_header_t ipv4_header = {
                 .version       = 0x4,
                 .header_length = 0x5,
-                .total_length  = static_cast<uint16_t>(in_pkt.buffer->payload().size() +
-                                                       ipv4_header_t::size()),
-                .id            = seq_++,
-                .ttl           = 0x40,
-                .proto_type    = in_pkt.proto,
-                .src_ip_addr   = in_pkt.src_ipv4_addr,
-                .dst_ip_addr   = in_pkt.dst_ipv4_addr,
+                .total_length =
+                        static_cast<uint16_t>(in_pkt.skb.payload().size() + ipv4_header_t::size()),
+                .id          = seq_++,
+                .ttl         = 0x40,
+                .proto_type  = in_pkt.proto,
+                .src_ip_addr = in_pkt.src_ipv4_addr,
+                .dst_ip_addr = in_pkt.dst_ipv4_addr,
         };
 
-        auto out_buffer{std::move(in_pkt.buffer)};
+        auto out_buffer{std::move(in_pkt.skb)};
 
-        out_buffer->push_front(ipv4_header_t::size());
+        out_buffer.push_front(ipv4_header_t::size());
 
-        ipv4_header.produce_to_net(out_buffer->head());
-        ipv4_header.header_chsum = utils::checksum_net({out_buffer->head(), ipv4_header_t::size()});
-        ipv4_header.produce_to_net(out_buffer->head());
+        ipv4_header.produce_to_net(out_buffer.head());
+        ipv4_header.header_chsum = utils::checksum_net({out_buffer.head(), ipv4_header_t::size()});
+        ipv4_header.produce_to_net(out_buffer.head());
 
         ethernetv2_frame out_pkt{
-                .proto  = PROTO,
-                .buffer = std::move(out_buffer),
+                .proto = PROTO,
+                .skb   = std::move(out_buffer),
         };
 
         auto nh{rt_->query(in_pkt.dst_ipv4_addr)};
@@ -75,10 +75,10 @@ void ipv4::process(ipv4_packet&& in_pkt) {
 std::optional<ipv4_packet> ipv4::make_packet(ethernetv2_frame&& in_pkt) {
         spdlog::debug("[IPV4] HDL FROM L-LAYER {}", in_pkt);
 
-        if (auto const* h{in_pkt.buffer->head()}; 0x4_b != ((h[0] >> 4) & 0xf_b)) return {};
+        if (auto const* h{in_pkt.skb.head()}; 0x4_b != ((h[0] >> 4) & 0xf_b)) return {};
 
-        auto ipv4_header{ipv4_header_t::consume_from_net(in_pkt.buffer->head())};
-        in_pkt.buffer->pop_front(ipv4_header_t::size());
+        auto ipv4_header{ipv4_header_t::consume_from_net(in_pkt.skb.head())};
+        in_pkt.skb.pop_front(ipv4_header_t::size());
 
         spdlog::debug("[RECEIVE] {}", ipv4_header);
 
@@ -86,7 +86,7 @@ std::optional<ipv4_packet> ipv4::make_packet(ethernetv2_frame&& in_pkt) {
                 .src_ipv4_addr = ipv4_header.src_ip_addr,
                 .dst_ipv4_addr = ipv4_header.dst_ip_addr,
                 .proto         = ipv4_header.proto_type,
-                .buffer        = std::move(in_pkt.buffer),
+                .skb           = std::move(in_pkt.skb),
         };
 }
 

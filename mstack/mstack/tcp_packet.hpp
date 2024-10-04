@@ -9,16 +9,16 @@
 
 #include <fmt/format.h>
 
-#include "base_packet.hpp"
 #include "ipv4_port.hpp"
+#include "skbuff.hpp"
 
 namespace mstack {
 
 struct tcp_packet {
-        uint8_t                      proto;
-        ipv4_port_t                  remote_info;
-        ipv4_port_t                  local_info;
-        std::unique_ptr<base_packet> buffer;
+        uint8_t     proto;
+        ipv4_port_t remote_info;
+        ipv4_port_t local_info;
+        skbuff      skb;
 
         friend std::ostream& operator<<(std::ostream& out, tcp_packet const& p) {
                 out << p.remote_info;

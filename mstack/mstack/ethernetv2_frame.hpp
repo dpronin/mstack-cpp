@@ -9,19 +9,19 @@
 
 #include <fmt/format.h>
 
-#include "base_packet.hpp"
 #include "mac_addr.hpp"
+#include "skbuff.hpp"
 
 namespace mstack {
 
 class device;
 
 struct ethernetv2_frame {
-        mac_addr_t                   src_mac_addr;
-        mac_addr_t                   dst_mac_addr;
-        uint16_t                     proto;
-        std::unique_ptr<base_packet> buffer;
-        std::shared_ptr<device>      dev;
+        mac_addr_t              src_mac_addr;
+        mac_addr_t              dst_mac_addr;
+        uint16_t                proto;
+        skbuff                  skb;
+        std::shared_ptr<device> dev;
 
         friend std::ostream& operator<<(std::ostream& out, ethernetv2_frame const& p) {
                 out << p.src_mac_addr;

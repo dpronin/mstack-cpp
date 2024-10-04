@@ -23,9 +23,9 @@ public:
 
         void process(ipv4_packet&& in_pkt) override {
                 auto const in_icmp_h{
-                        icmp_header_t::consume_from_net(in_pkt.buffer->head()),
+                        icmp_header_t::consume_from_net(in_pkt.skb.head()),
                 };
-                in_pkt.buffer->pop_front(icmp_header_t::size());
+                in_pkt.skb.pop_front(icmp_header_t::size());
 
                 spdlog::debug("[RECEIVED ICMP] {}", in_icmp_h);
 
@@ -51,13 +51,13 @@ private:
                         },
                 };
 
-                auto out_buffer{std::move(in_pkt.buffer)};
+                auto skb_out{std::move(in_pkt.skb)};
 
-                out_buffer->push_front(icmp_header_t::size());
-                out_icmp_header.produce_to_net(out_buffer->head());
+                skb_out.push_front(icmp_header_t::size());
+                out_icmp_header.produce_to_net(skb_out.head());
 
-                out_icmp_header.checksum = utils::checksum_net(out_buffer->payload());
-                out_icmp_header.produce_to_net(out_buffer->head());
+                out_icmp_header.checksum = utils::checksum_net(skb_out.payload());
+                out_icmp_header.produce_to_net(skb_out.head());
 
                 spdlog::debug("[ICMP] ENQUEUE REPLY {}", out_icmp_header);
 
@@ -65,7 +65,7 @@ private:
                         .src_ipv4_addr = in_pkt.dst_ipv4_addr,
                         .dst_ipv4_addr = in_pkt.src_ipv4_addr,
                         .proto         = in_pkt.proto,
-                        .buffer        = std::move(out_buffer),
+                        .skb           = std::move(skb_out),
                 });
         }
 };

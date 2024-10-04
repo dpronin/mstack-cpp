@@ -17,10 +17,10 @@
 
 #include <boost/circular_buffer.hpp>
 
-#include "base_packet.hpp"
 #include "defination.hpp"
 #include "ethernet_header.hpp"
 #include "ipv4_header.hpp"
+#include "skbuff.hpp"
 #include "socket.hpp"
 #include "tcb.hpp"
 #include "tcb_manager.hpp"
@@ -244,9 +244,10 @@ tcp_packet tcb_t::make_packet() {
 
         auto const room{additional_room + tcp_header_t::fixed_size() + seg_len};
 
-        auto out_buffer{
-                std::make_unique<base_packet>(std::make_unique_for_overwrite<std::byte[]>(room),
-                                              room, additional_room),
+        auto skb_out = skbuff{
+                std::make_unique_for_overwrite<std::byte[]>(room),
+                room,
+                additional_room,
         };
 
         assert(0 == (tcp_header_t::fixed_size() & 0x3));
@@ -266,7 +267,7 @@ tcp_packet tcb_t::make_packet() {
         assert(!((send_.pq->begin() + app_data_unacknowleged() + seg_len) > send_.pq->end()));
 
         std::copy_n(send_.pq->begin() + app_data_unacknowleged(), seg_len,
-                    out_tcp.produce_to_net(out_buffer->head()));
+                    out_tcp.produce_to_net(skb_out.head()));
         send_.state.seq_nr_next += seg_len;
 
         if (next_state_ != state_) state_ = next_state_;
@@ -275,7 +276,7 @@ tcp_packet tcb_t::make_packet() {
                 .proto       = tcb_manager::PROTO,
                 .remote_info = remote_info_,
                 .local_info  = local_info_,
-                .buffer      = std::move(out_buffer),
+                .skb         = std::move(skb_out),
         };
 }
 
@@ -639,17 +640,17 @@ bool tcb_t::tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen) {
 }
 
 void tcb_t::process(tcp_packet&& in_pkt) {
-        assert(!(in_pkt.buffer->payload().size() < tcp_header_t::fixed_size()));
-        auto const tcph{tcp_header_t::consume_from_net(in_pkt.buffer->head())};
+        assert(!(in_pkt.skb.payload().size() < tcp_header_t::fixed_size()));
+        auto const tcph{tcp_header_t::consume_from_net(in_pkt.skb.head())};
 
         auto const hlen{tcph.data_offset << 2};
         auto const optlen{hlen - tcp_header_t::fixed_size()};
-        in_pkt.buffer->pop_front(hlen - optlen);
+        in_pkt.skb.pop_front(hlen - optlen);
 
-        auto const opts{std::as_bytes(in_pkt.buffer->payload().subspan(0, optlen))};
-        in_pkt.buffer->pop_front(optlen);
+        auto const opts{std::as_bytes(in_pkt.skb.payload().subspan(0, optlen))};
+        in_pkt.skb.pop_front(optlen);
 
-        auto const segment{std::as_bytes(in_pkt.buffer->payload())};
+        auto const segment{std::as_bytes(in_pkt.skb.payload())};
 
         spdlog::debug("[TCP] RECEIVE h={}, hlen={}, optlen={}, seglen={}", tcph, hlen, optlen,
                       segment.size());
@@ -1136,9 +1137,10 @@ void tcb_t::start_connecting() {
 
         auto const room{additional_room + tcp_header_t::fixed_size() + 8};
 
-        auto out_buffer{
-                std::make_unique<base_packet>(std::make_unique_for_overwrite<std::byte[]>(room),
-                                              room, additional_room),
+        auto skb_out = skbuff{
+                std::make_unique_for_overwrite<std::byte[]>(room),
+                room,
+                additional_room,
         };
 
         assert(0 == (tcp_header_t::fixed_size() & 0x3));
@@ -1148,7 +1150,7 @@ void tcb_t::start_connecting() {
                 .dst_port    = remote_info_.port_addr,
                 .seq_no      = generate_isn(),
                 .ack_no      = 0,
-                .data_offset = static_cast<uint16_t>(out_buffer->payload().size() >> 2),
+                .data_offset = static_cast<uint16_t>(skb_out.payload().size() >> 2),
                 .SYN         = 1,
                 .window      = rcv_.state.window,
         };
@@ -1156,7 +1158,7 @@ void tcb_t::start_connecting() {
         send_.state.seq_nr_unack = out_tcp.seq_no;
         send_.state.seq_nr_next  = out_tcp.seq_no + 1;
 
-        encode_options({out_tcp.produce_to_net(out_buffer->head()), 8}, opts);
+        encode_options({out_tcp.produce_to_net(skb_out.head()), 8}, opts);
 
         state_      = kTCPSynSent;
         next_state_ = kTCPEstablished;
@@ -1165,7 +1167,7 @@ void tcb_t::start_connecting() {
                 .proto       = 0x06,
                 .remote_info = remote_info_,
                 .local_info  = local_info_,
-                .buffer      = std::move(out_buffer),
+                .skb         = std::move(skb_out),
         });
 }
 

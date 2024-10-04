@@ -14,7 +14,7 @@
 
 #include <spdlog/spdlog.h>
 
-#include "raw_packet.hpp"
+#include "skbuff.hpp"
 
 namespace mstack {
 
@@ -74,7 +74,7 @@ protected:
                 return std::nullopt;
         }
 
-        virtual std::optional<UpperPacketType> make_packet(raw_packet&& in_pkt [[maybe_unused]]) {
+        virtual std::optional<UpperPacketType> make_packet(skbuff&& skb [[maybe_unused]]) {
                 return std::nullopt;
         }
 
@@ -95,8 +95,8 @@ class base_protocol<void, UpperPacketType> {
 private:
         boost::asio::io_context&                                      io_ctx_;
         std::unordered_map<int, std::function<void(UpperPacketType)>> upper_protos_;
-        std::function<void(raw_packet&&, std::shared_ptr<device>)>    under_proto_;
-        std::queue<std::pair<raw_packet, std::shared_ptr<device>>>    packet_queue_;
+        std::function<void(skbuff&&, std::shared_ptr<device>)>        under_proto_;
+        std::queue<std::pair<skbuff, std::shared_ptr<device>>>        skb_queue_;
 
 public:
         template <std::convertible_to<int> Index, typename UpperProto>
@@ -106,15 +106,15 @@ public:
                 };
         }
 
-        void under_handler_update(
-                std::function<void(raw_packet&&, std::shared_ptr<device>)> handler) {
+        void under_handler_update(std::function<void(skbuff&&, std::shared_ptr<device>)> handler) {
                 under_proto_ = std::move(handler);
         }
 
         void receive(UpperPacketType&& in) { process(std::move(in)); }
 
-        void receive(raw_packet&& in, std::shared_ptr<device> dev) {
-                if (auto out{make_packet(std::move(in), std::move(dev))}) dispatch(std::move(*out));
+        void receive(skbuff&& skb_in, std::shared_ptr<device> dev) {
+                if (auto out{make_packet(std::move(skb_in), std::move(dev))})
+                        dispatch(std::move(*out));
         }
 
 protected:
@@ -127,19 +127,19 @@ protected:
         base_protocol(base_protocol&&)            = delete;
         base_protocol& operator=(base_protocol&&) = delete;
 
-        void enqueue(raw_packet&& pkt, std::shared_ptr<device> dev) {
-                packet_queue_.push({std::move(pkt), std::move(dev)});
+        void enqueue(skbuff&& skb_out, std::shared_ptr<device> dev) {
+                skb_queue_.push({std::move(skb_out), std::move(dev)});
                 io_ctx_.post([this] {
                         if (under_proto_) {
-                                std::apply(under_proto_, std::move(packet_queue_.front()));
-                                packet_queue_.pop();
+                                std::apply(under_proto_, std::move(skb_queue_.front()));
+                                skb_queue_.pop();
                         }
                 });
         }
 
         virtual void process(UpperPacketType&& in_pkt [[maybe_unused]]) {}
 
-        virtual std::optional<UpperPacketType> make_packet(raw_packet&& in_pkt [[maybe_unused]],
+        virtual std::optional<UpperPacketType> make_packet(skbuff&& in_pkt [[maybe_unused]],
                                                            std::shared_ptr<device> dev
                                                            [[maybe_unused]]) {
                 return std::nullopt;
