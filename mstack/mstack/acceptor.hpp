@@ -16,6 +16,9 @@ struct endpoint;
 
 class acceptor {
 public:
+        explicit acceptor(netns&                                                    net,
+                          std::function<bool(ipv4_port_t const& remote_info,
+                                             ipv4_port_t const& local_info)> const& matcher);
         explicit acceptor(netns& net, endpoint const& ep);
         explicit acceptor(endpoint const& ep);
         ~acceptor();
@@ -26,16 +29,13 @@ public:
         acceptor(acceptor&&)            = delete;
         acceptor& operator=(acceptor&&) = delete;
 
-        endpoint const& local_endpoint() const { return ep_; }
-
         void async_accept(socket& sk, std::function<void(boost::system::error_code const&)> cb);
 
         netns& net();
         netns& net() const;
 
 private:
-        netns&   net_;
-        endpoint ep_;
+        netns& net_;
         std::queue<
                 std::function<void(ipv4_port_t const&, ipv4_port_t const&, std::weak_ptr<tcb_t>)>>
                 cbs_;

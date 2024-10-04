@@ -17,12 +17,12 @@
 
 namespace mstack {
 
-acceptor::acceptor(netns& net, endpoint const& ep) : net_(net), ep_(ep) {
+acceptor::acceptor(netns&                                                    net,
+                   std::function<bool(ipv4_port_t const& remote_info,
+                                      ipv4_port_t const& local_info)> const& matcher)
+    : net_(net) {
         net_.tcb_m().rule_insert_back(
-                [=](ipv4_port_t const& remote_info, ipv4_port_t const& local_info) {
-                        return local_info == ep.ep();
-                },
-                tcp::PROTO,
+                matcher, tcp::PROTO,
                 [this](boost::system::error_code const& ec, ipv4_port_t const& remote_info,
                        ipv4_port_t const& local_info, std::weak_ptr<tcb_t> tcb) {
                         if (ec) {
@@ -37,6 +37,11 @@ acceptor::acceptor(netns& net, endpoint const& ep) : net_(net), ep_(ep) {
                         }
                 });
 }
+
+acceptor::acceptor(netns& net, endpoint const& ep)
+    : acceptor(net,
+               [ep](ipv4_port_t const& remote_info [[maybe_unused]],
+                    ipv4_port_t const& local_info) { return local_info == ep.ep(); }) {}
 
 acceptor::acceptor(endpoint const& ep) : acceptor(netns::_default_(), ep) {}
 
