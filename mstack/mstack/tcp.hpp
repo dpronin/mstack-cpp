@@ -29,21 +29,21 @@ public:
         void rule_insert_front(std::function<bool(ipv4_port_t const& remote_info,
                                                   ipv4_port_t const& local_info)> matcher,
                                int                                                proto,
-                               std::function<bool(tcp_packet&& pkt_in)>           cb);
+                               std::function<bool(tcp_packet const& pkt_in)>      cb);
 
         void rule_insert_back(std::function<bool(ipv4_port_t const& remote_info,
                                                  ipv4_port_t const& local_info)> matcher,
                               int                                                proto,
-                              std::function<bool(tcp_packet&& pkt_in)>           cb);
+                              std::function<bool(tcp_packet const& pkt_in)>      cb);
 
 private:
         std::optional<tcp_packet> make_packet(ipv4_packet&& pkt_in) override;
 
         struct rule {
                 std::function<bool(ipv4_port_t const& remote_info, ipv4_port_t const& local_info)>
-                                                         matcher;
-                int                                      proto;
-                std::function<bool(tcp_packet&& pkt_in)> cb;
+                                                              matcher;
+                int                                           proto;
+                std::function<bool(tcp_packet const& pkt_in)> cb;
         };
         std::deque<rule> rules_;
 };

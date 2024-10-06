@@ -9,7 +9,7 @@
 #include <spdlog/spdlog.h>
 
 #include "ipv4_port.hpp"
-#include "socket.hpp"
+#include "raw_socket.hpp"
 #include "tcp.hpp"
 
 namespace mstack {
@@ -18,7 +18,7 @@ interceptor::interceptor(netns&                                                 
                          std::function<bool(ipv4_port_t const& remote_info,
                                             ipv4_port_t const& local_info)> const& matcher)
     : net_(net) {
-        net_.tcp().rule_insert_back(matcher, tcp::PROTO, [this](tcp_packet&& pkt_in) {
+        net_.tcp().rule_insert_back(matcher, tcp::PROTO, [this](tcp_packet const& pkt_in) {
                 if (!cbs_.empty()) {
                         auto cb{cbs_.front()};
                         cbs_.pop();
@@ -40,7 +40,8 @@ interceptor::~interceptor() = default;
 netns& interceptor::net() { return net_; }
 netns& interceptor::net() const { return net_; }
 
-void interceptor::async_intercept(socket& sk, std::function<bool(tcp_packet&& pkt_in)> cb) {
+void interceptor::async_intercept(raw_socket&                                   sk,
+                                  std::function<bool(tcp_packet const& pkt_in)> cb) {
         cbs_.push(std::move(cb));
 }
 

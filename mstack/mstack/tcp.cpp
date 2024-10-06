@@ -60,7 +60,7 @@ std::optional<tcp_packet> tcp::make_packet(ipv4_packet&& pkt_in) {
                 if (matcher(tcp_pkt.remote_info, tcp_pkt.local_info)) {
                         spdlog::debug("[TCP] intercept {} -> {}", tcp_pkt.remote_info,
                                       tcp_pkt.local_info);
-                        if (cb(std::move(tcp_pkt))) {
+                        if (cb(tcp_pkt)) {
                                 return std::nullopt;
                         }
                 }
@@ -72,14 +72,14 @@ std::optional<tcp_packet> tcp::make_packet(ipv4_packet&& pkt_in) {
 void tcp::rule_insert_front(
         std::function<bool(ipv4_port_t const& remote_info, ipv4_port_t const& local_info)> matcher,
         int                                                                                proto,
-        std::function<bool(tcp_packet&& pkt_in)>                                           cb) {
+        std::function<bool(tcp_packet const& pkt_in)>                                      cb) {
         rules_.emplace_front(std::move(matcher), proto, std::move(cb));
 }
 
 void tcp::rule_insert_back(
         std::function<bool(ipv4_port_t const& remote_info, ipv4_port_t const& local_info)> matcher,
         int                                                                                proto,
-        std::function<bool(tcp_packet&& pkt_in)>                                           cb) {
+        std::function<bool(tcp_packet const& pkt_in)>                                      cb) {
         rules_.emplace_back(std::move(matcher), proto, std::move(cb));
 }
 
