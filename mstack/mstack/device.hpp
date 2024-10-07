@@ -4,7 +4,6 @@
 #include <cstddef>
 
 #include <memory>
-#include <optional>
 #include <queue>
 #include <span>
 #include <string>
@@ -15,8 +14,6 @@
 #include <boost/asio/posix/stream_descriptor.hpp>
 
 #include "file_desc.hpp"
-#include "ipv4_addr.hpp"
-#include "mac_addr.hpp"
 #include "netns.hpp"
 #include "skbuff.hpp"
 
@@ -29,8 +26,6 @@ private:
         netns&                                net_;
         boost::asio::posix::stream_descriptor pfd_;
         file_desc                             fd_;
-        mac_addr_t                            mac_addr_;
-        std::optional<ipv4_addr_t>            ipv4_addr_;
         std::string                           ndev_;
         std::queue<skbuff>                    out_skb_q_;
 
@@ -64,12 +59,6 @@ public:
         auto& get_executor();
 
         void process(skbuff&& skb_in);
-
-        void                       set_ipv4_addr(ipv4_addr_t const& ipv4_addr);
-        std::optional<ipv4_addr_t> ipv4_addr() const;
-        void                       reset_ipv4_addr();
-
-        mac_addr_t const& mac_addr() const;
 
         netns&       net();
         netns const& net() const;

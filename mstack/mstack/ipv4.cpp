@@ -12,14 +12,19 @@
 #include "ipv4_header.hpp"
 #include "ipv4_packet.hpp"
 #include "mac_addr.hpp"
+#include "mstack/arp_cache.hpp"
 #include "routing_table.hpp"
 #include "size_literals.hpp"
 
 namespace mstack {
 
-ipv4::ipv4(boost::asio::io_context& io_ctx, std::shared_ptr<routing_table const> rt, arp& arp)
-    : base_protocol(io_ctx), rt_(std::move(rt)), arp_(arp) {
+ipv4::ipv4(boost::asio::io_context&             io_ctx,
+           std::shared_ptr<routing_table const> rt,
+           std::shared_ptr<arp_cache_t const>   arp_cache,
+           arp&                                 arp)
+    : base_protocol(io_ctx), rt_(std::move(rt)), arp_cache_(std::move(arp_cache)), arp_(arp) {
         assert(rt_);
+        assert(arp_cache_);
 }
 
 void ipv4::process(ipv4_packet&& pkt_in) {
@@ -56,11 +61,13 @@ void ipv4::process(ipv4_packet&& pkt_in) {
         if (nh) {
                 out_pkt.dev = std::move(nh->dev);
                 assert(out_pkt.dev);
-                out_pkt.src_mac_addr = out_pkt.dev->mac_addr();
-                auto const& from_mac{out_pkt.src_mac_addr};
-                auto const& from_ipv4{out_pkt.dev->ipv4_addr()};
-                assert(from_ipv4);
-                arp_.async_resolve(from_mac, *from_ipv4, nh->addr, out_pkt.dev,
+
+                auto const src_mac_opt{arp_cache_->query(nh->from_addrv4)};
+                assert(src_mac_opt);
+                out_pkt.src_mac_addr = *src_mac_opt;
+
+                arp_.async_resolve(out_pkt.src_mac_addr, nh->from_addrv4, nh->via_addrv4,
+                                   out_pkt.dev,
                                    [this, out_packet_wrapper = std::make_shared<ethernetv2_frame>(
                                                   std::move(out_pkt))](mac_addr_t const& nh_addr) {
                                            auto out_packet{std::move(*out_packet_wrapper)};

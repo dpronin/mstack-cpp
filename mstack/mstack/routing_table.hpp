@@ -13,7 +13,8 @@ class device;
 class routing_table {
 public:
         struct record {
-                ipv4_addr_t             addr;
+                ipv4_addr_t             via_addrv4;
+                ipv4_addr_t             from_addrv4;
                 std::shared_ptr<device> dev;
         };
 

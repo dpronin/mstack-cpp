@@ -14,8 +14,6 @@
 #include <spdlog/spdlog.h>
 
 #include "file_desc.hpp"
-#include "ipv4_addr.hpp"
-#include "mac_addr.hpp"
 #include "netns.hpp"
 #include "skbuff.hpp"
 
@@ -98,10 +96,6 @@ device::device(netns& net /* = netns::_default_()*/, std::string_view name /* = 
 
         ndev_ = std::string_view{ifr.ifr_name};
 
-        mac_addr_ = mac_addr_t::generate();
-
-        spdlog::debug("[DEV {}]: MAC ADDRESS {} IS SET", ndev_, mac_addr_);
-
         pfd_.assign(fd_.get_fd());
 
         async_receive();
@@ -111,25 +105,7 @@ std::string const& device::name() const { return ndev_; }
 
 auto& device::get_executor() { return pfd_.get_executor(); }
 
-std::optional<ipv4_addr_t> device::ipv4_addr() const { return ipv4_addr_; }
-
-void device::set_ipv4_addr(ipv4_addr_t const& ipv4_addr) {
-        reset_ipv4_addr();
-        ipv4_addr_ = ipv4_addr;
-        net_.arp_cache().update({ipv4_addr, mac_addr_});
-}
-
-void device::reset_ipv4_addr() {
-        if (ipv4_addr_) {
-                net_.arp_cache().reset(*ipv4_addr_);
-                net_.rt().reset(*ipv4_addr_);
-                ipv4_addr_.reset();
-        }
-}
-
 netns&       device::net() { return net_; }
 netns const& device::net() const { return net_; }
-
-mac_addr_t const& device::mac_addr() const { return mac_addr_; }
 
 }  // namespace mstack
