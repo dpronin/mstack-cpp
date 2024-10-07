@@ -33,7 +33,7 @@ namespace std {
 template <>
 struct hash<mstack::endpoint> {
         size_t operator()(mstack::endpoint const& ep) const {
-                auto seed{0uz};
+                size_t seed{0};
                 boost::hash_combine(seed, ep.proto());
                 boost::hash_combine(seed, ep.ep());
                 return seed;

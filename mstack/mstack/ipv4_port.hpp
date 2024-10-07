@@ -48,7 +48,7 @@ namespace std {
 template <>
 struct hash<mstack::ipv4_port_t> {
         size_t operator()(const mstack::ipv4_port_t& ipv4_port) const {
-                auto seed{0zu};
+                size_t seed{0};
                 boost::hash_combine(seed, ipv4_port.ipv4_addr);
                 boost::hash_combine(seed, ipv4_port.port_addr);
                 return seed;

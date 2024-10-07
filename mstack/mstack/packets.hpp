@@ -35,7 +35,7 @@ namespace std {
 template <>
 struct hash<mstack::two_ends_t> {
         size_t operator()(const mstack::two_ends_t& two_ends) const {
-                size_t seed{0zu};
+                size_t seed{0};
                 boost::hash_combine(seed, two_ends.remote_info);
                 boost::hash_combine(seed, two_ends.local_info);
                 return seed;
