@@ -27,7 +27,7 @@ void arp::async_resolve(mac_addr_t const&                          from_mac,
                         std::shared_ptr<device>                    dev,
                         std::function<void(mac_addr_t const& mac)> cb) {
         if (auto const mac{arp_cache_->query(to_ipv4)}) {
-                io_ctx_.post([cb = std::move(cb), mac = *mac] mutable { cb(mac); });
+                io_ctx_.post([cb = std::move(cb), mac = *mac]() mutable { cb(mac); });
         } else {
                 on_replies_[to_ipv4].connect(cb);
                 async_request({from_mac, from_ipv4}, to_ipv4, std::move(dev));
