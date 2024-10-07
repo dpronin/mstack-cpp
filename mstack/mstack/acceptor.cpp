@@ -13,7 +13,6 @@
 #include "socket.hpp"
 #include "tcb.hpp"
 #include "tcb_manager.hpp"
-#include "tcp.hpp"
 
 namespace mstack {
 

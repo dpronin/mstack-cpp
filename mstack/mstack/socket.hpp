@@ -14,12 +14,11 @@
 namespace mstack {
 
 struct tcb_t;
-class tcb_manager;
 class netns;
 
 class socket {
 public:
-        explicit socket(netns& net) : net(net) {}
+        explicit socket(netns& net);
         socket();
 
         ~socket() = default;
@@ -54,8 +53,9 @@ private:
         void async_read_complete(std::span<std::byte>                                          buf,
                                  std::function<void(boost::system::error_code const&, size_t)> cb);
 
+        netns& net_;
+
 public:
-        netns&               net;
         int                  state{kSocketDisconnected};
         endpoint             local_ep;
         std::weak_ptr<tcb_t> tcb;

@@ -11,12 +11,14 @@
 
 namespace mstack {
 
-socket::socket() : net(netns::_default_()) {}
+socket::socket(netns& net) : net_(net) {}
+
+socket::socket() : socket(netns::_default_()) {}
 
 void socket::async_connect(endpoint const&                                       remote_ep,
                            ipv4_addr_t const&                                    local_addr,
                            std::function<void(boost::system::error_code const&)> cb) {
-        net.tcb_m().async_connect(
+        net_.tcb_m().async_connect(
                 remote_ep, local_addr,
                 [this, cb = std::move(cb)](boost::system::error_code const& ec,
                                            endpoint const& remote_ep [[maybe_unused]],

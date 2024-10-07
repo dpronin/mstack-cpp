@@ -26,6 +26,20 @@ public:
         raw_socket(raw_socket&&)            = delete;
         raw_socket& operator=(raw_socket&&) = delete;
 
+        void attach();
+
+        void async_read_some(std::span<std::byte>                                          buf,
+                             std::function<void(boost::system::error_code const&, size_t)> cb);
+
+        void async_read(std::span<std::byte>                                          buf,
+                        std::function<void(boost::system::error_code const&, size_t)> cb);
+
+        void async_write_some(std::span<std::byte const>                                    buf,
+                              std::function<void(boost::system::error_code const&, size_t)> cb);
+
+        void async_write(std::span<std::byte const>                                    buf,
+                         std::function<void(boost::system::error_code const&, size_t)> cb);
+
         netns&       net() { return net_; }
         netns const& net() const { return net_; }
 
