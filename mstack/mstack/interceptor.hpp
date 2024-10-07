@@ -29,14 +29,17 @@ public:
         interceptor(interceptor&&)            = delete;
         interceptor& operator=(interceptor&&) = delete;
 
-        void async_intercept(std::function<bool(tcp_packet const& pkt_in)> cb);
+        void async_intercept(std::function<void(std::unique_ptr<raw_socket> sk)> cb);
 
         netns& net();
         netns& net() const;
 
 private:
-        netns&                                                    net_;
-        std::queue<std::function<bool(tcp_packet const& pkt_in)>> cbs_;
+        netns& net_;
+        std::queue<std::function<void(endpoint const&                     remote_ep,
+                                      endpoint const&                     local_ep,
+                                      std::shared_ptr<raw_socket::pqueue> rcv_pq)>>
+                cbs_;
 };
 
 }  // namespace mstack

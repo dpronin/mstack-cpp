@@ -8,6 +8,8 @@
 #include "base_protocol.hpp"
 #include "endpoint.hpp"
 #include "ipv4_packet.hpp"
+#include "packets.hpp"
+#include "raw_socket.hpp"
 #include "tcp_packet.hpp"
 
 namespace mstack {
@@ -29,23 +31,29 @@ public:
 
         void rule_insert_front(
                 std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,
-                int                                                                      proto,
-                std::function<bool(tcp_packet const& pkt_in)>                            cb);
+                std::function<void(endpoint const&                     remote_ep,
+                                   endpoint const&                     local_ep,
+                                   std::shared_ptr<raw_socket::pqueue> rcv_pq)>          cb);
 
         void rule_insert_back(
                 std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,
-                int                                                                      proto,
-                std::function<bool(tcp_packet const& pkt_in)>                            cb);
+                std::function<void(endpoint const&                     remote_ep,
+                                   endpoint const&                     local_ep,
+                                   std::shared_ptr<raw_socket::pqueue> rcv_pq)>          cb);
 
 private:
         std::optional<tcp_packet> make_packet(ipv4_packet&& pkt_in) override;
 
         struct rule {
                 std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher;
-                int                                                                      proto;
-                std::function<bool(tcp_packet const& pkt_in)>                            cb;
+                std::function<void(endpoint const&                     remote_ep,
+                                   endpoint const&                     local_ep,
+                                   std::shared_ptr<raw_socket::pqueue> rcv_pq)>
+                        cb;
         };
         std::deque<rule> rules_;
+
+        std::unordered_map<two_ends_t, std::shared_ptr<raw_socket::pqueue>> rcv_pqs_;
 };
 
 }  // namespace mstack

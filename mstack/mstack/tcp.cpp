@@ -2,11 +2,13 @@
 
 #include <cstdint>
 
+#include <exception>
 #include <optional>
 #include <utility>
 
 #include <spdlog/spdlog.h>
 
+#include "packets.hpp"
 #include "tcp_header.hpp"
 #include "utils.hpp"
 
@@ -56,12 +58,35 @@ std::optional<tcp_packet> tcp::make_packet(ipv4_packet&& pkt_in) {
                 .skb = std::move(pkt_in.skb),
         };
 
-        for (auto const& [matcher, proto, cb] : rules_) {
-                if (matcher(tcp_pkt.remote_ep, tcp_pkt.local_ep)) {
-                        spdlog::debug("[TCP] intercept {} -> {}", tcp_pkt.remote_ep,
-                                      tcp_pkt.local_ep);
-                        if (cb(tcp_pkt)) {
-                                return std::nullopt;
+        auto const two_end = two_ends_t{
+                .remote_ep = tcp_pkt.remote_ep,
+                .local_ep  = tcp_pkt.local_ep,
+        };
+
+        if (auto it{rcv_pqs_.find(two_end)}; rcv_pqs_.end() != it) {
+                it->second->push(std::move(tcp_pkt));
+                return std::nullopt;
+        } else {
+                for (auto const& [matcher, cb] : rules_) {
+                        if (matcher(two_end.remote_ep, two_end.local_ep)) {
+                                spdlog::debug("[TCP] new interception {} -> {}", two_end.remote_ep,
+                                              two_end.local_ep);
+
+                                it = rcv_pqs_.emplace_hint(
+                                        it, two_end,
+                                        std::make_shared<::mstack::raw_socket::pqueue>());
+
+                                it->second->push(std::move(tcp_pkt));
+
+                                try {
+                                        cb(tcp_pkt.remote_ep, tcp_pkt.local_ep, it->second);
+                                        return std::nullopt;
+                                } catch (std::exception const& ex) {
+                                        spdlog::warn(
+                                                "[TCP] failed to intercept {} -> {}, reason: {}",
+                                                tcp_pkt.remote_ep, tcp_pkt.local_ep, ex.what());
+                                        rcv_pqs_.erase(it);
+                                }
                         }
                 }
         }
@@ -71,16 +96,18 @@ std::optional<tcp_packet> tcp::make_packet(ipv4_packet&& pkt_in) {
 
 void tcp::rule_insert_front(
         std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,
-        int                                                                      proto,
-        std::function<bool(tcp_packet const& pkt_in)>                            cb) {
-        rules_.emplace_front(std::move(matcher), proto, std::move(cb));
+        std::function<void(endpoint const&                     remote_ep,
+                           endpoint const&                     local_ep,
+                           std::shared_ptr<raw_socket::pqueue> rcv_pq)>          cb) {
+        rules_.emplace_front(std::move(matcher), std::move(cb));
 }
 
 void tcp::rule_insert_back(
         std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,
-        int                                                                      proto,
-        std::function<bool(tcp_packet const& pkt_in)>                            cb) {
-        rules_.emplace_back(std::move(matcher), proto, std::move(cb));
+        std::function<void(endpoint const&                     remote_ep,
+                           endpoint const&                     local_ep,
+                           std::shared_ptr<raw_socket::pqueue> rcv_pq)>          cb) {
+        rules_.emplace_back(std::move(matcher), std::move(cb));
 }
 
 }  // namespace mstack

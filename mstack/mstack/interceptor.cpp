@@ -18,14 +18,15 @@ interceptor::interceptor(
         netns&                                                                          net,
         std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> const& matcher)
     : net_(net) {
-        net_.tcp().rule_insert_back(matcher, tcp::PROTO, [this](tcp_packet const& pkt_in) {
-                if (!cbs_.empty()) {
-                        auto cb{cbs_.front()};
-                        cbs_.pop();
-                        return cb(std::move(pkt_in));
-                }
-                return false;
-        });
+        net_.tcp().rule_insert_back(matcher,
+                                    [this](endpoint const& remote_ep, endpoint const& local_ep,
+                                           std::shared_ptr<raw_socket::pqueue> rcv_pq) {
+                                            if (!cbs_.empty()) {
+                                                    auto cb{cbs_.front()};
+                                                    cbs_.pop();
+                                                    cb(remote_ep, local_ep, std::move(rcv_pq));
+                                            }
+                                    });
 }
 
 interceptor::interceptor(netns& net, endpoint const& local_ep)
@@ -42,8 +43,12 @@ interceptor::~interceptor() = default;
 netns& interceptor::net() { return net_; }
 netns& interceptor::net() const { return net_; }
 
-void interceptor::async_intercept(std::function<bool(tcp_packet const& pkt_in)> cb) {
-        cbs_.push(std::move(cb));
+void interceptor::async_intercept(std::function<void(std::unique_ptr<raw_socket> sk)> cb) {
+        assert(cb);
+        cbs_.push([this, cb = std::move(cb)](endpoint const& remote_ep, endpoint const& local_ep,
+                                             std::shared_ptr<raw_socket::pqueue> rcv_pq) {
+                cb(std::make_unique<raw_socket>(net_, remote_ep, local_ep, std::move(rcv_pq)));
+        });
 }
 
 }  // namespace mstack
