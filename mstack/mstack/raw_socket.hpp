@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <queue>
-#include <utility>
 
 #include "tcp_packet.hpp"
 
@@ -17,11 +16,7 @@ public:
         explicit raw_socket(netns&                  net,
                             endpoint const&         remote_ep,
                             endpoint const&         local_ep,
-                            std::shared_ptr<pqueue> rcv_pq)
-            : net_(net), remote_ep_(remote_ep), local_ep_(local_ep), rcv_pq_(std::move(rcv_pq)) {
-                assert(rcv_pq_);
-        }
-        raw_socket();
+                            std::shared_ptr<pqueue> rcv_pq = {});
 
         ~raw_socket() = default;
 
@@ -34,8 +29,8 @@ public:
         netns&       net() { return net_; }
         netns const& net() const { return net_; }
 
-        endpoint const& remote_ep() const { return remote_ep_; }
-        endpoint const& local_ep() const { return local_ep_; }
+        endpoint const& remote_endpoint() const { return remote_ep_; }
+        endpoint const& local_endpoint() const { return local_ep_; }
 
 private:
         netns&   net_;

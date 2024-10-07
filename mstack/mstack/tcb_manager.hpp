@@ -26,7 +26,6 @@ private:
 
         struct rule {
                 std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher;
-                int                                                                      proto;
                 std::function<void(boost::system::error_code const& ec,
                                    endpoint const&                  remote_ep,
                                    endpoint const&                  local_ep,
@@ -57,15 +56,9 @@ public:
                                               endpoint const&                  remote_ep,
                                               endpoint const&                  local_ep,
                                               std::weak_ptr<tcb_t>             tcb)> cb);
-        void async_accept(endpoint const&                               ep,
-                          std::function<void(boost::system::error_code const& ec,
-                                             endpoint const&                  remote_ep,
-                                             endpoint const&                  local_ep,
-                                             std::weak_ptr<tcb_t>             tcb)> cb);
 
         void rule_insert_front(
                 std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,
-                int                                                                      proto,
                 std::function<void(boost::system::error_code const& ec,
                                    endpoint const&                  remote_ep,
                                    endpoint const&                  local_ep,
@@ -73,7 +66,6 @@ public:
 
         void rule_insert_back(
                 std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,
-                int                                                                      proto,
                 std::function<void(boost::system::error_code const& ec,
                                    endpoint const&                  remote_ep,
                                    endpoint const&                  local_ep,

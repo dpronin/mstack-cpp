@@ -76,9 +76,8 @@ std::optional<tcp_packet> tcp::make_packet(ipv4_packet&& pkt_in) {
                                         it, two_end,
                                         std::make_shared<::mstack::raw_socket::pqueue>());
 
-                                it->second->push(std::move(tcp_pkt));
-
                                 try {
+                                        it->second->push(std::move(tcp_pkt));
                                         cb(tcp_pkt.remote_ep, tcp_pkt.local_ep, it->second);
                                         return std::nullopt;
                                 } catch (std::exception const& ex) {

@@ -1,6 +1,9 @@
 #pragma once
 
+#include <deque>
 #include <functional>
+#include <memory>
+#include <unordered_map>
 
 #include <boost/asio/io_context.hpp>
 #include <boost/system/error_code.hpp>
@@ -15,6 +18,18 @@
 namespace mstack {
 
 class tcp : public base_protocol<ipv4_packet, tcp_packet> {
+private:
+        struct rule {
+                std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher;
+                std::function<void(endpoint const&                     remote_ep,
+                                   endpoint const&                     local_ep,
+                                   std::shared_ptr<raw_socket::pqueue> rcv_pq)>
+                        cb;
+        };
+        std::deque<rule> rules_;
+
+        std::unordered_map<two_ends_t, std::shared_ptr<raw_socket::pqueue>> rcv_pqs_;
+
 public:
         constexpr static int PROTO{0x06};
 
@@ -43,17 +58,6 @@ public:
 
 private:
         std::optional<tcp_packet> make_packet(ipv4_packet&& pkt_in) override;
-
-        struct rule {
-                std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher;
-                std::function<void(endpoint const&                     remote_ep,
-                                   endpoint const&                     local_ep,
-                                   std::shared_ptr<raw_socket::pqueue> rcv_pq)>
-                        cb;
-        };
-        std::deque<rule> rules_;
-
-        std::unordered_map<two_ends_t, std::shared_ptr<raw_socket::pqueue>> rcv_pqs_;
 };
 
 }  // namespace mstack

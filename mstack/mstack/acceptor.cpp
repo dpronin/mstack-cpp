@@ -22,9 +22,8 @@ acceptor::acceptor(
         std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> const& matcher)
     : net_(net) {
         net_.tcb_m().rule_insert_back(
-                matcher, tcp::PROTO,
-                [this](boost::system::error_code const& ec, endpoint const& remote_ep,
-                       endpoint const& local_ep, std::weak_ptr<tcb_t> tcb) {
+                matcher, [this](boost::system::error_code const& ec, endpoint const& remote_ep,
+                                endpoint const& local_ep, std::weak_ptr<tcb_t> tcb) {
                         if (ec) {
                                 spdlog::critical("failed to accept a new connection, reason: {}",
                                                  ec.what());

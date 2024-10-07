@@ -45,22 +45,20 @@ tcb_manager::~tcb_manager() noexcept = default;
 
 void tcb_manager::rule_insert_front(
         std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,
-        int                                                                      proto,
         std::function<void(boost::system::error_code const& ec,
                            endpoint const&                  remote_ep,
                            endpoint const&                  local_ep,
                            std::weak_ptr<tcb_t>)>                                cb) {
-        rules_.emplace_front(std::move(matcher), proto, std::move(cb));
+        rules_.emplace_front(std::move(matcher), std::move(cb));
 }
 
 void tcb_manager::rule_insert_back(
         std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,
-        int                                                                      proto,
         std::function<void(boost::system::error_code const& ec,
                            endpoint const&                  remote_ep,
                            endpoint const&                  local_ep,
                            std::weak_ptr<tcb_t>)>                                cb) {
-        rules_.emplace_back(std::move(matcher), proto, std::move(cb));
+        rules_.emplace_back(std::move(matcher), std::move(cb));
 }
 
 void tcb_manager::async_connect(endpoint const&                           remote_ep,
@@ -102,7 +100,7 @@ void tcb_manager::process(tcp_packet&& pkt_in) {
         if (auto tcb_it{tcbs_.find(two_end)}; tcbs_.end() != tcb_it) {
                 p_tcb = tcb_it->second.get();
         } else {
-                for (auto const& [matcher, proto, cb] : rules_) {
+                for (auto const& [matcher, cb] : rules_) {
                         if (matcher(two_end.remote_ep, two_end.local_ep)) {
                                 spdlog::debug("[TCB MNGR] reg {}", two_end);
 
