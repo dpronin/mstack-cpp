@@ -12,6 +12,8 @@
 #include <boost/asio/ip/address_v4.hpp>
 #include <boost/container_hash/hash.hpp>
 
+#include <fmt/format.h>
+
 #include "utils.hpp"
 
 namespace mstack {

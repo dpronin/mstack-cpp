@@ -1,6 +1,10 @@
 #pragma once
 
-#include <iomanip>
+#include <cstdint>
+
+#include <ostream>
+#include <sstream>
+#include <string>
 
 #include <fmt/format.h>
 
@@ -32,9 +36,8 @@ struct ethernetv2_header_t {
 };
 
 inline std::ostream& operator<<(std::ostream& out, ethernetv2_header_t const& m) {
-        out << "[ETHERNET PACKET] ";
-        out << "DST: " << mac_addr_t(m.dst_mac_addr) << " SRC: " << mac_addr_t(m.src_mac_addr);
-        out << " TYPE: " << std::setiosflags(std::ios::uppercase) << std::hex << int(m.proto);
+        out << fmt::format("[ETH PACKET] DST: {} SRC: {} TYPE: {:04X}", m.dst_mac_addr,
+                           m.src_mac_addr, m.proto);
         return out;
 }
 
