@@ -18,18 +18,17 @@ void socket::async_connect(endpoint const&                                      
                            std::function<void(boost::system::error_code const&)> cb) {
         net.tcb_m().async_connect(
                 remote_ep, local_addr,
-                [this, proto = remote_ep.proto(), cb = std::move(cb)](
-                        boost::system::error_code const& ec,
-                        ipv4_port_t const&               remote_info [[maybe_unused]],
-                        ipv4_port_t const& local_info, std::weak_ptr<tcb_t> tcb) {
+                [this, cb = std::move(cb)](boost::system::error_code const& ec,
+                                           endpoint const& remote_ep [[maybe_unused]],
+                                           endpoint const& local_ep, std::weak_ptr<tcb_t> tcb) {
                         if (ec) {
                                 spdlog::critical("failed to accept a new connection, reason: {}",
                                                  ec.what());
                                 return;
                         }
 
-                        this->local_info = {proto, local_info};
-                        this->tcb        = std::move(tcb);
+                        this->local_ep = local_ep;
+                        this->tcb      = std::move(tcb);
 
                         cb({});
                 });
@@ -84,7 +83,7 @@ void socket::async_write(std::span<std::byte const>                             
 }
 
 endpoint socket::remote_endpoint() const {
-        if (auto sp{tcb.lock()}) return {sp->proto(), sp->remote_info()};
+        if (auto sp{tcb.lock()}) return sp->remote_endpoint();
         throw std::runtime_error("endpoint is not connected");
 }
 

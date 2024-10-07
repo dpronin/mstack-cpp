@@ -62,10 +62,10 @@ private:
                 spdlog::debug("[ICMP] ENQUEUE REPLY {}", out_icmp_header);
 
                 enqueue({
-                        .src_ipv4_addr = pkt_in.dst_ipv4_addr,
-                        .dst_ipv4_addr = pkt_in.src_ipv4_addr,
-                        .proto         = pkt_in.proto,
-                        .skb           = std::move(skb_out),
+                        .src_addrv4 = pkt_in.dst_addrv4,
+                        .dst_addrv4 = pkt_in.src_addrv4,
+                        .proto      = pkt_in.proto,
+                        .skb        = std::move(skb_out),
                 });
         }
 };

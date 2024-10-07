@@ -8,15 +8,15 @@
 
 #include <spdlog/spdlog.h>
 
-#include "ipv4_port.hpp"
+#include "endpoint.hpp"
 #include "raw_socket.hpp"
 #include "tcp.hpp"
 
 namespace mstack {
 
-interceptor::interceptor(netns&                                                    net,
-                         std::function<bool(ipv4_port_t const& remote_info,
-                                            ipv4_port_t const& local_info)> const& matcher)
+interceptor::interceptor(
+        netns&                                                                          net,
+        std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> const& matcher)
     : net_(net) {
         net_.tcp().rule_insert_back(matcher, tcp::PROTO, [this](tcp_packet const& pkt_in) {
                 if (!cbs_.empty()) {
@@ -28,12 +28,14 @@ interceptor::interceptor(netns&                                                 
         });
 }
 
-interceptor::interceptor(netns& net, endpoint const& ep)
+interceptor::interceptor(netns& net, endpoint const& local_ep)
     : interceptor(net,
-                  [ep](ipv4_port_t const& remote_info [[maybe_unused]],
-                       ipv4_port_t const& local_info) { return local_info == ep.ep(); }) {}
+                  [local_ep_exp = local_ep](endpoint const& remote_ep [[maybe_unused]],
+                                            endpoint const& local_ep) {
+                          return local_ep_exp == local_ep;
+                  }) {}
 
-interceptor::interceptor(endpoint const& ep) : interceptor(netns::_default_(), ep) {}
+interceptor::interceptor(endpoint const& local_ep) : interceptor(netns::_default_(), local_ep) {}
 
 interceptor::~interceptor() = default;
 

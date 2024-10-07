@@ -14,15 +14,15 @@
 namespace mstack {
 
 struct ipv4_packet {
-        ipv4_addr_t src_ipv4_addr;
-        ipv4_addr_t dst_ipv4_addr;
+        ipv4_addr_t src_addrv4;
+        ipv4_addr_t dst_addrv4;
         uint8_t     proto;
         skbuff      skb;
 
         friend std::ostream& operator<<(std::ostream& out, ipv4_packet const& p) {
-                out << p.src_ipv4_addr;
+                out << p.src_addrv4;
                 out << " -> ";
-                out << p.dst_ipv4_addr;
+                out << p.dst_addrv4;
                 return out;
         }
 };

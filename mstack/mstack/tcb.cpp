@@ -159,20 +159,18 @@ namespace mstack {
 
 tcb_t::tcb_t(boost::asio::io_context&                  io_ctx,
              tcb_manager&                              mngr,
-             ipv4_port_t const&                        remote_info,
-             ipv4_port_t const&                        local_info,
-             int                                       proto,
+             endpoint const&                           remote_ep,
+             endpoint const&                           local_ep,
              int                                       state,
              int                                       next_state,
              std::function<void(boost::system::error_code const& ec,
-                                ipv4_port_t const&               remote_info,
-                                ipv4_port_t const&               local_info,
+                                endpoint const&                  remote_ep,
+                                endpoint const&                  local_ep,
                                 std::weak_ptr<tcb_t>)> on_connection_established)
     : io_ctx_(io_ctx),
       mngr_(mngr),
-      local_info_(local_info),
-      remote_info_(remote_info),
-      proto_(proto),
+      local_ep_(local_ep),
+      remote_ep_(remote_ep),
       state_(state),
       next_state_(next_state),
       on_connection_established_(std::move(on_connection_established)) {
@@ -233,7 +231,7 @@ void tcb_t::enqueue_app_data(std::span<std::byte const> pkt) {
 
 void tcb_t::listen_finish() {
         io_ctx_.post([this] {
-                on_connection_established_({}, remote_info_, local_info_, weak_from_this());
+                on_connection_established_({}, remote_ep_, local_ep_, weak_from_this());
         });
 }
 
@@ -253,8 +251,8 @@ tcp_packet tcb_t::make_packet() {
         assert(0 == (tcp_header_t::fixed_size() & 0x3));
 
         auto const out_tcp = tcp_header_t{
-                .src_port    = local_info_.port_addr,
-                .dst_port    = remote_info_.port_addr,
+                .src_port    = local_ep_.addrv4_port,
+                .dst_port    = remote_ep_.addrv4_port,
                 .seq_no      = 0 == seg_len ? send_.state.seq_nr_unack : send_.state.seq_nr_next,
                 .ack_no      = rcv_.state.next,
                 .data_offset = tcp_header_t::fixed_size() >> 2,
@@ -273,10 +271,10 @@ tcp_packet tcb_t::make_packet() {
         if (next_state_ != state_) state_ = next_state_;
 
         return {
-                .proto       = tcb_manager::PROTO,
-                .remote_info = remote_info_,
-                .local_info  = local_info_,
-                .skb         = std::move(skb_out),
+                .proto     = tcb_manager::PROTO,
+                .remote_ep = remote_ep_,
+                .local_ep  = local_ep_,
+                .skb       = std::move(skb_out),
         };
 }
 
@@ -1146,8 +1144,8 @@ void tcb_t::start_connecting() {
         assert(0 == (tcp_header_t::fixed_size() & 0x3));
 
         auto const out_tcp = tcp_header_t{
-                .src_port    = local_info_.port_addr,
-                .dst_port    = remote_info_.port_addr,
+                .src_port    = local_ep_.addrv4_port,
+                .dst_port    = remote_ep_.addrv4_port,
                 .seq_no      = generate_isn(),
                 .ack_no      = 0,
                 .data_offset = static_cast<uint16_t>(skb_out.payload().size() >> 2),
@@ -1164,10 +1162,10 @@ void tcb_t::start_connecting() {
         next_state_ = kTCPEstablished;
 
         enqueue({
-                .proto       = 0x06,
-                .remote_info = remote_info_,
-                .local_info  = local_info_,
-                .skb         = std::move(skb_out),
+                .proto     = 0x06,
+                .remote_ep = remote_ep_,
+                .local_ep  = local_ep_,
+                .skb       = std::move(skb_out),
         });
 }
 

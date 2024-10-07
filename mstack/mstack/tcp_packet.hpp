@@ -2,28 +2,27 @@
 
 #include <cstdint>
 
-#include <memory>
 #include <ostream>
 #include <sstream>
 #include <string>
 
 #include <fmt/format.h>
 
-#include "ipv4_port.hpp"
+#include "endpoint.hpp"
 #include "skbuff.hpp"
 
 namespace mstack {
 
 struct tcp_packet {
-        uint8_t     proto;
-        ipv4_port_t remote_info;
-        ipv4_port_t local_info;
-        skbuff      skb;
+        uint8_t  proto;
+        endpoint remote_ep;
+        endpoint local_ep;
+        skbuff   skb;
 
         friend std::ostream& operator<<(std::ostream& out, tcp_packet const& p) {
-                out << p.remote_info;
+                out << p.remote_ep;
                 out << " -> ";
-                out << p.local_info;
+                out << p.local_ep;
                 return out;
         }
 };

@@ -2,6 +2,8 @@
 
 #include <cstddef>
 
+#include <ostream>
+#include <sstream>
 #include <string>
 
 #include <fmt/format.h>
@@ -10,20 +12,20 @@
 
 #include <boost/container_hash/hash.hpp>
 
-#include "ipv4_port.hpp"
+#include "endpoint.hpp"
 
 namespace mstack {
 
 struct two_ends_t {
-        ipv4_port_t remote_info;
-        ipv4_port_t local_info;
+        endpoint remote_ep;
+        endpoint local_ep;
 
         auto operator<=>(two_ends_t const& other) const = default;
 
         friend std::ostream& operator<<(std::ostream& out, two_ends_t const& p) {
-                out << p.remote_info;
+                out << p.remote_ep;
                 out << " -> ";
-                out << p.local_info;
+                out << p.local_ep;
                 return out;
         }
 };
@@ -36,8 +38,8 @@ template <>
 struct hash<mstack::two_ends_t> {
         size_t operator()(const mstack::two_ends_t& two_ends) const {
                 size_t seed{0};
-                boost::hash_combine(seed, two_ends.remote_info);
-                boost::hash_combine(seed, two_ends.local_info);
+                boost::hash_combine(seed, two_ends.remote_ep);
+                boost::hash_combine(seed, two_ends.local_ep);
                 return seed;
         }
 };

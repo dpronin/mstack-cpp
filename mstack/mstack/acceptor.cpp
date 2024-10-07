@@ -9,7 +9,7 @@
 
 #include <spdlog/spdlog.h>
 
-#include "ipv4_port.hpp"
+#include "endpoint.hpp"
 #include "socket.hpp"
 #include "tcb.hpp"
 #include "tcb_manager.hpp"
@@ -17,14 +17,14 @@
 
 namespace mstack {
 
-acceptor::acceptor(netns&                                                    net,
-                   std::function<bool(ipv4_port_t const& remote_info,
-                                      ipv4_port_t const& local_info)> const& matcher)
+acceptor::acceptor(
+        netns&                                                                          net,
+        std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> const& matcher)
     : net_(net) {
         net_.tcb_m().rule_insert_back(
                 matcher, tcp::PROTO,
-                [this](boost::system::error_code const& ec, ipv4_port_t const& remote_info,
-                       ipv4_port_t const& local_info, std::weak_ptr<tcb_t> tcb) {
+                [this](boost::system::error_code const& ec, endpoint const& remote_ep,
+                       endpoint const& local_ep, std::weak_ptr<tcb_t> tcb) {
                         if (ec) {
                                 spdlog::critical("failed to accept a new connection, reason: {}",
                                                  ec.what());
@@ -33,17 +33,19 @@ acceptor::acceptor(netns&                                                    net
                         if (!cbs_.empty()) {
                                 auto cb{cbs_.front()};
                                 cbs_.pop();
-                                cb(remote_info, local_info, std::move(tcb));
+                                cb(remote_ep, local_ep, std::move(tcb));
                         }
                 });
 }
 
-acceptor::acceptor(netns& net, endpoint const& ep)
+acceptor::acceptor(netns& net, endpoint const& local_ep)
     : acceptor(net,
-               [ep](ipv4_port_t const& remote_info [[maybe_unused]],
-                    ipv4_port_t const& local_info) { return local_info == ep.ep(); }) {}
+               [local_ep_exp = local_ep](endpoint const& remote_ep [[maybe_unused]],
+                                         endpoint const& local_ep) {
+                       return local_ep == local_ep;
+               }) {}
 
-acceptor::acceptor(endpoint const& ep) : acceptor(netns::_default_(), ep) {}
+acceptor::acceptor(endpoint const& local_ep) : acceptor(netns::_default_(), local_ep) {}
 
 acceptor::~acceptor() = default;
 
@@ -51,12 +53,11 @@ netns& acceptor::net() { return net_; }
 netns& acceptor::net() const { return net_; }
 
 void acceptor::async_accept(socket& sk, std::function<void(boost::system::error_code const&)> cb) {
-        cbs_.push([&sk, cb = std::move(cb)](ipv4_port_t const&   remote_info,
-                                            ipv4_port_t const&   local_info,
+        cbs_.push([&sk, cb = std::move(cb)](endpoint const& remote_ep, endpoint const& local_ep,
                                             std::weak_ptr<tcb_t> tcb) {
-                sk.local_info = {tcp::PROTO, local_info};
-                sk.state      = kSocketConnected;
-                sk.tcb        = std::move(tcb);
+                sk.local_ep = local_ep;
+                sk.state    = kSocketConnected;
+                sk.tcb      = std::move(tcb);
                 cb({});
         });
 }

@@ -6,21 +6,20 @@
 #include <functional>
 #include <queue>
 
-#include "ipv4_port.hpp"
+#include "endpoint.hpp"
 #include "netns.hpp"
 
 namespace mstack {
 
 struct socket;
-struct endpoint;
 
 class acceptor {
 public:
-        explicit acceptor(netns&                                                    net,
-                          std::function<bool(ipv4_port_t const& remote_info,
-                                             ipv4_port_t const& local_info)> const& matcher);
-        explicit acceptor(netns& net, endpoint const& ep);
-        explicit acceptor(endpoint const& ep);
+        explicit acceptor(netns&                                               net,
+                          std::function<bool(endpoint const& remote_ep,
+                                             endpoint const& local_ep)> const& matcher);
+        explicit acceptor(netns& net, endpoint const& local_ep);
+        explicit acceptor(endpoint const& local_ep);
         ~acceptor();
 
         acceptor(acceptor const&)            = delete;
@@ -36,8 +35,7 @@ public:
 
 private:
         netns& net_;
-        std::queue<
-                std::function<void(ipv4_port_t const&, ipv4_port_t const&, std::weak_ptr<tcb_t>)>>
+        std::queue<std::function<void(endpoint const&, endpoint const&, std::weak_ptr<tcb_t>)>>
                 cbs_;
 };
 

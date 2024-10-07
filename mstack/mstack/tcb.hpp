@@ -14,6 +14,7 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/circular_buffer.hpp>
 
+#include "mstack/endpoint.hpp"
 #include "skbuff.hpp"
 #include "socket.hpp"
 #include "tcp_header.hpp"
@@ -60,15 +61,14 @@ private:
         boost::asio::io_context& io_ctx_;
         tcb_manager&             mngr_;
 
-        ipv4_port_t remote_info_;
-        ipv4_port_t local_info_;
-        int         proto_;
-        int         state_;
-        int         next_state_;
+        endpoint remote_ep_;
+        endpoint local_ep_;
+        int      state_;
+        int      next_state_;
 
         std::function<void(boost::system::error_code const& ec,
-                           ipv4_port_t const&               remote_info,
-                           ipv4_port_t const&               local_info,
+                           endpoint const&                  remote_info,
+                           endpoint const&                  local_info,
                            std::weak_ptr<tcb_t>)>
                 on_connection_established_;
 
@@ -79,14 +79,13 @@ private:
 
         explicit tcb_t(boost::asio::io_context&                  io_ctx,
                        tcb_manager&                              mngr,
-                       ipv4_port_t const&                        remote_info,
-                       ipv4_port_t const&                        local_info,
-                       int                                       proto,
+                       endpoint const&                           remote_info,
+                       endpoint const&                           local_info,
                        int                                       state,
                        int                                       next_state,
                        std::function<void(boost::system::error_code const& ec,
-                                          ipv4_port_t const&               remote_info,
-                                          ipv4_port_t const&               local_info,
+                                          endpoint const&                  remote_info,
+                                          endpoint const&                  local_info,
                                           std::weak_ptr<tcb_t>)> on_connection_established);
 
 public:
@@ -114,9 +113,8 @@ public:
 
         void process(tcp_packet&& in_packet);
 
-        ipv4_port_t const& local_info() const { return local_info_; }
-        ipv4_port_t const& remote_info() const { return remote_info_; }
-        int                proto() const { return proto_; }
+        endpoint const& local_endpoint() const { return local_ep_; }
+        endpoint const& remote_endpoint() const { return remote_ep_; }
 
 private:
         size_t app_data_unacknowleged() const;
@@ -148,9 +146,9 @@ private:
 };
 
 inline std::ostream& operator<<(std::ostream& out, tcb_t const& m) {
-        out << m.remote_info_;
+        out << m.remote_ep_;
         out << " -> ";
-        out << m.local_info_;
+        out << m.local_ep_;
         out << " ";
         out << state_to_string(m.state_);
         return out;

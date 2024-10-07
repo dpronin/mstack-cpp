@@ -38,8 +38,8 @@ void ipv4::process(ipv4_packet&& pkt_in) {
                 .id          = seq_++,
                 .ttl         = 0x40,
                 .proto_type  = pkt_in.proto,
-                .src_ip_addr = pkt_in.src_ipv4_addr,
-                .dst_ip_addr = pkt_in.dst_ipv4_addr,
+                .src_ip_addr = pkt_in.src_addrv4,
+                .dst_ip_addr = pkt_in.dst_addrv4,
         };
 
         auto out_buffer{std::move(pkt_in.skb)};
@@ -55,7 +55,7 @@ void ipv4::process(ipv4_packet&& pkt_in) {
                 .skb   = std::move(out_buffer),
         };
 
-        auto nh{rt_->query(pkt_in.dst_ipv4_addr)};
+        auto nh{rt_->query(pkt_in.dst_addrv4)};
         if (!nh) nh = rt_->query_default();
 
         if (nh) {
@@ -75,7 +75,7 @@ void ipv4::process(ipv4_packet&& pkt_in) {
                                            enqueue(std::move(out_packet));
                                    });
         } else {
-                spdlog::error("[IPv4] NO NH for {}", pkt_in.dst_ipv4_addr);
+                spdlog::error("[IPv4] NO NH for {}", pkt_in.dst_addrv4);
         }
 }
 
@@ -90,10 +90,10 @@ std::optional<ipv4_packet> ipv4::make_packet(ethernetv2_frame&& frame_in) {
         spdlog::debug("[RECEIVE] {}", ipv4_header);
 
         return ipv4_packet{
-                .src_ipv4_addr = ipv4_header.src_ip_addr,
-                .dst_ipv4_addr = ipv4_header.dst_ip_addr,
-                .proto         = ipv4_header.proto_type,
-                .skb           = std::move(frame_in.skb),
+                .src_addrv4 = ipv4_header.src_ip_addr,
+                .dst_addrv4 = ipv4_header.dst_ip_addr,
+                .proto      = ipv4_header.proto_type,
+                .skb        = std::move(frame_in.skb),
         };
 }
 

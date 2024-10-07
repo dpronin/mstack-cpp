@@ -25,12 +25,11 @@ private:
         std::unique_ptr<port_generator_ctx> port_gen_ctx_;
 
         struct rule {
-                std::function<bool(ipv4_port_t const& remote_info, ipv4_port_t const& local_info)>
-                        matcher;
-                int     proto;
+                std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher;
+                int                                                                      proto;
                 std::function<void(boost::system::error_code const& ec,
-                                   ipv4_port_t const&               remote_info,
-                                   ipv4_port_t const&               local_info,
+                                   endpoint const&                  remote_ep,
+                                   endpoint const&                  local_ep,
                                    std::weak_ptr<tcb_t>             tcb)>
                         cb;
         };
@@ -55,30 +54,30 @@ public:
         void async_connect(endpoint const&                               remote_ep,
                            ipv4_addr_t const&                            local_addr,
                            std::function<void(boost::system::error_code const& ec,
-                                              ipv4_port_t const&               remote_info,
-                                              ipv4_port_t const&               local_info,
+                                              endpoint const&                  remote_ep,
+                                              endpoint const&                  local_ep,
                                               std::weak_ptr<tcb_t>             tcb)> cb);
         void async_accept(endpoint const&                               ep,
                           std::function<void(boost::system::error_code const& ec,
-                                             ipv4_port_t const&               remote_info,
-                                             ipv4_port_t const&               local_info,
+                                             endpoint const&                  remote_ep,
+                                             endpoint const&                  local_ep,
                                              std::weak_ptr<tcb_t>             tcb)> cb);
 
-        void rule_insert_front(std::function<bool(ipv4_port_t const& remote_info,
-                                                  ipv4_port_t const& local_info)> matcher,
-                               int                                                proto,
-                               std::function<void(boost::system::error_code const& ec,
-                                                  ipv4_port_t const&               remote_info,
-                                                  ipv4_port_t const&               local_info,
-                                                  std::weak_ptr<tcb_t>)>          cb);
+        void rule_insert_front(
+                std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,
+                int                                                                      proto,
+                std::function<void(boost::system::error_code const& ec,
+                                   endpoint const&                  remote_ep,
+                                   endpoint const&                  local_ep,
+                                   std::weak_ptr<tcb_t>)>                                cb);
 
-        void rule_insert_back(std::function<bool(ipv4_port_t const& remote_info,
-                                                 ipv4_port_t const& local_info)> matcher,
-                              int                                                proto,
-                              std::function<void(boost::system::error_code const& ec,
-                                                 ipv4_port_t const&               remote_info,
-                                                 ipv4_port_t const&               local_info,
-                                                 std::weak_ptr<tcb_t>)>          cb);
+        void rule_insert_back(
+                std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,
+                int                                                                      proto,
+                std::function<void(boost::system::error_code const& ec,
+                                   endpoint const&                  remote_ep,
+                                   endpoint const&                  local_ep,
+                                   std::weak_ptr<tcb_t>)>                                cb);
 
         void process(tcp_packet&& pkt_in) override;
 };

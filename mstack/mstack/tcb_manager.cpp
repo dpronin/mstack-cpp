@@ -44,42 +44,41 @@ tcb_manager::tcb_manager(boost::asio::io_context& io_ctx)
 tcb_manager::~tcb_manager() noexcept = default;
 
 void tcb_manager::rule_insert_front(
-        std::function<bool(ipv4_port_t const& remote_info, ipv4_port_t const& local_info)> matcher,
-        int                                                                                proto,
+        std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,
+        int                                                                      proto,
         std::function<void(boost::system::error_code const& ec,
-                           ipv4_port_t const&               remote_info,
-                           ipv4_port_t const&               local_info,
-                           std::weak_ptr<tcb_t>)>                                          cb) {
+                           endpoint const&                  remote_ep,
+                           endpoint const&                  local_ep,
+                           std::weak_ptr<tcb_t>)>                                cb) {
         rules_.emplace_front(std::move(matcher), proto, std::move(cb));
 }
 
 void tcb_manager::rule_insert_back(
-        std::function<bool(ipv4_port_t const& remote_info, ipv4_port_t const& local_info)> matcher,
-        int                                                                                proto,
+        std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,
+        int                                                                      proto,
         std::function<void(boost::system::error_code const& ec,
-                           ipv4_port_t const&               remote_info,
-                           ipv4_port_t const&               local_info,
-                           std::weak_ptr<tcb_t>)>                                          cb) {
+                           endpoint const&                  remote_ep,
+                           endpoint const&                  local_ep,
+                           std::weak_ptr<tcb_t>)>                                cb) {
         rules_.emplace_back(std::move(matcher), proto, std::move(cb));
 }
 
 void tcb_manager::async_connect(endpoint const&                           remote_ep,
                                 ipv4_addr_t const&                        local_addr,
                                 std::function<void(boost::system::error_code const& ec,
-                                                   ipv4_port_t const&               remote_info,
-                                                   ipv4_port_t const&               local_info,
+                                                   endpoint const&                  remote_ep,
+                                                   endpoint const&                  local_ep,
                                                    std::weak_ptr<tcb_t>)> cb) {
         while (true) {
                 two_ends_t const two_end = {
-                        .remote_info = remote_ep.ep(),
-                        .local_info  = {local_addr, port_gen_ctx_->generate()},
+                        .remote_ep = remote_ep,
+                        .local_ep  = {local_addr, port_gen_ctx_->generate()},
                 };
 
                 auto [tcb_it, created] = tcbs_.emplace(
                         two_end,
-                        tcb_t::create_shared(io_ctx_, *this, two_end.remote_info,
-                                             two_end.local_info, remote_ep.proto(), kTCPConnecting,
-                                             kTCPConnecting, std::move(cb)));
+                        tcb_t::create_shared(io_ctx_, *this, two_end.remote_ep, two_end.local_ep,
+                                             kTCPConnecting, kTCPConnecting, std::move(cb)));
                 if (!created) continue;
 
                 spdlog::debug("[TCB MNGR] new connect {}", two_end);
@@ -92,8 +91,8 @@ void tcb_manager::async_connect(endpoint const&                           remote
 
 void tcb_manager::process(tcp_packet&& pkt_in) {
         two_ends_t const two_end = {
-                .remote_info = pkt_in.remote_info,
-                .local_info  = pkt_in.local_info,
+                .remote_ep = pkt_in.remote_ep,
+                .local_ep  = pkt_in.local_ep,
         };
 
         spdlog::debug("[TCB MNGR] RECEIVE {}", two_end);
@@ -104,13 +103,13 @@ void tcb_manager::process(tcp_packet&& pkt_in) {
                 p_tcb = tcb_it->second.get();
         } else {
                 for (auto const& [matcher, proto, cb] : rules_) {
-                        if (matcher(two_end.remote_info, two_end.local_info)) {
+                        if (matcher(two_end.remote_ep, two_end.local_ep)) {
                                 spdlog::debug("[TCB MNGR] reg {}", two_end);
 
                                 tcb_it = tcbs_.emplace_hint(
                                         tcb_it, two_end,
-                                        tcb_t::create_shared(io_ctx_, *this, two_end.remote_info,
-                                                             two_end.local_info, proto, kTCPListen,
+                                        tcb_t::create_shared(io_ctx_, *this, two_end.remote_ep,
+                                                             two_end.local_ep, kTCPListen,
                                                              kTCPListen, cb));
 
                                 p_tcb = tcb_it->second.get();

@@ -18,8 +18,8 @@ void tcp::process(tcp_packet&& pkt_in) {
         spdlog::debug("[TCP] HDL FROM U-LAYER {}", pkt_in);
 
         uint32_t const tcp_pseudo_header_chsum{
-                utils::hton(pkt_in.local_info.ipv4_addr.raw()) +
-                        utils::hton(pkt_in.remote_info.ipv4_addr.raw()) +
+                utils::hton(pkt_in.local_ep.addrv4.raw()) +
+                        utils::hton(pkt_in.remote_ep.addrv4.raw()) +
                         utils::hton(static_cast<uint16_t>(pkt_in.proto)) +
                         utils::hton(static_cast<uint16_t>(pkt_in.skb.payload().size())),
         };
@@ -29,10 +29,10 @@ void tcp::process(tcp_packet&& pkt_in) {
         tcph.produce_to_net(pkt_in.skb.head());
 
         enqueue({
-                .src_ipv4_addr = pkt_in.local_info.ipv4_addr,
-                .dst_ipv4_addr = pkt_in.remote_info.ipv4_addr,
-                .proto         = pkt_in.proto,
-                .skb           = std::move(pkt_in.skb),
+                .src_addrv4 = pkt_in.local_ep.addrv4,
+                .dst_addrv4 = pkt_in.remote_ep.addrv4,
+                .proto      = pkt_in.proto,
+                .skb        = std::move(pkt_in.skb),
         });
 }
 
@@ -43,23 +43,23 @@ std::optional<tcp_packet> tcp::make_packet(ipv4_packet&& pkt_in) {
 
         auto tcp_pkt = tcp_packet{
                 .proto = PROTO,
-                .remote_info =
+                .remote_ep =
                         {
-                                .ipv4_addr = pkt_in.src_ipv4_addr,
-                                .port_addr = tcph.src_port,
+                                .addrv4      = pkt_in.src_addrv4,
+                                .addrv4_port = tcph.src_port,
                         },
-                .local_info =
+                .local_ep =
                         {
-                                .ipv4_addr = pkt_in.dst_ipv4_addr,
-                                .port_addr = tcph.dst_port,
+                                .addrv4      = pkt_in.dst_addrv4,
+                                .addrv4_port = tcph.dst_port,
                         },
                 .skb = std::move(pkt_in.skb),
         };
 
         for (auto const& [matcher, proto, cb] : rules_) {
-                if (matcher(tcp_pkt.remote_info, tcp_pkt.local_info)) {
-                        spdlog::debug("[TCP] intercept {} -> {}", tcp_pkt.remote_info,
-                                      tcp_pkt.local_info);
+                if (matcher(tcp_pkt.remote_ep, tcp_pkt.local_ep)) {
+                        spdlog::debug("[TCP] intercept {} -> {}", tcp_pkt.remote_ep,
+                                      tcp_pkt.local_ep);
                         if (cb(tcp_pkt)) {
                                 return std::nullopt;
                         }
@@ -70,16 +70,16 @@ std::optional<tcp_packet> tcp::make_packet(ipv4_packet&& pkt_in) {
 }
 
 void tcp::rule_insert_front(
-        std::function<bool(ipv4_port_t const& remote_info, ipv4_port_t const& local_info)> matcher,
-        int                                                                                proto,
-        std::function<bool(tcp_packet const& pkt_in)>                                      cb) {
+        std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,
+        int                                                                      proto,
+        std::function<bool(tcp_packet const& pkt_in)>                            cb) {
         rules_.emplace_front(std::move(matcher), proto, std::move(cb));
 }
 
 void tcp::rule_insert_back(
-        std::function<bool(ipv4_port_t const& remote_info, ipv4_port_t const& local_info)> matcher,
-        int                                                                                proto,
-        std::function<bool(tcp_packet const& pkt_in)>                                      cb) {
+        std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,
+        int                                                                      proto,
+        std::function<bool(tcp_packet const& pkt_in)>                            cb) {
         rules_.emplace_back(std::move(matcher), proto, std::move(cb));
 }
 

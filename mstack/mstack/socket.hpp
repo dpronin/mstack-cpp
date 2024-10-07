@@ -46,7 +46,7 @@ public:
         void async_write(std::span<std::byte const>                                    buf,
                          std::function<void(boost::system::error_code const&, size_t)> cb);
 
-        endpoint const& local_endpoint() const { return local_info; }
+        endpoint const& local_endpoint() const { return local_ep; }
 
         endpoint remote_endpoint() const;
 
@@ -57,7 +57,7 @@ private:
 public:
         netns&               net;
         int                  state{kSocketDisconnected};
-        endpoint             local_info;
+        endpoint             local_ep;
         std::weak_ptr<tcb_t> tcb;
 };
 
