@@ -29,7 +29,7 @@ public:
         interceptor(interceptor&&)            = delete;
         interceptor& operator=(interceptor&&) = delete;
 
-        void async_intercept(raw_socket& sk, std::function<bool(tcp_packet const& pkt_in)> cb);
+        void async_intercept(std::function<bool(tcp_packet const& pkt_in)> cb);
 
         netns& net();
         netns& net() const;

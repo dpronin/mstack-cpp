@@ -42,8 +42,7 @@ interceptor::~interceptor() = default;
 netns& interceptor::net() { return net_; }
 netns& interceptor::net() const { return net_; }
 
-void interceptor::async_intercept(raw_socket&                                   sk,
-                                  std::function<bool(tcp_packet const& pkt_in)> cb) {
+void interceptor::async_intercept(std::function<bool(tcp_packet const& pkt_in)> cb) {
         cbs_.push(std::move(cb));
 }
 

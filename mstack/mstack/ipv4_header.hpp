@@ -18,8 +18,8 @@ struct ipv4_header_t {
         uint8_t     ttl;
         uint8_t     proto_type;
         uint16_t    header_chsum;
-        ipv4_addr_t src_ip_addr;
-        ipv4_addr_t dst_ip_addr;
+        ipv4_addr_t src_addr;
+        ipv4_addr_t dst_addr;
 
         static constexpr size_t size() {
                 return 1 + 1 + 2 + 2 + 2 + 1 + 1 + 2 + ipv4_addr_t::size() * 2;
@@ -41,8 +41,8 @@ struct ipv4_header_t {
                 ipv4_header.ttl                     = utils::consume_from_net<uint8_t>(ptr);
                 ipv4_header.proto_type              = utils::consume_from_net<uint8_t>(ptr);
                 ipv4_header.header_chsum            = utils::consume_from_net<uint16_t>(ptr);
-                ipv4_header.src_ip_addr.consume_from_net(ptr);
-                ipv4_header.dst_ip_addr.consume_from_net(ptr);
+                ipv4_header.src_addr.consume_from_net(ptr);
+                ipv4_header.dst_addr.consume_from_net(ptr);
                 return ipv4_header;
         }
 
@@ -55,16 +55,16 @@ struct ipv4_header_t {
                 utils::produce_to_net(ptr, ttl);
                 utils::produce_to_net(ptr, proto_type);
                 utils::produce_to_net(ptr, header_chsum);
-                src_ip_addr.produce_to_net(ptr);
-                dst_ip_addr.produce_to_net(ptr);
+                src_addr.produce_to_net(ptr);
+                dst_addr.produce_to_net(ptr);
         }
 
         friend std::ostream& operator<<(std::ostream& out, ipv4_header_t const& m) {
                 using u = uint32_t;
                 out << "[IPV4 PACKET] ";
                 out << m.total_length << " ";
-                out << m.src_ip_addr;
-                out << " -> " << m.dst_ip_addr << " ";
+                out << m.src_addr;
+                out << " -> " << m.dst_addr << " ";
                 out << "PROTO: " << std::hex << u(m.proto_type);
                 return out;
         }

@@ -35,11 +35,11 @@ void ipv4::process(ipv4_packet&& pkt_in) {
                 .header_length = 0x5,
                 .total_length =
                         static_cast<uint16_t>(pkt_in.skb.payload().size() + ipv4_header_t::size()),
-                .id          = seq_++,
-                .ttl         = 0x40,
-                .proto_type  = pkt_in.proto,
-                .src_ip_addr = pkt_in.src_addrv4,
-                .dst_ip_addr = pkt_in.dst_addrv4,
+                .id         = seq_++,
+                .ttl        = 0x40,
+                .proto_type = pkt_in.proto,
+                .src_addr   = pkt_in.src_addrv4,
+                .dst_addr   = pkt_in.dst_addrv4,
         };
 
         auto out_buffer{std::move(pkt_in.skb)};
@@ -90,8 +90,8 @@ std::optional<ipv4_packet> ipv4::make_packet(ethernetv2_frame&& frame_in) {
         spdlog::debug("[RECEIVE] {}", ipv4_header);
 
         return ipv4_packet{
-                .src_addrv4 = ipv4_header.src_ip_addr,
-                .dst_addrv4 = ipv4_header.dst_ip_addr,
+                .src_addrv4 = ipv4_header.src_addr,
+                .dst_addrv4 = ipv4_header.dst_addr,
                 .proto      = ipv4_header.proto_type,
                 .skb        = std::move(frame_in.skb),
         };

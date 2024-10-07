@@ -12,7 +12,8 @@ class raw_socket {
 public:
         using pqueue = std::queue<::mstack::tcp_packet>;
 
-        explicit raw_socket(netns& net) : net_(net) {}
+        explicit raw_socket(netns& net, endpoint const& remote_ep, endpoint const& local_ep)
+            : net_(net), remote_ep_(remote_ep), local_ep_(local_ep) {}
         raw_socket();
 
         ~raw_socket() = default;
@@ -26,11 +27,17 @@ public:
         netns&       net() { return net_; }
         netns const& net() const { return net_; }
 
+        endpoint const& remote_ep() const { return remote_ep_; }
+        endpoint const& local_ep() const { return local_ep_; }
+
         pqueue&       packets() { return packets_; }
         pqueue const& packets() const { return packets_; }
 
 private:
-        netns& net_;
+        netns&   net_;
+        endpoint remote_ep_;
+        endpoint local_ep_;
+
         pqueue packets_;
 };
 
