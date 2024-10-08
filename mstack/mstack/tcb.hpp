@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <queue>
 #include <span>
@@ -144,17 +145,12 @@ private:
 
         bool tcp_check_segment(tcp_header_t const& tcph, uint16_t seglen);
 
-        friend std::ostream& operator<<(std::ostream& out, tcb_t const& m);
+        friend std::ostream& operator<<(std::ostream& out, tcb_t const& m) {
+                fmt::format_to(std::ostream_iterator<char>(out), "{} -> {} {}", m.remote_ep_,
+                               m.local_ep_, state_to_string(m.state_));
+                return out;
+        }
 };
-
-inline std::ostream& operator<<(std::ostream& out, tcb_t const& m) {
-        out << m.remote_ep_;
-        out << " -> ";
-        out << m.local_ep_;
-        out << " ";
-        out << state_to_string(m.state_);
-        return out;
-}
 
 }  // namespace mstack
 
