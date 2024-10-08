@@ -33,11 +33,8 @@ public:
         netns& net() const;
 
 private:
-        netns& net_;
-        std::queue<std::function<void(endpoint const&                     remote_ep,
-                                      endpoint const&                     local_ep,
-                                      std::shared_ptr<raw_socket::pqueue> rcv_pq)>>
-                cbs_;
+        netns&                                                                               net_;
+        std::queue<std::function<void(endpoint const& remote_ep, endpoint const& local_ep)>> cbs_;
 };
 
 }  // namespace mstack

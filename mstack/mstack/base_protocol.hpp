@@ -22,8 +22,10 @@ class device;
 
 template <typename UnderPacketType, typename UpperPacketType>
 class base_protocol {
+protected:
+        boost::asio::io_context& io_ctx_;
+
 private:
-        boost::asio::io_context&                                      io_ctx_;
         std::unordered_map<int, std::function<void(UpperPacketType)>> upper_protos_;
         std::function<void(UnderPacketType)>                          under_proto_;
         std::queue<UnderPacketType>                                   packet_queue_;

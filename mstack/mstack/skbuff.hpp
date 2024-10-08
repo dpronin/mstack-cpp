@@ -22,6 +22,8 @@ private:
         std::byte* tail_;
 
 public:
+        skbuff() = default;
+
         explicit skbuff(std::unique_ptr<std::byte[]> buf, size_t len, size_t head_off = 0)
             : data_{std::move(buf)},
               capacity_{len},

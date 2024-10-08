@@ -19,12 +19,11 @@ interceptor::interceptor(
         std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> const& matcher)
     : net_(net) {
         net_.tcp().rule_insert_back(matcher,
-                                    [this](endpoint const& remote_ep, endpoint const& local_ep,
-                                           std::shared_ptr<raw_socket::pqueue> rcv_pq) {
+                                    [this](endpoint const& remote_ep, endpoint const& local_ep) {
                                             if (!cbs_.empty()) {
                                                     auto cb{cbs_.front()};
                                                     cbs_.pop();
-                                                    cb(remote_ep, local_ep, std::move(rcv_pq));
+                                                    cb(remote_ep, local_ep);
                                             }
                                     });
 }
@@ -45,9 +44,8 @@ netns& interceptor::net() const { return net_; }
 
 void interceptor::async_intercept(std::function<void(std::unique_ptr<raw_socket> sk)> cb) {
         assert(cb);
-        cbs_.push([this, cb = std::move(cb)](endpoint const& remote_ep, endpoint const& local_ep,
-                                             std::shared_ptr<raw_socket::pqueue> rcv_pq) {
-                cb(std::make_unique<raw_socket>(net_, remote_ep, local_ep, std::move(rcv_pq)));
+        cbs_.push([this, cb = std::move(cb)](endpoint const& remote_ep, endpoint const& local_ep) {
+                cb(std::make_unique<raw_socket>(net_, remote_ep, local_ep));
         });
 }
 
