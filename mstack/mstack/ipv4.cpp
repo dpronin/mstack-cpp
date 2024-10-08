@@ -40,7 +40,7 @@ void ipv4::process(ipv4_packet&& pkt_in) {
                                                        ipv4_header_t::fixed_size()),
                 .id            = seq_++,
                 .NOP           = 0,
-                .DF            = 0,
+                .DF            = 1,
                 .MF            = 0,
                 .frag_offset   = 0,
                 .ttl           = 0x40,
