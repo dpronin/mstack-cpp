@@ -16,7 +16,7 @@ namespace mstack {
 struct icmp_header_t {
         uint8_t  proto_type;
         uint8_t  code;
-        uint16_t checksum;
+        uint16_t chsum;
         uint16_t id;
         uint16_t seq;
 
@@ -26,7 +26,7 @@ struct icmp_header_t {
                 return {
                         .proto_type = utils::consume_from_net<uint8_t>(ptr),
                         .code       = utils::consume_from_net<uint8_t>(ptr),
-                        .checksum   = utils::consume_from_net<uint16_t>(ptr),
+                        .chsum      = utils::consume_from_net<uint16_t>(ptr),
                         .id         = utils::consume_from_net<uint16_t>(ptr),
                         .seq        = utils::consume_from_net<uint16_t>(ptr),
                 };
@@ -35,7 +35,7 @@ struct icmp_header_t {
         std::byte* produce_to_net(std::byte* ptr) const {
                 utils::produce_to_net(ptr, proto_type);
                 utils::produce_to_net(ptr, code);
-                utils::produce_to_net(ptr, checksum);
+                utils::produce_to_net(ptr, chsum);
                 utils::produce_to_net(ptr, id);
                 utils::produce_to_net(ptr, seq);
                 return ptr;

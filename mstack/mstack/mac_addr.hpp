@@ -32,7 +32,8 @@ public:
                 return mac_addr_t{hw_addr};
         }
 
-        mac_addr_t() = default;
+        mac_addr_t()  = default;
+        ~mac_addr_t() = default;
 
         mac_addr_t(const mac_addr_t& other)          = default;
         mac_addr_t& operator=(const mac_addr_t& rhs) = default;
@@ -112,7 +113,7 @@ struct hash<mstack::mac_addr_t> {
                 return boost::hash_range(mac.begin(), mac.end());
         }
 };
-}
+}  // namespace std
 
 namespace mstack {
 inline size_t hash_value(mac_addr_t const& v) { return std::hash<mac_addr_t>{}(v); }

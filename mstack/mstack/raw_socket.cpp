@@ -16,24 +16,27 @@ raw_socket::raw_socket(netns&                  net,
 
 void raw_socket::attach() { throw std::runtime_error{"function is not implemented"}; }
 
-void raw_socket::async_read_some(std::span<std::byte>                                          buf,
-                                 std::function<void(boost::system::error_code const&, size_t)> cb) {
+void raw_socket::async_read_some(std::span<std::byte> buf [[maybe_unused]],
+                                 std::function<void(boost::system::error_code const&, size_t)> cb
+                                 [[maybe_unused]]) {
         throw std::runtime_error{"function is not implemented"};
 }
 
-void raw_socket::async_read(std::span<std::byte>                                          buf,
-                            std::function<void(boost::system::error_code const&, size_t)> cb) {
+void raw_socket::async_read(std::span<std::byte> buf [[maybe_unused]],
+                            std::function<void(boost::system::error_code const&, size_t)> cb
+                            [[maybe_unused]]) {
         throw std::runtime_error{"function is not implemented"};
 }
 
-void raw_socket::async_write_some(
-        std::span<std::byte const>                                    buf,
-        std::function<void(boost::system::error_code const&, size_t)> cb) {
+void raw_socket::async_write_some(std::span<std::byte const> buf [[maybe_unused]],
+                                  std::function<void(boost::system::error_code const&, size_t)> cb
+                                  [[maybe_unused]]) {
         throw std::runtime_error{"function is not implemented"};
 }
 
-void raw_socket::async_write(std::span<std::byte const>                                    buf,
-                             std::function<void(boost::system::error_code const&, size_t)> cb) {
+void raw_socket::async_write(std::span<std::byte const> buf [[maybe_unused]],
+                             std::function<void(boost::system::error_code const&, size_t)> cb
+                             [[maybe_unused]]) {
         throw std::runtime_error{"function is not implemented"};
 }
 

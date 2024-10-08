@@ -169,8 +169,8 @@ tcb_t::tcb_t(boost::asio::io_context&                  io_ctx,
                                 std::weak_ptr<tcb_t>)> on_connection_established)
     : io_ctx_(io_ctx),
       mngr_(mngr),
-      local_ep_(local_ep),
       remote_ep_(remote_ep),
+      local_ep_(local_ep),
       state_(state),
       next_state_(next_state),
       on_connection_established_(std::move(on_connection_established)) {
@@ -251,15 +251,26 @@ tcp_packet tcb_t::make_packet() {
         assert(0 == (tcp_header_t::fixed_size() & 0x3));
 
         auto const out_tcp = tcp_header_t{
-                .src_port    = local_ep_.addrv4_port,
-                .dst_port    = remote_ep_.addrv4_port,
-                .seq_no      = 0 == seg_len ? send_.state.seq_nr_unack : send_.state.seq_nr_next,
-                .ack_no      = rcv_.state.next,
+                .src_port = local_ep_.addrv4_port,
+                .dst_port = remote_ep_.addrv4_port,
+                .seq_no   = 0 == seg_len ? send_.state.seq_nr_unack : send_.state.seq_nr_next,
+                .ack_no   = rcv_.state.next,
+
                 .data_offset = tcp_header_t::fixed_size() >> 2,
-                .ACK         = 1,
-                .PSH         = seg_len > 0,
-                .SYN         = kTCPSynReceived == next_state_,
-                .window      = rcv_.state.window,
+                .reserved    = 0,
+
+                .CWR = 0,
+                .ECE = 0,
+                .URG = 0,
+                .ACK = 1,
+                .PSH = seg_len > 0,
+                .RST = 0,
+                .SYN = kTCPSynReceived == next_state_,
+                .FIN = 0,
+
+                .window         = rcv_.state.window,
+                .chsum          = 0,
+                .urgent_pointer = 0,
         };
 
         assert(!((send_.pq->begin() + app_data_unacknowleged() + seg_len) > send_.pq->end()));
@@ -1149,8 +1160,20 @@ void tcb_t::start_connecting() {
                 .seq_no      = generate_isn(),
                 .ack_no      = 0,
                 .data_offset = static_cast<uint16_t>(skb_out.payload().size() >> 2),
-                .SYN         = 1,
-                .window      = rcv_.state.window,
+                .reserved    = 0,
+
+                .CWR = 0,
+                .ECE = 0,
+                .URG = 0,
+                .ACK = 0,
+                .PSH = 0,
+                .RST = 0,
+                .SYN = 1,
+                .FIN = 0,
+
+                .window         = rcv_.state.window,
+                .chsum          = 0,
+                .urgent_pointer = 0,
         };
 
         send_.state.seq_nr_unack = out_tcp.seq_no;

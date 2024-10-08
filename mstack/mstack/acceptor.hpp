@@ -11,7 +11,7 @@
 
 namespace mstack {
 
-struct socket;
+class socket;
 
 class acceptor {
 public:

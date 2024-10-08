@@ -51,8 +51,8 @@ netns& acceptor::net() { return net_; }
 netns& acceptor::net() const { return net_; }
 
 void acceptor::async_accept(socket& sk, std::function<void(boost::system::error_code const&)> cb) {
-        cbs_.push([&sk, cb = std::move(cb)](endpoint const& remote_ep, endpoint const& local_ep,
-                                            std::weak_ptr<tcb_t> tcb) {
+        cbs_.push([&sk, cb = std::move(cb)](endpoint const& remote_ep [[maybe_unused]],
+                                            endpoint const& local_ep, std::weak_ptr<tcb_t> tcb) {
                 sk.local_ep = local_ep;
                 sk.state    = kSocketConnected;
                 sk.tcb      = std::move(tcb);

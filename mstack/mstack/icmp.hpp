@@ -44,11 +44,12 @@ private:
         }
 
         void async_reply(icmp_header_t const& in_icmp_h, ipv4_packet&& pkt_in) {
-                auto out_icmp_header{
-                        icmp_header_t{
-                                .id  = in_icmp_h.id,
-                                .seq = in_icmp_h.seq,
-                        },
+                auto out_icmp_header = icmp_header_t{
+                        .proto_type = 0x0,
+                        .code       = 0x0,
+                        .chsum      = 0x0,
+                        .id         = in_icmp_h.id,
+                        .seq        = in_icmp_h.seq,
                 };
 
                 auto skb_out{std::move(pkt_in.skb)};
@@ -56,7 +57,7 @@ private:
                 skb_out.push_front(icmp_header_t::size());
                 out_icmp_header.produce_to_net(skb_out.head());
 
-                out_icmp_header.checksum = utils::checksum_net(skb_out.payload());
+                out_icmp_header.chsum = utils::checksum_net(skb_out.payload());
                 out_icmp_header.produce_to_net(skb_out.head());
 
                 spdlog::debug("[ICMP] ENQUEUE REPLY {}", out_icmp_header);

@@ -30,16 +30,22 @@ ipv4::ipv4(boost::asio::io_context&             io_ctx,
 void ipv4::process(ipv4_packet&& pkt_in) {
         spdlog::debug("[IPV4] HDL FROM U-LAYER {}", pkt_in);
 
-        ipv4_header_t ipv4_header = {
+        auto ipv4_header = ipv4_header_t{
                 .version       = 0x4,
                 .header_length = 0x5,
+                .tos           = 0x0,
                 .total_length =
                         static_cast<uint16_t>(pkt_in.skb.payload().size() + ipv4_header_t::size()),
-                .id         = seq_++,
-                .ttl        = 0x40,
-                .proto_type = pkt_in.proto,
-                .src_addr   = pkt_in.src_addrv4,
-                .dst_addr   = pkt_in.dst_addrv4,
+                .id           = seq_++,
+                .NOP          = 0,
+                .DF           = 0,
+                .MF           = 0,
+                .frag_offset  = 0,
+                .ttl          = 0x40,
+                .proto_type   = pkt_in.proto,
+                .header_chsum = 0,
+                .src_addr     = pkt_in.src_addrv4,
+                .dst_addr     = pkt_in.dst_addrv4,
         };
 
         auto out_buffer{std::move(pkt_in.skb)};
@@ -50,9 +56,12 @@ void ipv4::process(ipv4_packet&& pkt_in) {
         ipv4_header.header_chsum = utils::checksum_net({out_buffer.head(), ipv4_header_t::size()});
         ipv4_header.produce_to_net(out_buffer.head());
 
-        ethernetv2_frame out_pkt{
-                .proto = PROTO,
-                .skb   = std::move(out_buffer),
+        auto out_pkt = ethernetv2_frame{
+                .src_mac_addr = {},
+                .dst_mac_addr = {},
+                .proto        = PROTO,
+                .skb          = std::move(out_buffer),
+                .dev          = {},
         };
 
         auto nh{rt_->query(pkt_in.dst_addrv4)};
@@ -87,7 +96,7 @@ std::optional<ipv4_packet> ipv4::make_packet(ethernetv2_frame&& frame_in) {
         auto ipv4_header{ipv4_header_t::consume_from_net(frame_in.skb.head())};
         frame_in.skb.pop_front(ipv4_header_t::size());
 
-        spdlog::debug("[RECEIVE] {}", ipv4_header);
+        spdlog::debug("[IPv4] RECEIVE {}", ipv4_header);
 
         return ipv4_packet{
                 .src_addrv4 = ipv4_header.src_addr,

@@ -12,8 +12,6 @@
 
 namespace mstack {
 
-struct raw_socket;
-
 class interceptor {
 public:
         explicit interceptor(netns&                                               net,

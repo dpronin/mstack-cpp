@@ -41,8 +41,8 @@ public:
                         std::copy_n(other.data_.get(), capacity_, data_.get());
                         start_ = data_.get();
                         end_   = start_ + capacity_;
-                        head_  = start_ + other.push_front_room();
-                        tail_  = end_ - other.push_back_room();
+                        head_  = start_ + other.headroom();
+                        tail_  = end_ - other.tailroom();
                 }
         }
 
@@ -70,11 +70,8 @@ public:
 
         size_t capacity() const { return capacity_; }
 
-        size_t push_front_room() const { return head() - start_; }
-        size_t pop_front_room() const { return payload().size(); }
-
-        size_t push_back_room() const { return end_ - tail(); }
-        size_t pop_back_room() const { return payload().size(); }
+        size_t headroom() const { return head() - start_; }
+        size_t tailroom() const { return end_ - tail(); }
 
         std::byte* pop_front(size_t n) {
                 head_ += n;

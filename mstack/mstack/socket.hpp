@@ -13,7 +13,7 @@
 
 namespace mstack {
 
-struct tcb_t;
+class tcb_t;
 class netns;
 
 class socket {

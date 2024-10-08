@@ -21,7 +21,7 @@ namespace mstack {
 
 class tcb_manager : public base_protocol<tcp_packet, void> {
 private:
-        struct port_generator_ctx;
+        class port_generator_ctx;
         std::unique_ptr<port_generator_ctx> port_gen_ctx_;
 
         struct rule {
