@@ -1,6 +1,9 @@
 #include "tcp.hpp"
 
+#include <cassert>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 #include <exception>
 #include <optional>
@@ -19,16 +22,30 @@ tcp::tcp(boost::asio::io_context& io_ctx) : base_protocol(io_ctx) {}
 void tcp::process(tcp_packet&& pkt_in) {
         spdlog::debug("[TCP] HDL FROM U-LAYER {}", pkt_in);
 
-        uint32_t const tcp_pseudo_header_chsum{
-                utils::hton(pkt_in.local_ep.addrv4.raw()) +
-                        utils::hton(pkt_in.remote_ep.addrv4.raw()) +
-                        utils::hton(static_cast<uint16_t>(pkt_in.proto)) +
-                        utils::hton(static_cast<uint16_t>(pkt_in.skb.payload().size())),
+        assert(!(pkt_in.skb.payload().size() < tcp_header_t::fixed_size()));
+
+        struct tcp_pseudo_header {
+                uint32_t src_addrv4;
+                uint32_t dst_addrv4;
+                uint8_t  reserved;
+                uint8_t  proto;
+                uint16_t segment_len;
+        } const tcp_ph_net = {
+                .src_addrv4  = utils::hton(pkt_in.local_ep.addrv4.raw()),
+                .dst_addrv4  = utils::hton(pkt_in.remote_ep.addrv4.raw()),
+                .reserved    = 0,
+                .proto       = pkt_in.proto,
+                .segment_len = utils::hton(static_cast<uint16_t>(pkt_in.skb.payload().size())),
         };
 
-        auto tcph{tcp_header_t::consume_from_net(pkt_in.skb.head())};
-        tcph.chsum = utils::checksum_net(pkt_in.skb.payload(), tcp_pseudo_header_chsum);
-        tcph.produce_to_net(pkt_in.skb.head());
+        assert(!(pkt_in.skb.headroom() < sizeof(tcp_ph_net)));
+        pkt_in.skb.push_front(sizeof(tcp_ph_net));
+        std::memcpy(pkt_in.skb.head(), &tcp_ph_net, sizeof(tcp_ph_net));
+
+        uint16_t const chsum_net{utils::checksum(pkt_in.skb.payload())};
+        pkt_in.skb.pop_front(sizeof(tcp_ph_net));
+        std::memcpy(pkt_in.skb.head() + offsetof(tcp_header_t, chsum), &chsum_net,
+                    sizeof(chsum_net));
 
         enqueue({
                 .src_addrv4 = pkt_in.local_ep.addrv4,

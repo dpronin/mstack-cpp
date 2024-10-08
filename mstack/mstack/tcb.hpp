@@ -14,6 +14,8 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/circular_buffer.hpp>
 
+#include <fmt/format.h>
+
 #include "mstack/endpoint.hpp"
 #include "skbuff.hpp"
 #include "socket.hpp"

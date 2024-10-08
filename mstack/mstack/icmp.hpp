@@ -1,4 +1,6 @@
+#include <cassert>
 #include <cstdint>
+#include <cstring>
 
 #include <spdlog/spdlog.h>
 
@@ -22,12 +24,15 @@ public:
         icmp& operator=(icmp&&) = delete;
 
         void process(ipv4_packet&& pkt_in) override {
+                assert(!(pkt_in.skb.payload().size() < icmp_header_t::size()));
+
                 auto const in_icmp_h{
                         icmp_header_t::consume_from_net(pkt_in.skb.head()),
                 };
+
                 pkt_in.skb.pop_front(icmp_header_t::size());
 
-                spdlog::debug("[RECEIVED ICMP] {}", in_icmp_h);
+                spdlog::debug("[ICMP] RECEIVED {}", in_icmp_h);
 
                 switch (in_icmp_h.proto_type) {
                         case 0x08:
@@ -54,11 +59,14 @@ private:
 
                 auto skb_out{std::move(pkt_in.skb)};
 
+                assert(!(skb_out.headroom() < icmp_header_t::size()));
                 skb_out.push_front(icmp_header_t::size());
+
                 out_icmp_header.produce_to_net(skb_out.head());
 
-                out_icmp_header.chsum = utils::checksum_net(skb_out.payload());
-                out_icmp_header.produce_to_net(skb_out.head());
+                uint16_t const chsum_net{utils::checksum(skb_out.payload())};
+                std::memcpy(skb_out.head() + offsetof(icmp_header_t, chsum), &chsum_net,
+                            sizeof(chsum_net));
 
                 spdlog::debug("[ICMP] ENQUEUE REPLY {}", out_icmp_header);
 

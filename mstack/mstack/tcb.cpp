@@ -238,7 +238,7 @@ void tcb_t::listen_finish() {
 tcp_packet tcb_t::make_packet() {
         auto const seg_len{app_data_to_send_left()};
 
-        auto const additional_room{ethernetv2_header_t::size() + ipv4_header_t::size()};
+        auto const additional_room{ethernetv2_header_t::size() + ipv4_header_t::fixed_size()};
 
         auto const room{additional_room + tcp_header_t::fixed_size() + seg_len};
 
@@ -1145,7 +1145,7 @@ void tcb_t::start_connecting() {
                 },
         };
 
-        auto const additional_room{ethernetv2_header_t::size() + ipv4_header_t::size()};
+        auto const additional_room{ethernetv2_header_t::size() + ipv4_header_t::fixed_size()};
 
         auto const room{additional_room + tcp_header_t::fixed_size() + 8};
 

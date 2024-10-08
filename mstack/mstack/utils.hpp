@@ -130,14 +130,14 @@ inline uint32_t sum_every_16bits(std::span<std::byte const> buf) {
         return sum;
 }
 
-inline uint16_t checksum_net(std::span<std::byte const> buf, uint32_t start_sum = 0) {
+inline uint16_t checksum(std::span<std::byte const> buf, uint32_t start_sum = 0) {
         uint32_t sum = start_sum + sum_every_16bits(buf);
 
         /*  Fold 32-bit sum to 16 bits */
         while (sum >> 16)
                 sum = (sum & 0xffff) + (sum >> 16);
 
-        return hton(static_cast<uint16_t>(~sum));
+        return static_cast<uint16_t>(~sum);
 }
 
 }  // namespace utils

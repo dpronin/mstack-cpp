@@ -11,6 +11,8 @@
 
 #include <boost/container_hash/hash.hpp>
 
+#include <fmt/format.h>
+
 #include "utils.hpp"
 
 namespace mstack {

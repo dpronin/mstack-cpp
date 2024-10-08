@@ -4,6 +4,8 @@
 
 #include <ostream>
 
+#include <fmt/format.h>
+
 #include "utils.hpp"
 
 namespace mstack {

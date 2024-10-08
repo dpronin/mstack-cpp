@@ -1,5 +1,10 @@
 #pragma once
 
+#include <iterator>
+#include <ostream>
+
+#include <fmt/format.h>
+
 #include "ipv4_addr.hpp"
 #include "utils.hpp"
 
@@ -21,7 +26,7 @@ struct ipv4_header_t {
         ipv4_addr_t src_addr;
         ipv4_addr_t dst_addr;
 
-        static constexpr size_t size() {
+        static constexpr size_t fixed_size() {
                 return 1 + 1 + 2 + 2 + 2 + 1 + 1 + 2 + ipv4_addr_t::size() * 2;
         }
 
@@ -60,12 +65,15 @@ struct ipv4_header_t {
         }
 
         friend std::ostream& operator<<(std::ostream& out, ipv4_header_t const& m) {
-                using u = uint32_t;
-                out << "[IPV4 PACKET] ";
-                out << m.total_length << " ";
-                out << m.src_addr;
-                out << " -> " << m.dst_addr << " ";
-                out << "PROTO: " << std::hex << u(m.proto_type);
+                fmt::format_to(std::ostream_iterator<char>(out),
+                               "[IPV4 HEADER]: v {} hl {} tos {} len {} id {} NOP {} DF {} MF {} "
+                               "frag_offset {} ttl {}"
+                               " proto {:#02x} header_chsum {:#04x} src_addr {} dst_addr {}",
+                               static_cast<uint8_t>(m.version),
+                               static_cast<uint8_t>(m.header_length), m.tos, m.total_length, m.id,
+                               static_cast<uint8_t>(m.NOP), static_cast<uint8_t>(m.DF),
+                               static_cast<uint8_t>(m.MF), static_cast<uint16_t>(m.frag_offset),
+                               m.ttl, m.proto_type, m.header_chsum, m.src_addr, m.dst_addr);
                 return out;
         }
 };

@@ -1,7 +1,9 @@
 #include "ipv4.hpp"
 
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 #include <utility>
 
@@ -30,37 +32,41 @@ ipv4::ipv4(boost::asio::io_context&             io_ctx,
 void ipv4::process(ipv4_packet&& pkt_in) {
         spdlog::debug("[IPV4] HDL FROM U-LAYER {}", pkt_in);
 
-        auto ipv4_header = ipv4_header_t{
+        auto const ipv4h = ipv4_header_t{
                 .version       = 0x4,
                 .header_length = 0x5,
                 .tos           = 0x0,
-                .total_length =
-                        static_cast<uint16_t>(pkt_in.skb.payload().size() + ipv4_header_t::size()),
-                .id           = seq_++,
-                .NOP          = 0,
-                .DF           = 0,
-                .MF           = 0,
-                .frag_offset  = 0,
-                .ttl          = 0x40,
-                .proto_type   = pkt_in.proto,
-                .header_chsum = 0,
-                .src_addr     = pkt_in.src_addrv4,
-                .dst_addr     = pkt_in.dst_addrv4,
+                .total_length  = static_cast<uint16_t>(pkt_in.skb.payload().size() +
+                                                       ipv4_header_t::fixed_size()),
+                .id            = seq_++,
+                .NOP           = 0,
+                .DF            = 0,
+                .MF            = 0,
+                .frag_offset   = 0,
+                .ttl           = 0x40,
+                .proto_type    = pkt_in.proto,
+                .header_chsum  = 0,
+                .src_addr      = pkt_in.src_addrv4,
+                .dst_addr      = pkt_in.dst_addrv4,
         };
 
-        auto out_buffer{std::move(pkt_in.skb)};
+        auto skb_out{std::move(pkt_in.skb)};
 
-        out_buffer.push_front(ipv4_header_t::size());
+        assert(!(skb_out.headroom() < ipv4_header_t::fixed_size()));
+        skb_out.push_front(ipv4_header_t::fixed_size());
+        ipv4h.produce_to_net(skb_out.head());
 
-        ipv4_header.produce_to_net(out_buffer.head());
-        ipv4_header.header_chsum = utils::checksum_net({out_buffer.head(), ipv4_header_t::size()});
-        ipv4_header.produce_to_net(out_buffer.head());
+        uint16_t const header_chsum_net{
+                utils::checksum({skb_out.head(), ipv4_header_t::fixed_size()}),
+        };
+        std::memcpy(skb_out.head() + offsetof(ipv4_header_t, header_chsum), &header_chsum_net,
+                    sizeof(header_chsum_net));
 
-        auto out_pkt = ethernetv2_frame{
+        auto out_frame = ethernetv2_frame{
                 .src_mac_addr = {},
                 .dst_mac_addr = {},
                 .proto        = PROTO,
-                .skb          = std::move(out_buffer),
+                .skb          = std::move(skb_out),
                 .dev          = {},
         };
 
@@ -68,21 +74,23 @@ void ipv4::process(ipv4_packet&& pkt_in) {
         if (!nh) nh = rt_->query_default();
 
         if (nh) {
-                out_pkt.dev = std::move(nh->dev);
-                assert(out_pkt.dev);
+                out_frame.dev = std::move(nh->dev);
+                assert(out_frame.dev);
 
                 auto const src_mac_opt{arp_cache_->query(nh->from_addrv4)};
                 assert(src_mac_opt);
-                out_pkt.src_mac_addr = *src_mac_opt;
+                out_frame.src_mac_addr = *src_mac_opt;
 
-                arp_.async_resolve(out_pkt.src_mac_addr, nh->from_addrv4, nh->via_addrv4,
-                                   out_pkt.dev,
-                                   [this, out_packet_wrapper = std::make_shared<ethernetv2_frame>(
-                                                  std::move(out_pkt))](mac_addr_t const& nh_addr) {
-                                           auto out_packet{std::move(*out_packet_wrapper)};
-                                           out_packet.dst_mac_addr = nh_addr;
-                                           enqueue(std::move(out_packet));
-                                   });
+                auto const& src_mac{out_frame.src_mac_addr};
+                auto        dev{out_frame.dev};
+                arp_.async_resolve(
+                        src_mac, nh->from_addrv4, nh->via_addrv4, dev,
+                        [this, out_frame_wrapper = std::make_shared<ethernetv2_frame>(
+                                       std::move(out_frame))](mac_addr_t const& nh_addr) {
+                                auto out_packet{std::move(*out_frame_wrapper)};
+                                out_packet.dst_mac_addr = nh_addr;
+                                enqueue(std::move(out_packet));
+                        });
         } else {
                 spdlog::error("[IPv4] NO NH for {}", pkt_in.dst_addrv4);
         }
@@ -91,10 +99,12 @@ void ipv4::process(ipv4_packet&& pkt_in) {
 std::optional<ipv4_packet> ipv4::make_packet(ethernetv2_frame&& frame_in) {
         spdlog::debug("[IPV4] HDL FROM L-LAYER {}", frame_in);
 
-        if (auto const* h{frame_in.skb.head()}; 0x4_b != ((h[0] >> 4) & 0xf_b)) return {};
+        assert(!(frame_in.skb.payload().size() < ipv4_header_t::fixed_size()));
 
-        auto ipv4_header{ipv4_header_t::consume_from_net(frame_in.skb.head())};
-        frame_in.skb.pop_front(ipv4_header_t::size());
+        if (auto const fb{frame_in.skb.payload()[0]}; 0x4_b != ((fb >> 4) & 0xf_b)) return {};
+
+        auto const ipv4_header{ipv4_header_t::consume_from_net(frame_in.skb.head())};
+        frame_in.skb.pop_front(ipv4_header_t::fixed_size());
 
         spdlog::debug("[IPv4] RECEIVE {}", ipv4_header);
 
