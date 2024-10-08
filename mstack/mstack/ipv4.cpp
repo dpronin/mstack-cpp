@@ -14,7 +14,7 @@
 #include "ipv4_header.hpp"
 #include "ipv4_packet.hpp"
 #include "mac_addr.hpp"
-#include "mstack/arp_cache.hpp"
+#include "mstack/neigh_cache.hpp"
 #include "routing_table.hpp"
 #include "size_literals.hpp"
 
@@ -22,7 +22,7 @@ namespace mstack {
 
 ipv4::ipv4(boost::asio::io_context&             io_ctx,
            std::shared_ptr<routing_table const> rt,
-           std::shared_ptr<arp_cache_t const>   arp_cache,
+           std::shared_ptr<neigh_cache const>   arp_cache,
            arp&                                 arp)
     : base_protocol(io_ctx), rt_(std::move(rt)), arp_cache_(std::move(arp_cache)), arp_(arp) {
         assert(rt_);

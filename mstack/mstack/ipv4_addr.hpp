@@ -20,28 +20,31 @@ namespace mstack {
 
 class ipv4_addr_t {
 private:
-        uint32_t v_ = 0;
+        uint32_t raw_ = 0;
 
 public:
         ipv4_addr_t() = default;
-        ipv4_addr_t(uint32_t ipv4) : v_(ipv4) {}
-        ipv4_addr_t(std::string_view ipv4) : v_{boost::asio::ip::make_address_v4(ipv4).to_uint()} {}
-        ipv4_addr_t(std::string const& ipv4) : ipv4_addr_t(std::string_view{ipv4}) {}
+        ipv4_addr_t(uint32_t raw) : raw_(raw) {}
 
         auto operator<=>(const ipv4_addr_t& other) const = default;
 
-        uint32_t raw() const { return v_; }
+        uint32_t raw() const { return raw_; }
 
         static constexpr size_t size() { return 4; }
 
-        void consume_from_net(std::byte*& ptr) { v_ = utils::consume_from_net<uint32_t>(ptr); }
+        void consume_from_net(std::byte*& ptr) { raw_ = utils::consume_from_net<uint32_t>(ptr); }
 
-        void produce_to_net(std::byte*& ptr) const { utils::produce_to_net(ptr, v_); }
+        void produce_to_net(std::byte*& ptr) const { utils::produce_to_net(ptr, raw_); }
 
         friend std::ostream& operator<<(std::ostream& out, ipv4_addr_t ipv4) {
-                out << std::format("{}.{}.{}.{}", (ipv4.v_ >> 24) & 0xFF, (ipv4.v_ >> 16) & 0xFF,
-                                   (ipv4.v_ >> 8) & 0xFF, (ipv4.v_ >> 0) & 0xFF);
+                out << std::format("{}.{}.{}.{}", (ipv4.raw_ >> 24) & 0xFF,
+                                   (ipv4.raw_ >> 16) & 0xFF, (ipv4.raw_ >> 8) & 0xFF,
+                                   (ipv4.raw_ >> 0) & 0xFF);
                 return out;
+        }
+
+        static ipv4_addr_t make_from(std::string_view source) {
+                return {boost::asio::ip::make_address_v4(source).to_uint()};
         }
 
         std::string to_string() const { return (std::ostringstream{} << *this).str(); }

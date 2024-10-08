@@ -8,12 +8,12 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/signals2/signal.hpp>
 
-#include "arp_cache.hpp"
 #include "arp_header.hpp"
 #include "base_protocol.hpp"
 #include "ethernetv2_frame.hpp"
 #include "ipv4_addr.hpp"
 #include "mac_addr.hpp"
+#include "neigh_cache.hpp"
 
 namespace mstack {
 
@@ -21,7 +21,7 @@ class arp : public base_protocol<ethernetv2_frame, void> {
 public:
         static constexpr uint16_t PROTO{0x0806};
 
-        explicit arp(boost::asio::io_context& io_ctx, std::shared_ptr<arp_cache_t> arp_cache);
+        explicit arp(boost::asio::io_context& io_ctx, std::shared_ptr<neigh_cache> arp_cache);
         ~arp() = default;
 
         arp(arp const&)            = delete;
@@ -48,7 +48,7 @@ private:
         void process_reply(arpv4_header_t const& in_arp);
         void process(ethernetv2_frame&& in_frame) override;
 
-        std::shared_ptr<arp_cache_t> arp_cache_;
+        std::shared_ptr<neigh_cache> arp_cache_;
         std::unordered_map<ipv4_addr_t, boost::signals2::signal<void(mac_addr_t const& mac)>>
                 on_replies_;
 };

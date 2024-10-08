@@ -11,7 +11,7 @@
 
 namespace mstack {
 
-class arp_cache_t {
+class neigh_cache {
 public:
         void reset(ipv4_addr_t const& addr) {
                 if (auto it{cache_.find(addr)}; cache_.end() != it) {

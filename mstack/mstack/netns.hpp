@@ -4,9 +4,9 @@
 
 #include <boost/asio/io_context.hpp>
 
-#include "arp_cache.hpp"
 #include "ethernet.hpp"
 #include "ipv4.hpp"
+#include "neigh_cache.hpp"
 #include "routing_table.hpp"
 #include "tcb_manager.hpp"
 #include "tcp.hpp"
@@ -33,7 +33,7 @@ public:
         netns& operator=(netns&&) = delete;
 
         ethernetv2&    eth() noexcept;
-        arp_cache_t&   arp_cache() noexcept;
+        neigh_cache&   neighs() noexcept;
         routing_table& rt() noexcept;
         ipv4&          ip() noexcept;
         class tcp&     tcp() noexcept;

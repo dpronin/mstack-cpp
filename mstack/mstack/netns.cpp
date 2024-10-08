@@ -3,11 +3,11 @@
 #include <memory>
 
 #include "arp.hpp"
-#include "arp_cache.hpp"
 #include "device.hpp"
 #include "ethernet.hpp"
 #include "icmp.hpp"
 #include "ipv4.hpp"
+#include "neigh_cache.hpp"
 #include "routing_table.hpp"
 #include "skbuff.hpp"
 #include "tcb_manager.hpp"
@@ -27,7 +27,7 @@ public:
         impl& operator=(impl&&) = delete;
 
         ethernetv2&    eth() noexcept { return eth_; }
-        arp_cache_t&   arp_cache() noexcept { return *arp_cache_; }
+        neigh_cache&   neighs() noexcept { return *neighs_; }
         routing_table& rt() noexcept { return *rt_; }
         ipv4&          ip() noexcept { return ipv4_; }
         class tcp&     tcp() noexcept { return tcp_; }
@@ -41,7 +41,7 @@ private:
         tcb_manager                    tcb_m_;
         class tcp                      tcp_;
         icmp                           icmp_;
-        std::shared_ptr<arp_cache_t>   arp_cache_;
+        std::shared_ptr<neigh_cache>   neighs_;
         arp                            arp_;
         std::shared_ptr<routing_table> rt_;
         ipv4                           ipv4_;
@@ -53,10 +53,10 @@ netns::impl::impl(boost::asio::io_context& io_ctx)
       tcb_m_(io_ctx_),
       tcp_(io_ctx_),
       icmp_(io_ctx_),
-      arp_cache_(std::make_shared<arp_cache_t>()),
-      arp_(io_ctx_, arp_cache_),
+      neighs_(std::make_shared<neigh_cache>()),
+      arp_(io_ctx_, neighs_),
       rt_(std::make_shared<routing_table>()),
-      ipv4_(io_ctx_, rt_, arp_cache_, arp_),
+      ipv4_(io_ctx_, rt_, neighs_, arp_),
       eth_(io_ctx_) {
         tcb_m_.under_proto_update(tcp_);
         tcp_.upper_proto_update(mstack::tcb_manager::PROTO, tcb_m_);
@@ -78,7 +78,7 @@ netns::netns(boost::asio::io_context& io_ctx) : pimpl_(std::make_unique<impl>(io
 netns::~netns() noexcept = default;
 
 ethernetv2&    netns::eth() noexcept { return pimpl_->eth(); }
-arp_cache_t&   netns::arp_cache() noexcept { return pimpl_->arp_cache(); }
+neigh_cache&   netns::neighs() noexcept { return pimpl_->neighs(); }
 routing_table& netns::rt() noexcept { return pimpl_->rt(); }
 ipv4&          netns::ip() noexcept { return pimpl_->ip(); }
 class tcp&     netns::tcp() noexcept { return pimpl_->tcp(); }

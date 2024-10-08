@@ -37,7 +37,7 @@ struct endpoint {
         static endpoint make_from(std::string_view host, std::string_view port) {
                 uint16_t port_u{0};
                 std::from_chars(port.data(), port.data() + port.size(), port_u);
-                return {mstack::ipv4_addr_t{host}, port_u};
+                return {mstack::ipv4_addr_t::make_from(host), port_u};
         }
 };
 

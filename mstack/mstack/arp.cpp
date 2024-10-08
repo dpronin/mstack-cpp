@@ -16,7 +16,7 @@ std::byte operator""_b(unsigned long long x) { return static_cast<std::byte>(x);
 
 namespace mstack {
 
-arp::arp(boost::asio::io_context& io_ctx, std::shared_ptr<arp_cache_t> arp_cache)
+arp::arp(boost::asio::io_context& io_ctx, std::shared_ptr<neigh_cache> arp_cache)
     : base_protocol(io_ctx), arp_cache_(std::move(arp_cache)) {
         assert(arp_cache_);
 }

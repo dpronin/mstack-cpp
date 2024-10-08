@@ -22,7 +22,7 @@ public:
 
         explicit ipv4(boost::asio::io_context&             io_ctx,
                       std::shared_ptr<routing_table const> rt,
-                      std::shared_ptr<arp_cache_t const>   arp_cache,
+                      std::shared_ptr<neigh_cache const>   arp_cache,
                       arp&                                 arp);
         ~ipv4() = default;
 
@@ -38,7 +38,7 @@ private:
         std::optional<ipv4_packet> make_packet(ethernetv2_frame&& in_packet) override;
 
         std::shared_ptr<routing_table const> rt_;
-        std::shared_ptr<arp_cache_t const>   arp_cache_;
+        std::shared_ptr<neigh_cache const>   arp_cache_;
 
         arp& arp_;
 
