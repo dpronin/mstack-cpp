@@ -56,6 +56,11 @@ public:
                                    endpoint const&                     local_ep,
                                    std::shared_ptr<raw_socket::pqueue> rcv_pq)>          cb);
 
+        std::shared_ptr<raw_socket::pqueue> attach(endpoint const& remote_ep,
+                                                   endpoint const& local_ep);
+
+        void detach(endpoint const& remote_ep, endpoint const& local_ep);
+
 private:
         std::optional<tcp_packet> make_packet(ipv4_packet&& pkt_in) override;
 };

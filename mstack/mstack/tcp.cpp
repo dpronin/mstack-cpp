@@ -126,4 +126,17 @@ void tcp::rule_insert_back(
         rules_.emplace_back(std::move(matcher), std::move(cb));
 }
 
+std::shared_ptr<raw_socket::pqueue> tcp::attach(endpoint const& remote_ep,
+                                                endpoint const& local_ep) {
+        auto const key = two_ends_t{.remote_ep = remote_ep, .local_ep = local_ep};
+        auto [it, emplaced] =
+                rcv_pqs_.emplace(key, std::make_shared<::mstack::raw_socket::pqueue>());
+        if (!emplaced) throw std::runtime_error{fmt::format("{} is already attached", key)};
+        return it->second;
+}
+
+void tcp::detach(endpoint const& remote_ep, endpoint const& local_ep) {
+        rcv_pqs_.erase({.remote_ep = remote_ep, .local_ep = local_ep});
+}
+
 }  // namespace mstack

@@ -14,7 +14,13 @@ raw_socket::raw_socket(netns&                  net,
                        std::shared_ptr<pqueue> rcv_pq /* = {}*/)
     : net_(net), remote_ep_(remote_ep), local_ep_(local_ep), rcv_pq_(std::move(rcv_pq)) {}
 
-void raw_socket::attach() { throw std::runtime_error{"function is not implemented"}; }
+void raw_socket::attach() { rcv_pq_ = net_.tcp().attach(remote_ep_, local_ep_); }
+void raw_socket::detach() {
+        if (rcv_pq_) {
+                net_.tcp().detach(remote_ep_, local_ep_);
+                rcv_pq_.reset();
+        }
+}
 
 void raw_socket::async_read_some(std::span<std::byte> buf [[maybe_unused]],
                                  std::function<void(boost::system::error_code const&, size_t)> cb

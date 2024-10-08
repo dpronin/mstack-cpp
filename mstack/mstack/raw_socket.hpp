@@ -27,6 +27,7 @@ public:
         raw_socket& operator=(raw_socket&&) = delete;
 
         void attach();
+        void detach();
 
         void async_read_some(std::span<std::byte>                                          buf,
                              std::function<void(boost::system::error_code const&, size_t)> cb);

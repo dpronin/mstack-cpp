@@ -2,6 +2,7 @@
 
 #include <cstddef>
 
+#include <iterator>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -23,9 +24,8 @@ struct two_ends_t {
         auto operator<=>(two_ends_t const& other) const = default;
 
         friend std::ostream& operator<<(std::ostream& out, two_ends_t const& p) {
-                out << p.remote_ep;
-                out << " -> ";
-                out << p.local_ep;
+                fmt::format_to(std::ostream_iterator<char>(out), "{} -> {}", p.remote_ep,
+                               p.local_ep);
                 return out;
         }
 };
