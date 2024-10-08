@@ -1076,19 +1076,21 @@ void tcb_t::process(tcp_packet&& pkt_in) {
                                 rcv_.state.next += 1;
                                 next_state_ = kTCPCloseWait;
                                 make_and_send_pkt();
-                                /**
-                                 *  FIN-WAIT-1 STATE
-                                 *      If our FIN has been ACKed (perhaps in this segment),
-                                 *      then enter TIME-WAIT, start the time-wait timer,
-                                 * turn off the other timers; otherwise enter the CLOSING
-                                 * state.
-                                 */
+                                [[fallthrough]];
+                        /**
+                         *  FIN-WAIT-1 STATE
+                         *      If our FIN has been ACKed (perhaps in this segment),
+                         *      then enter TIME-WAIT, start the time-wait timer,
+                         * turn off the other timers; otherwise enter the CLOSING
+                         * state.
+                         */
                         case kTCPFinWait_1:
                                 if (next_state_ == kTCPFinWait_2) {
                                         next_state_ = kTCPTimeWait;
                                 } else {
                                         next_state_ = kTCPClosing;
                                 }
+                                [[fallthrough]];
                                 /**
                                  *  FIN-WAIT-2 STATE
                                  *      Enter the TIME-WAIT state.  Start the time-wait
@@ -1097,6 +1099,7 @@ void tcb_t::process(tcp_packet&& pkt_in) {
                         case kTCPFinWait_2:
                                 // * start time_wait
                                 next_state_ = kTCPTimeWait;
+                                [[fallthrough]];
                                 /**
                                  *  CLOSE-WAIT STATE
                                  *      Remain in the CLOSE-WAIT state.
