@@ -40,7 +40,7 @@ acceptor::acceptor(netns& net, endpoint const& local_ep)
     : acceptor(net,
                [local_ep_exp = local_ep](endpoint const& remote_ep [[maybe_unused]],
                                          endpoint const& local_ep) {
-                       return local_ep == local_ep;
+                       return local_ep_exp == local_ep;
                }) {}
 
 acceptor::acceptor(endpoint const& local_ep) : acceptor(netns::_default_(), local_ep) {}
