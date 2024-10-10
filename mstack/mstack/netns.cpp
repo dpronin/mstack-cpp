@@ -85,6 +85,7 @@ class tcp&     netns::tcp() noexcept { return pimpl_->tcp(); }
 tcb_manager&   netns::tcb_m() noexcept { return pimpl_->tcb_m(); }
 
 boost::asio::io_context& netns::io_context_execution() noexcept {
+        assert(pimpl_);
         return pimpl_->io_context_execution();
 }
 
