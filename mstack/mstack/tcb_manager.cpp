@@ -79,7 +79,9 @@ void tcb_manager::async_connect(endpoint const&                           remote
                                              kTCPConnecting, kTCPConnecting, std::move(cb)));
                 if (!created) continue;
 
-                spdlog::debug("[TCB MNGR] new connect {}", two_end);
+                spdlog::debug(
+                        "[TCB MNGR] register a new TCP connection {} <-> {}, locally initiated",
+                        two_end.local_ep, two_end.remote_ep);
 
                 tcb_it->second->start_connecting();
 
@@ -93,7 +95,7 @@ void tcb_manager::process(tcp_packet&& pkt_in) {
                 .local_ep  = pkt_in.local_ep,
         };
 
-        spdlog::debug("[TCB MNGR] RECEIVE {}", two_end);
+        spdlog::debug("[TCB MNGR] RECEIVE {} -> {}", two_end.remote_ep, two_end.local_ep);
 
         tcb_t* p_tcb{nullptr};
 
@@ -102,7 +104,10 @@ void tcb_manager::process(tcp_packet&& pkt_in) {
         } else {
                 for (auto const& [matcher, cb] : rules_) {
                         if (matcher(two_end.remote_ep, two_end.local_ep)) {
-                                spdlog::debug("[TCB MNGR] reg {}", two_end);
+                                spdlog::debug(
+                                        "[TCB MNGR] register a new TCP connection {} <-> {}, "
+                                        "remotely initiated",
+                                        two_end.remote_ep, two_end.local_ep);
 
                                 tcb_it = tcbs_.emplace_hint(
                                         tcb_it, two_end,
@@ -118,10 +123,11 @@ void tcb_manager::process(tcp_packet&& pkt_in) {
         }
 
         if (p_tcb) {
-                spdlog::debug("[TCB MNGR] HANDLE {}", two_end);
+                spdlog::debug("[TCB MNGR] HANDLE {} -> {}", two_end.remote_ep, two_end.local_ep);
                 p_tcb->process(std::move(pkt_in));
         } else {
-                spdlog::warn("[TCB MNGR] UNKNOWN INPUT {}", two_end);
+                spdlog::warn("[TCB MNGR] UNKNOWN INPUT {} -> {}", two_end.remote_ep,
+                             two_end.local_ep);
         }
 }
 

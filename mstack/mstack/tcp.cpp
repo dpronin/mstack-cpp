@@ -136,7 +136,11 @@ void tcp::rule_insert_back(
 void tcp::attach(endpoint const& remote_ep, endpoint const& local_ep) {
         auto const key      = two_ends_t{.remote_ep = remote_ep, .local_ep = local_ep};
         auto [it, emplaced] = rcv_raw_states_.emplace(key, raw_state{});
-        if (!emplaced) throw std::runtime_error{fmt::format("{} is already attached", key)};
+        if (!emplaced) {
+                throw std::runtime_error{
+                        fmt::format("{} <-> {} is already attached", key.remote_ep, key.local_ep),
+                };
+        }
 }
 
 void tcp::detach(endpoint const& remote_ep, endpoint const& local_ep) {

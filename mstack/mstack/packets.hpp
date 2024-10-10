@@ -22,12 +22,6 @@ struct two_ends_t {
         endpoint local_ep;
 
         auto operator<=>(two_ends_t const& other) const = default;
-
-        friend std::ostream& operator<<(std::ostream& out, two_ends_t const& p) {
-                fmt::format_to(std::ostream_iterator<char>(out), "{} -> {}", p.remote_ep,
-                               p.local_ep);
-                return out;
-        }
 };
 
 }  // namespace mstack
@@ -49,10 +43,3 @@ struct hash<mstack::two_ends_t> {
 namespace mstack {
 inline size_t hash_value(two_ends_t const& v) { return std::hash<two_ends_t>{}(v); }
 }  // namespace mstack
-
-template <>
-struct fmt::formatter<mstack::two_ends_t> : fmt::formatter<std::string> {
-        auto format(mstack::two_ends_t const& c, format_context& ctx) {
-                return formatter<std::string>::format((std::ostringstream{} << c).str(), ctx);
-        }
-};
