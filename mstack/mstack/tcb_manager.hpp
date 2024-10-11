@@ -56,6 +56,12 @@ public:
                                               endpoint const&                  remote_ep,
                                               endpoint const&                  local_ep,
                                               std::weak_ptr<tcb_t>             tcb)> cb);
+        void async_connect(endpoint const&                           remote_ep,
+                           endpoint const&                           local_ep,
+                           std::function<void(boost::system::error_code const& ec,
+                                              endpoint const&                  remote_ep,
+                                              endpoint const&                  local_ep,
+                                              std::weak_ptr<tcb_t>)> cb);
 
         void rule_insert_front(
                 std::function<bool(endpoint const& remote_ep, endpoint const& local_ep)> matcher,

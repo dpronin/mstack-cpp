@@ -33,6 +33,10 @@ public:
                            ipv4_addr_t const&                                    local_addr,
                            std::function<void(boost::system::error_code const&)> cb);
 
+        void async_connect(endpoint const&                                       remote_ep,
+                           endpoint const&                                       local_ep,
+                           std::function<void(boost::system::error_code const&)> cb);
+
         void async_read_some(std::span<std::byte>                                          buf,
                              std::function<void(boost::system::error_code const&, size_t)> cb);
 

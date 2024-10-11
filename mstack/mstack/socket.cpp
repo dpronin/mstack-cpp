@@ -36,6 +36,27 @@ void socket::async_connect(endpoint const&                                      
                 });
 }
 
+void socket::async_connect(endpoint const&                                       remote_ep,
+                           endpoint const&                                       local_ep,
+                           std::function<void(boost::system::error_code const&)> cb) {
+        net_.tcb_m().async_connect(
+                remote_ep, local_ep,
+                [this, cb = std::move(cb)](boost::system::error_code const& ec,
+                                           endpoint const& remote_ep [[maybe_unused]],
+                                           endpoint const& local_ep, std::weak_ptr<tcb_t> tcb) {
+                        if (ec) {
+                                spdlog::critical("failed to accept a new connection, reason: {}",
+                                                 ec.what());
+                                return;
+                        }
+
+                        this->local_ep = local_ep;
+                        this->tcb      = std::move(tcb);
+
+                        cb({});
+                });
+}
+
 void socket::async_read_some(std::span<std::byte>                                          buf,
                              std::function<void(boost::system::error_code const&, size_t)> cb) {
         if (auto sp = this->tcb.lock()) {

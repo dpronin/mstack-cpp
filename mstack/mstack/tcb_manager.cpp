@@ -89,6 +89,30 @@ void tcb_manager::async_connect(endpoint const&                           remote
         }
 }
 
+void tcb_manager::async_connect(endpoint const&                           remote_ep,
+                                endpoint const&                           local_ep,
+                                std::function<void(boost::system::error_code const& ec,
+                                                   endpoint const&                  remote_ep,
+                                                   endpoint const&                  local_ep,
+                                                   std::weak_ptr<tcb_t>)> cb) {
+        two_ends_t const two_end = {
+                .remote_ep = remote_ep,
+                .local_ep  = local_ep,
+        };
+
+        auto [tcb_it, created] = tcbs_.emplace(
+                two_end, tcb_t::create_shared(io_ctx_, *this, two_end.remote_ep, two_end.local_ep,
+                                              kTCPConnecting, kTCPConnecting, std::move(cb)));
+        if (!created)
+                throw std::runtime_error{
+                        fmt::format("{} <-> {} is already used", remote_ep, local_ep)};
+
+        spdlog::debug("[TCB MNGR] register a new TCP connection {} <-> {}, locally initiated",
+                      two_end.local_ep, two_end.remote_ep);
+
+        tcb_it->second->start_connecting();
+}
+
 void tcb_manager::process(tcp_packet&& pkt_in) {
         two_ends_t const two_end = {
                 .remote_ep = pkt_in.remote_ep,
