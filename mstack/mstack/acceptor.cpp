@@ -40,7 +40,12 @@ acceptor::acceptor(netns& net, endpoint const& local_ep)
     : acceptor(net,
                [local_ep_exp = local_ep](endpoint const& remote_ep [[maybe_unused]],
                                          endpoint const& local_ep) {
-                       return local_ep_exp == local_ep;
+                       return (0 == local_ep_exp.addrv4.raw() ||
+                               (0 != local_ep_exp.addrv4.raw() &&
+                                local_ep_exp.addrv4 == local_ep.addrv4)) &&
+                              (0 == local_ep_exp.addrv4_port ||
+                               (0 != local_ep_exp.addrv4_port &&
+                                local_ep_exp.addrv4_port == local_ep.addrv4_port));
                }) {}
 
 acceptor::acceptor(endpoint const& local_ep) : acceptor(netns::_default_(), local_ep) {}
