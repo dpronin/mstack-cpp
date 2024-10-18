@@ -24,27 +24,32 @@ private:
 public:
         skbuff() = default;
 
-        explicit skbuff(std::unique_ptr<std::byte[]> buf, size_t len, size_t head_off = 0)
-            : data_{std::move(buf)},
-              capacity_{len},
+        explicit skbuff(std::unique_ptr<std::byte[]> data,
+                        size_t                       capacity,
+                        size_t                       headroom = 0,
+                        size_t                       tailroom = 0)
+            : data_{std::move(data)},
+              capacity_{capacity},
               start_{data_.get()},
               end_{start_ + capacity_},
-              head_{start_ + head_off},
-              tail_{end_} {
+              head_{start_ + headroom},
+              tail_{end_ - tailroom} {
                 assert(start_);
                 assert(!(head_ > tail_));
         }
 
         ~skbuff() = default;
 
-        skbuff(skbuff const& other) : capacity_(other.capacity_) {
+        skbuff(skbuff const& other) {
                 if (this != &other) {
-                        data_ = std::make_unique_for_overwrite<std::byte[]>(capacity_);
-                        std::copy_n(other.data_.get(), capacity_, data_.get());
-                        start_ = data_.get();
-                        end_   = start_ + capacity_;
-                        head_  = start_ + other.headroom();
-                        tail_  = end_ - other.tailroom();
+                        auto data = std::make_unique_for_overwrite<std::byte[]>(other.capacity_);
+                        std::ranges::copy(other.payload(), data.get() + other.headroom());
+                        *this = skbuff{
+                                std::move(data),
+                                other.capacity_,
+                                other.headroom(),
+                                other.tailroom(),
+                        };
                 }
         }
 

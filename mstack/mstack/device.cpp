@@ -54,17 +54,18 @@ void device::process(skbuff&& skb_in) {
 void device::async_receive() {
         auto  buf{std::make_unique_for_overwrite<std::byte[]>(1500)};
         auto* p_buf{buf.get()};
-        async_read_some(
-                {p_buf, 1500}, [this, buf = std::move(buf)](boost::system::error_code const& ec,
-                                                            size_t nbytes) mutable {
-                        if (ec) {
-                                spdlog::error("[DEV {}] RECEIVE FAIL {}", ndev_, ec.what());
-                                return;
-                        }
-                        spdlog::debug("[DEV {}] RECEIVE {}", ndev_, nbytes);
-                        net_.eth().receive(skbuff{std::move(buf), nbytes}, shared_from_this());
-                        async_receive();
-                });
+        async_read_some({p_buf, 1500},
+                        [this, buf = std::move(buf)](boost::system::error_code const& ec,
+                                                     size_t nbytes) mutable {
+                                if (ec) {
+                                        spdlog::error("[DEV {}] RECEIVE FAIL {}", ndev_, ec.what());
+                                        return;
+                                }
+                                spdlog::debug("[DEV {}] RECEIVE {}", ndev_, nbytes);
+                                net_.eth().receive(skbuff{std::move(buf), 1500, 0, 1500 - nbytes},
+                                                   shared_from_this());
+                                async_receive();
+                        });
 }
 
 device::device(netns& net /* = netns::_default_()*/, std::string_view name /* = ""*/)
