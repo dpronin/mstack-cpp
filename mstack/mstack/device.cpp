@@ -87,7 +87,7 @@ device::device(netns& net /* = netns::_default_()*/, std::string_view name /* = 
         if (int ec{fd->ioctl(TUNSETIFF, ifr)}; ec < 0)
                 throw std::runtime_error{std::format("[TAP] SETUP FAIL")};
 
-        ndev_ = std::string_view{ifr.ifr_name};
+        ndev_.assign(ifr.ifr_name);
 
         pfd_.assign(fd->get_fd());
 
