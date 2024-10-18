@@ -13,7 +13,6 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/posix/stream_descriptor.hpp>
 
-#include "file_desc.hpp"
 #include "netns.hpp"
 #include "skbuff.hpp"
 
@@ -25,7 +24,6 @@ class device : public std::enable_shared_from_this<device> {
 private:
         netns&                                net_;
         boost::asio::posix::stream_descriptor pfd_;
-        file_desc                             fd_;
         std::string                           ndev_;
         std::queue<skbuff>                    out_skb_q_;
 
@@ -46,7 +44,7 @@ public:
         static std::shared_ptr<device> create(Args&&... args) {
                 return std::shared_ptr<device>{new device{std::forward<Args>(args)...}};
         }
-        ~device() = default;
+        ~device() noexcept;
 
         device(const device&) = delete;
         device(device&&)      = delete;

@@ -5,11 +5,13 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <tuple>
 
 #include <linux/if_tun.h>
 
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/write.hpp>
+#include <stdexcept>
 
 #include <spdlog/spdlog.h>
 
@@ -70,18 +72,10 @@ void device::async_receive() {
 
 device::device(netns& net /* = netns::_default_()*/, std::string_view name /* = ""*/)
     : net_(net), pfd_(net_.io_context_execution()) {
-        auto fd{
-                file_desc::open("/dev/net/tun", file_desc::RDWR | file_desc::NONBLOCK),
-        };
+        auto fd{file_desc::open("/dev/net/tun", file_desc::RDWR | file_desc::NONBLOCK)};
+        if (!fd) throw std::runtime_error{std::format("[TAP] OPEN FAIL")};
 
-        if (!fd) {
-                spdlog::critical("[TAP] INIT FAIL");
-                return;
-        }
-
-        fd_ = std::move(fd.value());
-
-        spdlog::debug("[TAP] DEV FD {}", fd_.get_fd());
+        spdlog::debug("[TAP] DEV FD {}", fd->get_fd());
 
         ifreq ifr{};
 
@@ -90,17 +84,19 @@ device::device(netns& net /* = netns::_default_()*/, std::string_view name /* = 
         name = name.substr(0, std::min(name.size(), sizeof(ifr.ifr_name) - 1));
         std::ranges::copy(name, std::begin(ifr.ifr_name));
 
-        if (int err{fd_.ioctl(TUNSETIFF, ifr)}; err < 0) {
-                spdlog::critical("[TAP] INIT FAIL");
-                return;
-        }
+        if (int ec{fd->ioctl(TUNSETIFF, ifr)}; ec < 0)
+                throw std::runtime_error{std::format("[TAP] SETUP FAIL")};
 
         ndev_ = std::string_view{ifr.ifr_name};
 
-        pfd_.assign(fd_.get_fd());
+        pfd_.assign(fd->get_fd());
 
         async_receive();
+
+        std::ignore = fd->release();
 }
+
+device::~device() noexcept { ::close(pfd_.native_handle()); }
 
 std::string const& device::name() const { return ndev_; }
 

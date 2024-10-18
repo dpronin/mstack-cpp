@@ -42,6 +42,8 @@ public:
         }
         operator bool() { return _fd != -1; }
 
+        [[nodiscard]] int release() noexcept { return std::exchange(_fd, -1); }
+
 public:
         static std::optional<file_desc> from_fd(int fd) {
                 if (fd == -1) return std::nullopt;
