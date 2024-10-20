@@ -26,15 +26,17 @@ protected:
         boost::asio::io_context& io_ctx_;
 
 private:
-        std::unordered_map<int, std::function<void(UpperPacketType)>> upper_protos_;
-        std::function<void(UnderPacketType)>                          under_proto_;
-        std::queue<UnderPacketType>                                   packet_queue_;
+        std::unordered_map<int, std::function<void(UpperPacketType&&)>> upper_protos_;
+        std::function<void(UpperPacketType&&)> unknown_upper_proto_handler_;
+
+        std::function<void(UnderPacketType)> under_proto_;
+        std::queue<UnderPacketType>          packet_queue_;
 
 public:
         template <std::convertible_to<int> Index, typename UpperProto>
         void upper_proto_update(Index id, UpperProto& proto) {
-                upper_protos_[id] = [&proto](UpperPacketType&& packet) {
-                        proto.receive(std::move(packet));
+                upper_protos_[id] = [&proto](UpperPacketType&& pkt_in) {
+                        proto.receive(std::move(pkt_in));
                 };
         }
 
@@ -47,6 +49,11 @@ public:
 
         void receive(UnderPacketType&& in) {
                 if (auto out{make_packet(std::move(in))}) dispatch(std::move(*out));
+        }
+
+        template <typename Callback>
+        void set_unknown_proto_cb(Callback&& cb) {
+                unknown_upper_proto_handler_ = std::move(cb);
         }
 
 protected:
@@ -86,25 +93,32 @@ private:
                     upper_protos_.end() != prot_it) {
                         spdlog::debug("[PROCESS PACKET] PROTO {:#04X}", pkt_in.proto);
                         prot_it->second(std::move(pkt_in));
+                } else if (unknown_upper_proto_handler_) {
+                        spdlog::debug("[UNKNOWN PACKET] PROTO {:#04X}, HANDLED", pkt_in.proto);
+                        unknown_upper_proto_handler_(std::move(pkt_in));
                 } else {
-                        spdlog::debug("[UNKNOWN PACKET] PROTO {:#04X}", pkt_in.proto);
+                        spdlog::debug("[UNKNOWN PACKET] PROTO {:#04X}, UNHANDLED", pkt_in.proto);
                 }
         }
 };
 
 template <typename UpperPacketType>
 class base_protocol<void, UpperPacketType> {
+protected:
+        boost::asio::io_context& io_ctx_;
+
 private:
-        boost::asio::io_context&                                      io_ctx_;
         std::unordered_map<int, std::function<void(UpperPacketType)>> upper_protos_;
-        std::function<void(skbuff&&, std::shared_ptr<device>)>        under_proto_;
-        std::queue<std::pair<skbuff, std::shared_ptr<device>>>        skb_queue_;
+        std::function<void(UpperPacketType&&)>                        unknown_upper_proto_handler_;
+
+        std::function<void(skbuff&&, std::shared_ptr<device>)> under_proto_;
+        std::queue<std::pair<skbuff, std::shared_ptr<device>>> skb_queue_;
 
 public:
         template <std::convertible_to<int> Index, typename UpperProto>
         void upper_proto_update(Index id, UpperProto& proto) {
-                upper_protos_[id] = [&proto](UpperPacketType&& packet) {
-                        proto.receive(std::move(packet));
+                upper_protos_[id] = [&proto](UpperPacketType&& pkt_in) {
+                        proto.receive(std::move(pkt_in));
                 };
         }
 
@@ -117,6 +131,11 @@ public:
         void receive(skbuff&& skb_in, std::shared_ptr<device> dev) {
                 if (auto out{make_packet(std::move(skb_in), std::move(dev))})
                         dispatch(std::move(*out));
+        }
+
+        template <typename Callback>
+        void set_unknown_proto_cb(Callback&& cb) {
+                unknown_upper_proto_handler_ = std::move(cb);
         }
 
 protected:
@@ -148,13 +167,16 @@ protected:
         }
 
 private:
-        void dispatch(UpperPacketType&& in_packet) {
-                if (auto prot_it{upper_protos_.find(in_packet.proto)};
+        void dispatch(UpperPacketType&& pkt_in) {
+                if (auto prot_it{upper_protos_.find(pkt_in.proto)};
                     upper_protos_.end() != prot_it) {
-                        spdlog::debug("[PROCESS PACKET] PROTO {:#04X}", in_packet.proto);
-                        prot_it->second(std::move(in_packet));
+                        spdlog::debug("[PROCESS PACKET] PROTO {:#04X}", pkt_in.proto);
+                        prot_it->second(std::move(pkt_in));
+                } else if (unknown_upper_proto_handler_) {
+                        spdlog::debug("[UNKNOWN PACKET] PROTO {:#04X}, HANDLED", pkt_in.proto);
+                        unknown_upper_proto_handler_(std::move(pkt_in));
                 } else {
-                        spdlog::debug("[UNKNOWN PACKET] PROTO {:#04X}", in_packet.proto);
+                        spdlog::debug("[UNKNOWN PACKET] PROTO {:#04X}, UNHANDLED", pkt_in.proto);
                 }
         }
 };
