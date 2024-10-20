@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include <iterator>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -43,8 +44,9 @@ struct icmp_header_t {
 
         friend std::ostream& operator<<(std::ostream& out, icmp_header_t const& m) {
                 using u = uint32_t;
-                return out << std::format("[ICMP PACKET] {} {} {} {}", u(m.proto_type), u(m.code),
-                                          u(m.id), u(m.seq));
+                std::format_to(std::ostream_iterator<char>(out), "[ICMP PACKET] {} {} {} {}",
+                               u(m.proto_type), u(m.code), u(m.id), u(m.seq));
+                return out;
         }
 };
 

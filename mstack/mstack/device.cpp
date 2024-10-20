@@ -39,10 +39,7 @@ void device::send_front_pkt_out() {
         auto buf{skb.payload()};
         async_write(buf, [this, skb = std::move(skb)](boost::system::error_code const& ec,
                                                       size_t nbytes [[maybe_unused]]) mutable {
-                if (ec) {
-                        spdlog::error("[DEV {}] WRITE FAIL {}", ndev_, ec.what());
-                        return;
-                }
+                if (ec) spdlog::warn("[DEV {}] WRITE FAIL {}", ndev_, ec.what());
                 out_skb_q_.pop();
                 if (!out_skb_q_.empty()) send_front_pkt_out();
         });
@@ -60,8 +57,8 @@ void device::async_receive() {
                         [this, buf = std::move(buf)](boost::system::error_code const& ec,
                                                      size_t nbytes) mutable {
                                 if (ec) {
-                                        spdlog::error("[DEV {}] RECEIVE FAIL {}", ndev_, ec.what());
-                                        return;
+                                        spdlog::warn("[DEV {}] RECEIVE FAIL {}", ndev_, ec.what());
+                                        async_receive();
                                 }
                                 spdlog::debug("[DEV {}] RECEIVE {}", ndev_, nbytes);
                                 net_.eth().receive(skbuff{std::move(buf), 1500, 0, 1500 - nbytes},

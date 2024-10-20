@@ -152,6 +152,7 @@ void tcb_manager::process(tcp_packet&& pkt_in) {
         } else {
                 spdlog::warn("[TCB MNGR] UNKNOWN INPUT {} -> {}", two_end.remote_ep,
                              two_end.local_ep);
+                if (unknown_proto_handler_) unknown_proto_handler_(std::move(pkt_in));
         }
 }
 

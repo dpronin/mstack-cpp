@@ -75,6 +75,8 @@ public:
         std::span<std::byte>       payload() { return {head(), tail()}; }
         std::span<std::byte const> payload() const { return {head(), tail()}; }
 
+        void reset() { head_ = data_.get(); }
+
         size_t capacity() const { return capacity_; }
 
         size_t headroom() const { return head() - start_; }

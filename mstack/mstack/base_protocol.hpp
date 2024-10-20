@@ -23,11 +23,11 @@ class device;
 template <typename UnderPacketType, typename UpperPacketType>
 class base_protocol {
 protected:
-        boost::asio::io_context& io_ctx_;
+        boost::asio::io_context&               io_ctx_;
+        std::function<void(UpperPacketType&&)> unknown_upper_proto_handler_;
 
 private:
         std::unordered_map<int, std::function<void(UpperPacketType&&)>> upper_protos_;
-        std::function<void(UpperPacketType&&)> unknown_upper_proto_handler_;
 
         std::function<void(UnderPacketType)> under_proto_;
         std::queue<UnderPacketType>          packet_queue_;
@@ -52,8 +52,8 @@ public:
         }
 
         template <typename Callback>
-        void set_unknown_proto_cb(Callback&& cb) {
-                unknown_upper_proto_handler_ = std::move(cb);
+        void set_unknown_upper_proto_cb(Callback&& cb) {
+                unknown_upper_proto_handler_ = std::forward<Callback>(cb);
         }
 
 protected:
@@ -105,11 +105,11 @@ private:
 template <typename UpperPacketType>
 class base_protocol<void, UpperPacketType> {
 protected:
-        boost::asio::io_context& io_ctx_;
+        boost::asio::io_context&               io_ctx_;
+        std::function<void(UpperPacketType&&)> unknown_upper_proto_handler_;
 
 private:
         std::unordered_map<int, std::function<void(UpperPacketType)>> upper_protos_;
-        std::function<void(UpperPacketType&&)>                        unknown_upper_proto_handler_;
 
         std::function<void(skbuff&&, std::shared_ptr<device>)> under_proto_;
         std::queue<std::pair<skbuff, std::shared_ptr<device>>> skb_queue_;
@@ -134,8 +134,8 @@ public:
         }
 
         template <typename Callback>
-        void set_unknown_proto_cb(Callback&& cb) {
-                unknown_upper_proto_handler_ = std::move(cb);
+        void set_unknown_upper_proto_cb(Callback&& cb) {
+                unknown_upper_proto_handler_ = std::forward<Callback>(cb);
         }
 
 protected:
@@ -184,7 +184,8 @@ private:
 template <typename UnderPacketType>
 class base_protocol<UnderPacketType, void> {
 protected:
-        boost::asio::io_context& io_ctx_;
+        boost::asio::io_context&               io_ctx_;
+        std::function<void(UnderPacketType&&)> unknown_proto_handler_;
 
 private:
         std::function<void(UnderPacketType&&)> under_proto_;
@@ -197,6 +198,11 @@ public:
         }
 
         void receive(UnderPacketType&& in) { process(std::move(in)); }
+
+        template <typename Callback>
+        void set_unknown_proto_cb(Callback&& cb) {
+                unknown_proto_handler_ = std::forward<Callback>(cb);
+        }
 
 protected:
         explicit base_protocol(boost::asio::io_context& io_ctx) : io_ctx_(io_ctx) {}

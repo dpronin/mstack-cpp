@@ -5,6 +5,7 @@
 
 #include <format>
 #include <functional>
+#include <iterator>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -37,9 +38,9 @@ public:
         void produce_to_net(std::byte*& ptr) const { utils::produce_to_net(ptr, raw_); }
 
         friend std::ostream& operator<<(std::ostream& out, ipv4_addr_t ipv4) {
-                out << std::format("{}.{}.{}.{}", (ipv4.raw_ >> 24) & 0xFF,
-                                   (ipv4.raw_ >> 16) & 0xFF, (ipv4.raw_ >> 8) & 0xFF,
-                                   (ipv4.raw_ >> 0) & 0xFF);
+                std::format_to(std::ostream_iterator<char>(out), "{}.{}.{}.{}",
+                               (ipv4.raw_ >> 24) & 0xFF, (ipv4.raw_ >> 16) & 0xFF,
+                               (ipv4.raw_ >> 8) & 0xFF, (ipv4.raw_ >> 0) & 0xFF);
                 return out;
         }
 
