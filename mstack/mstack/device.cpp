@@ -59,6 +59,7 @@ void device::async_receive() {
                                 if (ec) {
                                         spdlog::warn("[DEV {}] RECEIVE FAIL {}", ndev_, ec.what());
                                         async_receive();
+                                        return;
                                 }
                                 spdlog::debug("[DEV {}] RECEIVE {}", ndev_, nbytes);
                                 net_.eth().receive(skbuff{std::move(buf), 1500, 0, 1500 - nbytes},
