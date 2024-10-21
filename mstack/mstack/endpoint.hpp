@@ -2,7 +2,6 @@
 
 #include <cstdint>
 
-#include <charconv>
 #include <functional>
 #include <ostream>
 #include <sstream>
@@ -11,6 +10,8 @@
 #include <fmt/format.h>
 
 #include <boost/container_hash/hash.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/numeric/conversion/cast.hpp>
 
 #include "ipv4_addr.hpp"
 
@@ -35,9 +36,10 @@ struct endpoint {
         }
 
         static endpoint make_from(std::string_view host, std::string_view port) {
-                uint16_t port_u{0};
-                std::from_chars(port.data(), port.data() + port.size(), port_u);
-                return {mstack::ipv4_addr_t::make_from(host), port_u};
+                return {
+                        mstack::ipv4_addr_t::make_from(host),
+                        boost::numeric_cast<uint16_t>(boost::lexical_cast<int64_t>(port)),
+                };
         }
 };
 

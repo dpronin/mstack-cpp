@@ -32,13 +32,16 @@ void ethernetv2::process(ethernetv2_frame&& in_frame) {
 
 std::optional<ethernetv2_frame> ethernetv2::make_packet(skbuff&&                skb_in,
                                                         std::shared_ptr<device> dev) {
-        auto const e_header{ethernetv2_header_t::consume_from_net(skb_in.head())};
+        assert(!(skb_in.payload().size() < ethernetv2_header_t::size()));
+        auto const eth_header{ethernetv2_header_t::consume_from_net(skb_in.head())};
         skb_in.pop_front(ethernetv2_header_t::size());
 
+        spdlog::debug("[ETH] RECEIVE {}", eth_header);
+
         return ethernetv2_frame{
-                .src_mac_addr = e_header.src_mac_addr,
-                .dst_mac_addr = e_header.dst_mac_addr,
-                .proto        = e_header.proto,
+                .src_mac_addr = eth_header.src_mac_addr,
+                .dst_mac_addr = eth_header.dst_mac_addr,
+                .proto        = eth_header.proto,
                 .skb          = std::move(skb_in),
                 .dev          = std::move(dev),
         };

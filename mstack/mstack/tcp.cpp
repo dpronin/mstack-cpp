@@ -65,21 +65,22 @@ void tcp::process(tcp_packet&& pkt_in) {
 }
 
 std::optional<tcp_packet> tcp::make_packet(ipv4_packet&& pkt_in) {
-        auto const tcph{tcp_header_t::consume_from_net(pkt_in.skb.head())};
+        assert(!(pkt_in.skb.payload().size() < tcp_header_t::fixed_size()));
+        auto const tcp_fixed_header{tcp_header_t::consume_from_net(pkt_in.skb.head())};
 
-        spdlog::debug("[TCP] RECEIVE {}", tcph);
+        spdlog::debug("[TCP] RECEIVE {}", tcp_fixed_header);
 
         auto tcp_pkt = tcp_packet{
                 .proto = PROTO,
                 .remote_ep =
                         {
                                 .addrv4      = pkt_in.src_addrv4,
-                                .addrv4_port = tcph.src_port,
+                                .addrv4_port = tcp_fixed_header.src_port,
                         },
                 .local_ep =
                         {
                                 .addrv4      = pkt_in.dst_addrv4,
-                                .addrv4_port = tcph.dst_port,
+                                .addrv4_port = tcp_fixed_header.dst_port,
                         },
                 .skb = std::move(pkt_in.skb),
         };
