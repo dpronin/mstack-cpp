@@ -124,9 +124,8 @@ void arp::process_reply(arpv4_header_t const& in_arp) {
 }
 
 void arp::process(ethernetv2_frame&& in_frame) {
-        auto const in_arp{
-                arpv4_header_t::consume_from_net(in_frame.skb.head()),
-        };
+        assert(!(in_frame.skb.payload().size() < arpv4_header_t::size()));
+        auto const in_arp{arpv4_header_t::consume_from_net(in_frame.skb.head())};
         in_frame.skb.pop_front(arpv4_header_t::size());
 
         spdlog::debug("[ARP] RECEIVE PACKET {}", in_arp);

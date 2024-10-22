@@ -650,7 +650,8 @@ void tcb_t::process(tcp_packet&& pkt_in) {
         assert(!(pkt_in.skb.payload().size() < tcp_header_t::fixed_size()));
         auto const tcph{tcp_header_t::consume_from_net(pkt_in.skb.head())};
 
-        auto const hlen{tcph.data_offset << 2};
+        auto const hlen{static_cast<size_t>(tcph.data_offset) << 2};
+        assert(!(hlen < tcp_header_t::fixed_size()));
         auto const optlen{hlen - tcp_header_t::fixed_size()};
         pkt_in.skb.pop_front(hlen - optlen);
 

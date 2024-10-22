@@ -25,11 +25,7 @@ public:
 
         void process(ipv4_packet&& pkt_in) override {
                 assert(!(pkt_in.skb.payload().size() < icmp_header_t::size()));
-
-                auto const in_icmp_h{
-                        icmp_header_t::consume_from_net(pkt_in.skb.head()),
-                };
-
+                auto const in_icmp_h{icmp_header_t::consume_from_net(pkt_in.skb.head())};
                 pkt_in.skb.pop_front(icmp_header_t::size());
 
                 spdlog::debug("[ICMP] RECEIVED {}", in_icmp_h);

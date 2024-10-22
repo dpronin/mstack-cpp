@@ -104,8 +104,8 @@ std::optional<ipv4_packet> ipv4::make_packet(ethernetv2_frame&& frame_in) {
         if (auto const fb{frame_in.skb.payload()[0]}; 0x4_b != ((fb >> 4) & 0xf_b)) return {};
 
         auto const ipv4_header{ipv4_header_t::consume_from_net(frame_in.skb.head())};
-        auto const hlen{static_cast<uint16_t>(ipv4_header.hlen << 2)};
-        assert(!(frame_in.skb.payload().size() < hlen));
+        auto const hlen{static_cast<size_t>(ipv4_header.hlen << 2)};
+        assert(!(hlen < ipv4_header_t::fixed_size()));
         frame_in.skb.pop_front(hlen);
 
         spdlog::debug("[IPv4] RECEIVE {}", ipv4_header);
