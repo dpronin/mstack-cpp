@@ -66,6 +66,12 @@ public:
         skbuff& operator=(skbuff&&) = default;
 
 public:
+        // std::byte const* start() const { return start_; }
+        // std::byte*       start() { return start_; }
+
+        // std::byte const* end() const { return end_; }
+        // std::byte*       end() { return end_; }
+
         std::byte const* head() const { return head_; }
         std::byte*       head() { return head_; }
 
@@ -75,7 +81,10 @@ public:
         std::span<std::byte>       payload() { return {head(), tail()}; }
         std::span<std::byte const> payload() const { return {head(), tail()}; }
 
-        void reset() { head_ = data_.get(); }
+        void reset(size_t off = 0) {
+                assert(!(off > headroom()));
+                pop_front(headroom() - off);
+        }
 
         size_t capacity() const { return capacity_; }
 
