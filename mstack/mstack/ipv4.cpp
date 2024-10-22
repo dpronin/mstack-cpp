@@ -33,21 +33,21 @@ void ipv4::process(ipv4_packet&& pkt_in) {
         spdlog::debug("[IPV4] HDL FROM U-LAYER {}", pkt_in);
 
         auto const ipv4h = ipv4_header_t{
-                .version       = 0x4,
-                .header_length = 0x5,
-                .tos           = 0x0,
-                .total_length  = static_cast<uint16_t>(pkt_in.skb.payload().size() +
-                                                       ipv4_header_t::fixed_size()),
-                .id            = seq_++,
-                .NOP           = 0,
-                .DF            = 1,
-                .MF            = 0,
-                .frag_offset   = 0,
-                .ttl           = 0x40,
-                .proto_type    = pkt_in.proto,
-                .header_chsum  = 0,
-                .src_addr      = pkt_in.src_addrv4,
-                .dst_addr      = pkt_in.dst_addrv4,
+                .version      = 0x4,
+                .hlen         = 0x5,
+                .tos          = 0x0,
+                .total_length = static_cast<uint16_t>(pkt_in.skb.payload().size() +
+                                                      ipv4_header_t::fixed_size()),
+                .id           = seq_++,
+                .NOP          = 0,
+                .DF           = 1,
+                .MF           = 0,
+                .frag_offset  = 0,
+                .ttl          = 0x40,
+                .proto_type   = pkt_in.proto,
+                .header_chsum = 0,
+                .src_addr     = pkt_in.src_addrv4,
+                .dst_addr     = pkt_in.dst_addrv4,
         };
 
         auto skb_out{std::move(pkt_in.skb)};
@@ -104,7 +104,9 @@ std::optional<ipv4_packet> ipv4::make_packet(ethernetv2_frame&& frame_in) {
         if (auto const fb{frame_in.skb.payload()[0]}; 0x4_b != ((fb >> 4) & 0xf_b)) return {};
 
         auto const ipv4_header{ipv4_header_t::consume_from_net(frame_in.skb.head())};
-        frame_in.skb.pop_front(ipv4_header_t::fixed_size());
+        auto const hlen{static_cast<uint16_t>(ipv4_header.hlen << 2)};
+        assert(!(frame_in.skb.payload().size() < hlen));
+        frame_in.skb.pop_front(hlen);
 
         spdlog::debug("[IPv4] RECEIVE {}", ipv4_header);
 
